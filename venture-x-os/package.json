@@ -1,0 +1,57 @@
+{
+  "name": "venturexify",
+  "version": "1.0.0",
+  "description": "Premium Capital One Venture X cardholder travel optimization tool",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "npm run build:ui && npm run build:content && npm run build:background && npm run copy:assets",
+    "build:ui": "vite build",
+    "build:content": "vite build --config vite.config.content.ts",
+    "build:background": "vite build --config vite.config.background.ts",
+    "copy:assets": "cp src/content/autopilot-widget.css dist/autopilot-widget.css && cp manifest.json dist/manifest.json && cp -r public/icons dist/icons",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:harness": "open src/dev/test-harness.html || xdg-open src/dev/test-harness.html || start src/dev/test-harness.html",
+    "lint": "eslint src --ext .ts,.tsx",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "clsx": "^2.0.0",
+    "date-fns": "^2.30.0",
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.562.0",
+    "papaparse": "^5.4.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.5",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.21",
+    "@types/chrome": "^0.0.254",
+    "@types/node": "^20.10.0",
+    "@types/papaparse": "^5.3.14",
+    "@types/react": "^18.2.39",
+    "@types/react-dom": "^18.2.17",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.3.2",
+    "vite": "^5.0.2",
+    "vitest": "^1.0.1"
+  },
+  "keywords": [
+    "chrome-extension",
+    "venturexify",
+    "venture-x",
+    "travel",
+    "credit-card",
+    "rewards"
+  ],
+  "author": "",
+  "license": "MIT"
+}

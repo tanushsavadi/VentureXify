@@ -1,0 +1,368 @@
+/* ============================================
+   VENTUREXIFY - AUTOPILOT FLOATING WIDGET
+   ============================================ */
+
+/* Toast Container */
+.vxos-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  pointer-events: none;
+}
+
+/* Individual Toast */
+.vxos-toast {
+  pointer-events: auto;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 16px;
+  padding: 16px 20px;
+  max-width: 380px;
+  min-width: 320px;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 10px 20px -5px rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(99, 102, 241, 0.15);
+  color: #ffffff;
+  animation: vxos-toast-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.vxos-toast:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 12px -2px rgba(0, 0, 0, 0.4),
+    0 15px 30px -5px rgba(0, 0, 0, 0.5),
+    0 0 50px rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.vxos-toast.dismissing {
+  animation: vxos-toast-exit 0.3s ease-out forwards;
+}
+
+@keyframes vxos-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes vxos-toast-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+}
+
+/* Toast Header */
+.vxos-toast-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.vxos-toast-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vxos-toast-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Icon Colors by Type */
+.vxos-toast-icon.action {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+}
+
+.vxos-toast-icon.insight {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.vxos-toast-icon.warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.vxos-toast-icon.opportunity {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+/* Toast Content */
+.vxos-toast-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  flex-grow: 1;
+  line-height: 1.3;
+}
+
+.vxos-toast-summary {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+/* Savings Badge */
+.vxos-toast-savings {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.vxos-toast-savings svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Toast Actions */
+.vxos-toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.vxos-toast-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.vxos-toast-btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+}
+
+.vxos-toast-btn-primary:hover {
+  background: linear-gradient(135deg, #7c7ff1 0%, #5f58f5 100%);
+  transform: translateY(-1px);
+}
+
+.vxos-toast-btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.vxos-toast-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Close Button */
+.vxos-toast-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.vxos-toast-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.vxos-toast-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Priority Indicators */
+.vxos-toast.priority-high {
+  border-left: 3px solid #ef4444;
+}
+
+.vxos-toast.priority-medium {
+  border-left: 3px solid #f59e0b;
+}
+
+.vxos-toast.priority-low {
+  border-left: 3px solid #3b82f6;
+}
+
+/* Mini Status Indicator (when minimized) */
+.vxos-mini-indicator {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483646;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: vxos-pulse 2s infinite;
+  pointer-events: auto;
+}
+
+.vxos-mini-indicator:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.vxos-mini-indicator svg {
+  width: 24px;
+  height: 24px;
+  color: #6366f1;
+}
+
+.vxos-mini-indicator .badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes vxos-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 8px rgba(99, 102, 241, 0);
+  }
+}
+
+/* Branding */
+.vxos-toast-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vxos-toast-brand-icon {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vxos-toast-brand-icon svg {
+  width: 12px;
+  height: 12px;
+  color: white;
+}
+
+.vxos-toast-brand-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Dark/Light Mode Support */
+@media (prefers-color-scheme: light) {
+  .vxos-toast {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-color: rgba(99, 102, 241, 0.2);
+    color: #1e293b;
+  }
+  
+  .vxos-toast-title {
+    color: #0f172a;
+  }
+  
+  .vxos-toast-summary {
+    color: #475569;
+  }
+  
+  .vxos-toast-btn-secondary {
+    background: rgba(0, 0, 0, 0.05);
+    color: #475569;
+  }
+  
+  .vxos-toast-btn-secondary:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+  
+  .vxos-toast-close {
+    color: rgba(0, 0, 0, 0.3);
+  }
+  
+  .vxos-toast-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.6);
+  }
+  
+  .vxos-toast-brand-text {
+    color: rgba(0, 0, 0, 0.4);
+  }
+  
+  .vxos-toast-brand {
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+  }
+  
+  .vxos-mini-indicator {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-color: rgba(99, 102, 241, 0.2);
+  }
+}

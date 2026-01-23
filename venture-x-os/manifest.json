@@ -1,0 +1,87 @@
+{
+  "manifest_version": 3,
+  "name": "VentureXify",
+  "version": "2.0.0",
+  "description": "Premium chat-guided copilot for Capital One Venture X cardholders - Compare portal vs direct prices with a single conversational interface",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "alarms",
+    "notifications",
+    "activeTab",
+    "contextMenus",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://www.google.com/travel/*",
+    "*://www.google.com/flights/*",
+    "*://www.delta.com/*",
+    "*://www.united.com/*",
+    "*://www.aa.com/*",
+    "*://www.southwest.com/*",
+    "*://www.marriott.com/*",
+    "*://www.hilton.com/*",
+    "*://www.hyatt.com/*",
+    "*://www.expedia.com/*",
+    "*://*.capitalone.com/*",
+    "*://travel.capitalone.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/ui/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "VentureXify - Open Side Panel"
+  },
+  "side_panel": {
+    "default_path": "src/ui/sidepanel/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.google.com/travel/*",
+        "*://www.google.com/flights/*",
+        "*://*.capitalone.com/*",
+        "*://travel.capitalone.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["autopilot-widget.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://www.delta.com/*",
+        "*://www.united.com/*",
+        "*://www.aa.com/*",
+        "*://www.southwest.com/*",
+        "*://www.marriott.com/*",
+        "*://www.hilton.com/*",
+        "*://www.hyatt.com/*",
+        "*://www.expedia.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["autopilot-widget.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "assets/*", "autopilot-widget.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

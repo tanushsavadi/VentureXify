@@ -1,0 +1,642 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   VENTUREXIFY - PREMIUM DESIGN SYSTEM v2.0
+   OLED Black + Glassmorphism + Minimal UI
+   ============================================ */
+
+/* ============================================
+   CSS CUSTOM PROPERTIES (Single Source of Truth)
+   ============================================ */
+
+:root {
+  /* ─────────────────────────────────────────
+     BACKGROUND (OLED Black)
+     ───────────────────────────────────────── */
+  --bg-base: #000000;
+  --bg-elevated: #030303;
+  --bg-overlay: rgba(0, 0, 0, 0.80);
+
+  /* ─────────────────────────────────────────
+     GLASS SURFACES (Translucent Layers)
+     ───────────────────────────────────────── */
+  --surface-1: rgba(255, 255, 255, 0.02);
+  --surface-2: rgba(255, 255, 255, 0.04);
+  --surface-3: rgba(255, 255, 255, 0.06);
+  --surface-4: rgba(255, 255, 255, 0.08);
+  --surface-5: rgba(255, 255, 255, 0.10);
+
+  /* ─────────────────────────────────────────
+     PRIMARY ACCENT (Indigo/Violet)
+     ───────────────────────────────────────── */
+  --accent: #6366f1;
+  --accent-soft: rgba(99, 102, 241, 0.15);
+  --accent-glow: rgba(99, 102, 241, 0.25);
+  --accent-muted: #818cf8;
+  --accent-strong: #4f46e5;
+
+  /* ─────────────────────────────────────────
+     SEMANTIC COLORS
+     ───────────────────────────────────────── */
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --success-glow: rgba(16, 185, 129, 0.20);
+
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+
+  /* ─────────────────────────────────────────
+     TEXT COLORS
+     ───────────────────────────────────────── */
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.70);
+  --text-tertiary: rgba(255, 255, 255, 0.50);
+  --text-muted: rgba(255, 255, 255, 0.35);
+  --text-disabled: rgba(255, 255, 255, 0.25);
+
+  /* ─────────────────────────────────────────
+     BORDERS & DIVIDERS
+     ───────────────────────────────────────── */
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(99, 102, 241, 0.40);
+
+  /* ─────────────────────────────────────────
+     SHADOWS
+     ───────────────────────────────────────── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.7);
+
+  /* ─────────────────────────────────────────
+     GLOWS
+     ───────────────────────────────────────── */
+  --glow-accent: 0 0 20px rgba(99, 102, 241, 0.20);
+  --glow-accent-strong: 0 0 40px rgba(99, 102, 241, 0.35);
+  --glow-success: 0 0 20px rgba(16, 185, 129, 0.20);
+
+  /* ─────────────────────────────────────────
+     INNER HIGHLIGHTS (Top Edge Frost)
+     ───────────────────────────────────────── */
+  --highlight-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --highlight-medium: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  /* ─────────────────────────────────────────
+     BLUR VALUES
+     ───────────────────────────────────────── */
+  --blur-sm: 8px;
+  --blur-md: 16px;
+  --blur-lg: 24px;
+  --blur-xl: 40px;
+
+  /* ─────────────────────────────────────────
+     BORDER RADIUS
+     ───────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ─────────────────────────────────────────
+     TIMING & EASING
+     ───────────────────────────────────────── */
+  --duration-instant: 0ms;
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 280ms;
+  --duration-slower: 400ms;
+
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ─────────────────────────────────────────
+     NOISE TEXTURE (Inline SVG)
+     ───────────────────────────────────────── */
+  --noise-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* ============================================
+   EXTENSION WINDOW CONSTRAINTS
+   ============================================ */
+
+:root {
+  /* Responsive constraints for Chrome/Safari extension */
+  --extension-min-width: 320px;
+  --extension-max-width: 420px;
+  --extension-min-height: 500px;
+  --extension-max-height: 800px;
+  
+  /* Responsive spacing */
+  --spacing-responsive-xs: clamp(4px, 1vw, 8px);
+  --spacing-responsive-sm: clamp(8px, 2vw, 12px);
+  --spacing-responsive-md: clamp(12px, 3vw, 16px);
+  --spacing-responsive-lg: clamp(16px, 4vw, 24px);
+  
+  /* Responsive typography */
+  --font-size-xs: clamp(10px, 2.5vw, 11px);
+  --font-size-sm: clamp(11px, 2.8vw, 13px);
+  --font-size-base: clamp(13px, 3.2vw, 15px);
+  --font-size-lg: clamp(15px, 3.8vw, 17px);
+  --font-size-xl: clamp(18px, 4.5vw, 22px);
+  --font-size-2xl: clamp(22px, 5.5vw, 28px);
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  /* Extension window constraints */
+  min-width: var(--extension-min-width);
+  max-width: var(--extension-max-width);
+  width: 100%;
+}
+
+/* Root container constraints for extension */
+#root {
+  min-width: var(--extension-min-width);
+  max-width: var(--extension-max-width);
+  min-height: var(--extension-min-height);
+  max-height: var(--extension-max-height);
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+h1 { font-size: 1.5rem; font-weight: 700; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.125rem; }
+h4 { font-size: 1rem; }
+
+p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* Price / Number emphasis */
+.price-display {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ============================================
+   FOCUS STYLES (Accessibility)
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   SELECTION
+   ============================================ */
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+/* ============================================
+   SCROLLBAR (Minimal)
+   ============================================ */
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-4) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--surface-4);
+  border-radius: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-5);
+}
+
+/* ============================================
+   GLASS COMPONENTS
+   ============================================ */
+
+@layer components {
+  /* ─────────────────────────────────────────
+     GLASS CARD
+     ───────────────────────────────────────── */
+  .glass-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(var(--blur-md));
+    -webkit-backdrop-filter: blur(var(--blur-md));
+    box-shadow: var(--shadow-sm), var(--highlight-subtle);
+    transition: 
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out);
+  }
+
+  .glass-card:hover {
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+  }
+
+  .glass-card-elevated {
+    background: var(--surface-3);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-md), var(--highlight-medium);
+  }
+
+  .glass-card-winner {
+    background: var(--surface-4);
+    border: 1px solid var(--border-accent);
+    box-shadow: var(--shadow-md), var(--glow-accent), var(--highlight-medium);
+  }
+
+  /* ─────────────────────────────────────────
+     GLASS BUTTON PRIMARY
+     ───────────────────────────────────────── */
+  .glass-btn-primary {
+    @apply inline-flex items-center justify-center gap-2;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: linear-gradient(135deg, 
+      rgba(99, 102, 241, 0.25), 
+      rgba(139, 92, 246, 0.18));
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(var(--blur-sm));
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    box-shadow: var(--shadow-sm), var(--glow-accent), var(--highlight-medium);
+    cursor: pointer;
+    transition: 
+      background var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-spring);
+    user-select: none;
+  }
+
+  .glass-btn-primary:hover {
+    background: linear-gradient(135deg,
+      rgba(99, 102, 241, 0.35),
+      rgba(139, 92, 246, 0.25));
+    box-shadow: var(--shadow-md), var(--glow-accent-strong), var(--highlight-strong);
+  }
+
+  .glass-btn-primary:active {
+    transform: scale(0.98);
+    box-shadow: var(--shadow-sm), var(--glow-accent), var(--highlight-subtle);
+  }
+
+  .glass-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* ─────────────────────────────────────────
+     GLASS BUTTON SECONDARY
+     ───────────────────────────────────────── */
+  .glass-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(var(--blur-sm));
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    box-shadow: var(--highlight-subtle);
+    cursor: pointer;
+    transition: 
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-spring);
+    user-select: none;
+  }
+
+  .glass-btn-secondary:hover {
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+
+  .glass-btn-secondary:active {
+    transform: scale(0.98);
+    background: var(--surface-4);
+  }
+
+  /* ─────────────────────────────────────────
+     GLASS BUTTON GHOST
+     ───────────────────────────────────────── */
+  .glass-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: 
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+    user-select: none;
+  }
+
+  .glass-btn-ghost:hover {
+    background: var(--surface-2);
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  .glass-btn-ghost:active {
+    background: var(--surface-3);
+  }
+
+  /* ─────────────────────────────────────────
+     GLASS INPUT
+     ───────────────────────────────────────── */
+  .glass-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 15px;
+    color: var(--text-primary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(var(--blur-sm));
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    box-shadow: var(--highlight-subtle);
+    outline: none;
+    transition: 
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out);
+  }
+
+  .glass-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .glass-input:hover {
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+  }
+
+  .glass-input:focus {
+    background: var(--surface-3);
+    border-color: var(--accent);
+    box-shadow: var(--highlight-subtle), 0 0 0 3px var(--accent-soft);
+  }
+
+  /* ─────────────────────────────────────────
+     GLASS BADGE
+     ───────────────────────────────────────── */
+  .glass-badge {
+    @apply inline-flex items-center gap-1.5;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-full);
+    backdrop-filter: blur(var(--blur-sm));
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+  }
+
+  .glass-badge-success {
+    color: var(--success);
+    background: var(--success-soft);
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+
+  .glass-badge-warning {
+    color: var(--warning);
+    background: var(--warning-soft);
+    border-color: rgba(245, 158, 11, 0.25);
+  }
+
+  .glass-badge-danger {
+    color: var(--danger);
+    background: var(--danger-soft);
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+
+  .glass-badge-accent {
+    color: var(--accent-muted);
+    background: var(--accent-soft);
+    border-color: rgba(99, 102, 241, 0.25);
+  }
+
+  /* ─────────────────────────────────────────
+     GLASS DIVIDER
+     ───────────────────────────────────────── */
+  .glass-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border-default);
+  }
+
+  /* ─────────────────────────────────────────
+     GLASS PANEL (Full Container)
+     ───────────────────────────────────────── */
+  .glass-panel {
+    position: relative;
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-xl);
+    backdrop-filter: blur(var(--blur-lg));
+    -webkit-backdrop-filter: blur(var(--blur-lg));
+    box-shadow: var(--shadow-md), var(--highlight-subtle);
+    overflow: hidden;
+  }
+
+  /* Noise texture overlay for panels */
+  .glass-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--noise-texture);
+    opacity: 0.012;
+    pointer-events: none;
+    border-radius: inherit;
+    mix-blend-mode: overlay;
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+@layer utilities {
+  /* Text colors */
+  .text-primary { color: var(--text-primary); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-tertiary { color: var(--text-tertiary); }
+  .text-muted { color: var(--text-muted); }
+  .text-accent { color: var(--accent); }
+  .text-success { color: var(--success); }
+  .text-warning { color: var(--warning); }
+  .text-danger { color: var(--danger); }
+
+  /* Background colors */
+  .bg-base { background: var(--bg-base); }
+  .bg-elevated { background: var(--bg-elevated); }
+  .bg-surface-1 { background: var(--surface-1); }
+  .bg-surface-2 { background: var(--surface-2); }
+  .bg-surface-3 { background: var(--surface-3); }
+  .bg-surface-4 { background: var(--surface-4); }
+  .bg-surface-5 { background: var(--surface-5); }
+
+  /* Border colors */
+  .border-subtle { border-color: var(--border-subtle); }
+  .border-default { border-color: var(--border-default); }
+  .border-strong { border-color: var(--border-strong); }
+  .border-accent { border-color: var(--border-accent); }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, var(--accent), var(--accent-muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: var(--shadow-sm), 0 0 15px var(--accent-soft); }
+  50% { box-shadow: var(--shadow-sm), 0 0 30px var(--accent-glow); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in var(--duration-normal) var(--ease-out);
+}
+
+.animate-slide-up {
+  animation: slide-up var(--duration-slow) var(--ease-out);
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   BACKDROP FILTER FALLBACK
+   ============================================ */
+
+@supports not (backdrop-filter: blur(16px)) {
+  .glass-card,
+  .glass-panel,
+  .glass-btn-primary,
+  .glass-btn-secondary,
+  .glass-input,
+  .glass-badge {
+    background: rgba(20, 20, 20, 0.95) !important;
+  }
+}

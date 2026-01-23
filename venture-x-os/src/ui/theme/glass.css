@@ -1,0 +1,86 @@
+/* ============================================
+   GLASS.CSS - Legacy Compatibility
+   
+   NOTE: This file is kept for backwards compatibility.
+   All theme tokens are now centralized in globals.css
+   
+   Do NOT add new styles here. Use CSS custom properties
+   from globals.css instead:
+   
+   - var(--surface-1) through var(--surface-5)
+   - var(--border-subtle), var(--border-default), var(--border-strong)
+   - var(--text-primary), var(--text-secondary), etc.
+   - var(--accent), var(--success), var(--warning), var(--danger)
+   
+   ============================================ */
+
+/* 
+ * Legacy aliases pointing to new tokens.
+ * These ensure any old code using --vx-* variables still works.
+ */
+
+:root {
+  /* Legacy surface aliases */
+  --vx-black: var(--bg-base);
+  --vx-surface-0: var(--bg-base);
+  --vx-surface-50: #030303;
+  --vx-surface-100: #0a0a0a;
+  --vx-surface-200: #121212;
+  --vx-surface-300: #1a1a1a;
+  --vx-surface-400: #242424;
+  --vx-surface-500: #2e2e2e;
+
+  /* Legacy accent aliases */
+  --vx-accent-400: var(--accent-muted);
+  --vx-accent-500: var(--accent);
+  --vx-accent-600: var(--accent-strong);
+
+  /* Legacy text aliases */
+  --vx-text-primary: var(--text-primary);
+  --vx-text-secondary: var(--text-secondary);
+  --vx-text-tertiary: var(--text-tertiary);
+  --vx-text-disabled: var(--text-disabled);
+
+  /* Legacy glass aliases */
+  --vx-glass-surface-light: var(--surface-2);
+  --vx-glass-surface-medium: var(--surface-3);
+  --vx-glass-surface-heavy: var(--surface-4);
+  --vx-glass-border-subtle: var(--border-subtle);
+  --vx-glass-border-light: var(--border-default);
+  --vx-glass-border-medium: var(--border-strong);
+  --vx-glass-highlight-soft: var(--highlight-subtle);
+
+  /* Legacy semantic aliases */
+  --vx-success: var(--success);
+  --vx-success-soft: var(--success-soft);
+  --vx-warning: var(--warning);
+  --vx-warning-soft: var(--warning-soft);
+  --vx-error: var(--danger);
+  --vx-error-soft: var(--danger-soft);
+
+  /* Legacy transition aliases */
+  --vx-transition-fast: var(--duration-fast);
+  --vx-transition-normal: var(--duration-normal);
+  --vx-transition-slow: var(--duration-slow);
+  --vx-ease-out: var(--ease-out);
+  --vx-ease-spring: var(--ease-spring);
+
+  /* Legacy radius aliases */
+  --vx-radius-sm: var(--radius-sm);
+  --vx-radius-md: var(--radius-md);
+  --vx-radius-lg: var(--radius-lg);
+  --vx-radius-xl: var(--radius-xl);
+  --vx-radius-full: var(--radius-full);
+
+  /* Legacy blur aliases */
+  --vx-blur-subtle: var(--blur-sm);
+  --vx-blur-light: 12px;
+  --vx-blur-medium: var(--blur-md);
+  --vx-blur-heavy: var(--blur-lg);
+
+  /* Legacy shadow aliases */
+  --vx-shadow-soft: var(--shadow-sm);
+  --vx-shadow-medium: var(--shadow-md);
+  --vx-shadow-strong: var(--shadow-lg);
+  --vx-shadow-glow: var(--glow-accent);
+}

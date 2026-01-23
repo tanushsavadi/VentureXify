@@ -1,0 +1,224 @@
+/* ============================================
+   GLASS-PREMIUM.CSS - Legacy Compatibility
+   
+   NOTE: This file is kept for backwards compatibility.
+   All premium glass effects are now in globals.css
+   
+   The animated gradient border and glow effects remain
+   here for components that reference them directly.
+   
+   ============================================ */
+
+/* ============================================
+   ANIMATED GRADIENT BORDER (for winner cards)
+   ============================================ */
+
+@property --gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.glass-animated-border {
+  position: relative;
+  --gradient-angle: 0deg;
+  animation: rotate-gradient 4s linear infinite;
+}
+
+.glass-animated-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--gradient-angle),
+    rgba(99, 102, 241, 0.5),
+    rgba(139, 92, 246, 0.3),
+    rgba(168, 85, 247, 0.2),
+    rgba(139, 92, 246, 0.3),
+    rgba(99, 102, 241, 0.5)
+  );
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes rotate-gradient {
+  to {
+    --gradient-angle: 360deg;
+  }
+}
+
+/* Fallback for browsers without @property support */
+@supports not (background: conic-gradient(from 0deg, red, blue)) {
+  .glass-animated-border::before {
+    background: linear-gradient(
+      135deg,
+      rgba(99, 102, 241, 0.5) 0%,
+      rgba(139, 92, 246, 0.3) 50%,
+      rgba(99, 102, 241, 0.5) 100%
+    );
+  }
+}
+
+/* ============================================
+   GLOW EFFECTS
+   ============================================ */
+
+.glass-glow {
+  box-shadow: var(--shadow-md), var(--glow-accent);
+}
+
+.glass-glow-strong {
+  box-shadow: var(--shadow-lg), var(--glow-accent-strong);
+}
+
+.glass-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: var(--shadow-md), 0 0 15px rgba(99, 102, 241, 0.15);
+  }
+  50% {
+    box-shadow: var(--shadow-md), 0 0 30px rgba(99, 102, 241, 0.30);
+  }
+}
+
+/* ============================================
+   GRADIENT BORDER UTILITY
+   ============================================ */
+
+.glass-gradient-border {
+  position: relative;
+  border: none !important;
+  background-clip: padding-box;
+}
+
+.glass-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    rgba(255, 255, 255, 0.10) 100%
+  );
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ============================================
+   SHIMMER LOADING EFFECT
+   ============================================ */
+
+.glass-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ============================================
+   FOCUS STYLES - ACCESSIBILITY
+   ============================================ */
+
+.glass-focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.glass-focus-ring-inset:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-animated-border::before {
+    animation: none;
+  }
+  .glass-glow-pulse {
+    animation: none;
+  }
+  .glass-shimmer::after {
+    animation: none;
+  }
+}
+
+/* ============================================
+   LEGACY UTILITY CLASSES (Aliases)
+   ============================================ */
+
+/* Surface backgrounds */
+.glass-bg-1 { background: var(--surface-1); }
+.glass-bg-2 { background: var(--surface-2); }
+.glass-bg-3 { background: var(--surface-3); }
+.glass-bg-4 { background: var(--surface-4); }
+.glass-bg-5 { background: var(--surface-5); }
+
+/* Borders */
+.glass-border-subtle { border: 1px solid var(--border-subtle); }
+.glass-border-light { border: 1px solid var(--border-default); }
+.glass-border-medium { border: 1px solid var(--border-strong); }
+.glass-border-accent { border: 1px solid var(--border-accent); }
+
+/* Text colors */
+.glass-text-1 { color: var(--text-primary); }
+.glass-text-2 { color: var(--text-secondary); }
+.glass-text-3 { color: var(--text-tertiary); }
+.glass-text-4 { color: var(--text-muted); }
+
+/* Blur */
+.glass-blur-sm { backdrop-filter: blur(var(--blur-sm)); -webkit-backdrop-filter: blur(var(--blur-sm)); }
+.glass-blur-md { backdrop-filter: blur(var(--blur-md)); -webkit-backdrop-filter: blur(var(--blur-md)); }
+.glass-blur-lg { backdrop-filter: blur(var(--blur-lg)); -webkit-backdrop-filter: blur(var(--blur-lg)); }
+.glass-blur-xl { backdrop-filter: blur(var(--blur-xl)); -webkit-backdrop-filter: blur(var(--blur-xl)); }
+
+/* Inner highlight */
+.glass-highlight {
+  box-shadow: var(--highlight-subtle);
+}
+
+.glass-highlight-strong {
+  box-shadow: var(--highlight-medium);
+}

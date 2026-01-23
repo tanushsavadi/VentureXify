@@ -1,27 +1,94 @@
-# OS files
+# ===========================
+# Operating System Files
+# ===========================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
+# ===========================
 # Dependencies
+# ===========================
 node_modules/
+.pnp
+.pnp.js
+.yarn/
 
-# Build output
+# ===========================
+# Build Output
+# ===========================
 dist/
 build/
+out/
+*.crx
+*.pem
+*.zip
+web-ext-artifacts/
 
-# Environment
+# ===========================
+# Environment & Secrets
+# ===========================
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+*.secret
+*.key
 
-# Editor directories
+# ===========================
+# Editor & IDE
+# ===========================
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-workspace
+*.sublime-project
+.project
+.classpath
+.settings/
 
+# ===========================
+# TypeScript
+# ===========================
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ===========================
+# Testing & Coverage
+# ===========================
+coverage/
+.nyc_output/
+*.lcov
+.vitest/
+
+# ===========================
 # Logs
+# ===========================
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ===========================
+# Misc
+# ===========================
+.cache/
+.parcel-cache/
+.temp/
+tmp/
+*.tmp
+*.bak
+
+# ===========================
+# Supabase Local
+# ===========================
+supabase/.branches/
+supabase/.temp/

@@ -43,6 +43,7 @@ export interface FlightFingerprint {
   departDate?: string; // YYYY-MM-DD
   returnDate?: string; // YYYY-MM-DD (optional for one-way)
   cabin?: 'economy' | 'premium' | 'business' | 'first' | 'unknown';
+  cabinFull?: string; // Full fare class name e.g., "Economy Convenience", "Business Class"
   paxCount?: number;
   flightNumbers?: string[]; // e.g., ['DL123', 'DL456']
   operatingCarrier?: string; // Airline code
@@ -51,6 +52,9 @@ export interface FlightFingerprint {
   // Detailed OUTBOUND flight info for matching on Google Flights
   departureTime?: string; // HH:MM (24h format)
   arrivalTime?: string; // HH:MM (24h format)
+  arrivalNextDay?: number; // +1 or +2 if arrives next day(s), 0 or undefined if same day
+  departureTimezone?: string; // Timezone of departure airport (e.g., 'Asia/Dubai')
+  arrivalTimezone?: string; // Timezone of arrival airport (e.g., 'America/New_York')
   duration?: string; // e.g., "18hr 20min"
   stops?: number; // 0 = nonstop, 1 = 1 stop, etc.
   stopAirports?: string[]; // e.g., ['LHR'] for layover airports
@@ -61,6 +65,9 @@ export interface FlightFingerprint {
   // RETURN flight details (for round trips)
   returnDepartureTime?: string; // HH:MM (24h format)
   returnArrivalTime?: string; // HH:MM (24h format)
+  returnArrivalNextDay?: number; // +1 or +2 if arrives next day(s), 0 or undefined if same day
+  returnDepartureTimezone?: string; // Timezone of return departure (destination airport)
+  returnArrivalTimezone?: string; // Timezone of return arrival (origin airport)
   returnDuration?: string; // e.g., "17h 30m"
   returnStops?: number; // 0 = nonstop, 1 = 1 stop, etc.
   returnStopAirports?: string[]; // e.g., ['DOH'] for layover airports
@@ -108,12 +115,25 @@ export interface PortalSnapshot {
   capturedAt: number;
 }
 
+export interface BookingOption {
+  provider: string;         // e.g., "KLM", "Delta", "Booking.com"
+  providerType: 'airline' | 'ota' | 'metasearch' | 'unknown';
+  price: number;
+  currency: string;
+  isLowest: boolean;
+}
+
 export interface DirectSnapshot {
   totalPrice: PriceSnapshot;
   siteName: string;
   siteUrl: string;
   pageType: 'search' | 'details' | 'checkout' | 'unknown';
   capturedAt: number;
+  // NEW: Seller information extracted from Google Flights booking page
+  sellerType?: 'airline' | 'ota' | 'metasearch' | 'unknown';
+  sellerName?: string;         // e.g., "KLM", "Delta", "Booking.com"
+  bookingOptions?: BookingOption[];  // All available booking options
+  lowestPriceProvider?: string;      // Which provider has the lowest price
 }
 
 // ============================================

@@ -284,11 +284,28 @@ function dismissToast(): void {
 // HASH FOR DEDUPLICATION
 // ============================================
 
+// Session-persistent hash to track what's been captured across page navigations
+let sessionCapturedItineraryHash = '';
+
 function hashCapture(snapshot: PortalSnapshot | DirectSnapshot | null): string {
   if (!snapshot) return '';
   return JSON.stringify({
     price: snapshot.totalPrice?.amount,
     provider: (snapshot as PortalSnapshot).providerCode || '',
+  });
+}
+
+// More comprehensive hash for itinerary to prevent re-nudging across pages
+function hashItinerary(snapshot: PortalSnapshot | null): string {
+  if (!snapshot) return '';
+  const itinerary = snapshot.itinerary as { origin?: string; destination?: string; departDate?: string } | undefined;
+  const price = snapshot.totalPrice?.amount;
+  // Hash includes flight details AND price - if same itinerary+price, don't re-nudge
+  return JSON.stringify({
+    origin: itinerary?.origin || '',
+    destination: itinerary?.destination || '',
+    departDate: itinerary?.departDate || '',
+    price: price || 0,
   });
 }
 
@@ -362,6 +379,14 @@ async function analyzeStaysPage(): Promise<void> {
   lastStaysCapturedHash = hash;
   console.log('[VX Content] 🏨 Stay captured:', capture);
   
+  // Also save to storage for reliability (side panel can read from storage)
+  try {
+    await chrome.storage.local.set({ vx_stay_portal_snapshot: capture });
+    console.log('[VX Content] Stay snapshot saved to storage');
+  } catch (storageErr) {
+    console.warn('[VX Content] Could not save stay to storage:', storageErr);
+  }
+  
   // Send to background/side panel
   try {
     await chrome.runtime.sendMessage({
@@ -380,7 +405,28 @@ async function analyzeStaysPage(): Promise<void> {
       badge: `$${capture.totalPrice.amount.toLocaleString()}`,
     });
   } catch (e) {
-    console.error('[VX Content] Failed to send stay capture:', e);
+    const error = e as Error;
+    console.error('[VX Content] Failed to send stay capture:', error.message);
+    
+    // If extension context invalidated, show helpful toast
+    if (error.message?.includes('Extension context invalidated')) {
+      showToast({
+        title: '⚠️ Extension Updated',
+        message: 'Please refresh this page to continue capturing',
+        autoDismiss: 10000,
+      });
+    } else {
+      // Still show capture toast even if message failed (data is in storage)
+      const propertyName = capture.property.propertyName || 'Hotel';
+      const location = capture.property.city || capture.searchContext.place || '';
+      const dates = `${capture.searchContext.checkIn} - ${capture.searchContext.checkOut}`;
+      
+      showToast({
+        title: '🏨 Stay Captured',
+        message: `${propertyName}${location ? ` • ${location}` : ''}\n${dates}`,
+        badge: `$${capture.totalPrice.amount.toLocaleString()}`,
+      });
+    }
   }
 }
 
@@ -431,6 +477,21 @@ async function analyzeGoogleHotelsPage(): Promise<void> {
 async function analyzePortalPage(): Promise<void> {
   console.log('[VX Content] Analyzing portal page...');
   
+  const url = window.location.href.toLowerCase();
+  
+  // Only skip the "Customize your trip" page - it's upsells only, no booking info
+  // Check page content: look for "Customize your trip" heading specifically
+  const mainHeading = document.querySelector('h1, h2, [class*="heading"], [class*="title"]')?.textContent?.toLowerCase() || '';
+  const heroText = document.querySelector('[class*="hero"], [class*="banner"]')?.textContent?.toLowerCase() || '';
+  
+  // Only skip if this is specifically the "Customize your trip" upsell page
+  const isCustomizePage = (mainHeading.includes('customize your trip') || heroText.includes('customize your trip'));
+  
+  if (isCustomizePage) {
+    console.log('[VX Content] Skipping Customize page - upsells only');
+    return;
+  }
+  
   const snapshot = capturePortalSnapshot();
   if (!snapshot || !snapshot.totalPrice?.amount) {
     console.log('[VX Content] No valid snapshot captured');
@@ -447,6 +508,14 @@ async function analyzePortalPage(): Promise<void> {
   
   console.log('[VX Content] Portal snapshot captured:', snapshot);
   
+  // Also save to storage for reliability (side panel can read from storage)
+  try {
+    await chrome.storage.local.set({ vx_portal_snapshot: snapshot });
+    console.log('[VX Content] Snapshot saved to storage');
+  } catch (storageErr) {
+    console.warn('[VX Content] Could not save to storage:', storageErr);
+  }
+  
   // Send to background/side panel
   try {
     await chrome.runtime.sendMessage({
@@ -454,10 +523,11 @@ async function analyzePortalPage(): Promise<void> {
       payload: { snapshot },
     });
     
-    // Show minimal toast
+    // Always show toast for new captures
+    // (deduplication is handled by hashCapture above)
     const flight = snapshot.itinerary as { origin?: string; destination?: string } | undefined;
-    const route = flight?.origin && flight?.destination 
-      ? `${flight.origin} → ${flight.destination}` 
+    const route = flight?.origin && flight?.destination
+      ? `${flight.origin} → ${flight.destination}`
       : 'Flight';
     
     showToast({
@@ -466,7 +536,29 @@ async function analyzePortalPage(): Promise<void> {
       badge: `$${snapshot.totalPrice.amount}`,
     });
   } catch (e) {
-    console.error('[VX Content] Failed to send portal capture:', e);
+    const error = e as Error;
+    console.error('[VX Content] Failed to send portal capture:', error.message);
+    
+    // If extension context invalidated, show helpful toast
+    if (error.message?.includes('Extension context invalidated')) {
+      showToast({
+        title: '⚠️ Extension Updated',
+        message: 'Please refresh this page to continue capturing',
+        autoDismiss: 10000,
+      });
+    } else {
+      // Still show capture toast even if message failed (data is in storage)
+      const flight = snapshot.itinerary as { origin?: string; destination?: string } | undefined;
+      const route = flight?.origin && flight?.destination
+        ? `${flight.origin} → ${flight.destination}`
+        : 'Flight';
+      
+      showToast({
+        title: 'Itinerary Captured',
+        message: `${route} — Open side panel to continue`,
+        badge: `$${snapshot.totalPrice.amount}`,
+      });
+    }
   }
 }
 
@@ -605,11 +697,31 @@ async function analyzePage(): Promise<void> {
     (url.includes('/travel/flights') || url.includes('/flights'));
   
   if (isCapitalOne) {
-    // Only analyze on checkout/booking pages for FLIGHTS
-    if (pageData.context === 'booking_details' || pageData.context === 'payment' ||
-        url.includes('/flights/shop') ||
-        url.includes('Review itinerary')) {
+    // Check flightShopProgress parameter to determine page type
+    // 1 = Departure selection (SEARCH - skip)
+    // 2 = Return selection (SEARCH - skip)
+    // 3 = Review itinerary (CAPTURE ✓)
+    // 4+ = Customize/Book
+    const flightProgressMatch = url.match(/flightShopProgress=(\d+)/i);
+    const flightProgress = flightProgressMatch ? parseInt(flightProgressMatch[1], 10) : 0;
+    
+    // Also check for /flights/book URL (the actual booking page)
+    const isBookPage = url.includes('/flights/book');
+    
+    // Only capture on:
+    // 1. Review itinerary page (flightShopProgress=3)
+    // 2. Confirm and Book page (/flights/book)
+    const shouldCapture = (flightProgress === 3) || isBookPage;
+    
+    console.log('[VX Content] Capital One flights page - Progress:', flightProgress, ', isBookPage:', isBookPage, ', shouldCapture:', shouldCapture);
+    
+    if (shouldCapture) {
+      console.log('[VX Content] Capital One flights Review/Book page detected - triggering capture');
       await analyzePortalPage();
+    } else if (flightProgress === 1 || flightProgress === 2) {
+      console.log('[VX Content] Capital One flights SEARCH page (progress=' + flightProgress + ') - skipping capture, user is selecting flights');
+    } else {
+      console.log('[VX Content] Capital One page - not a capture-worthy page:', url.substring(0, 100));
     }
   } else if (isGoogleFlights) {
     await analyzeGoogleFlightsPage();

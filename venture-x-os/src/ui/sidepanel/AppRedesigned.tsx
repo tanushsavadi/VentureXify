@@ -39,6 +39,7 @@ import {
   AskAboutVerdictModule,
   type VerdictContext,
 } from '../components/glass';
+import { FxRateDisplay, FxIndicator } from '../components/glass/FxRateDisplay';
 import { GlassProgressRail } from '../components/glass/SegmentedControl';
 import { ProgressiveVerdictCard, type VerdictDataProgressive } from '../components/glass/ProgressiveVerdictCard';
 import { cn } from '../../lib/utils';
@@ -133,6 +134,17 @@ interface DirectCapture {
   priceUSD: number;
   currency: string;
   siteName: string;
+  // Seller info from Google Flights booking page
+  sellerType?: 'airline' | 'ota' | 'metasearch' | 'unknown';
+  sellerName?: string;
+  bookingOptions?: Array<{
+    provider: string;
+    providerType: 'airline' | 'ota' | 'metasearch' | 'unknown';
+    price: number;
+    currency: string;
+    isLowest: boolean;
+  }>;
+  lowestPriceProvider?: string;
 }
 
 // Stay-specific capture interfaces
@@ -717,10 +729,10 @@ const StayPortalCaptureCard: React.FC<{
         <div className="flex justify-between items-center">
           <span className="text-white/50 text-sm">Portal Price</span>
           <div className="text-right">
-            <span className="text-2xl font-bold text-white">${capture.priceUSD.toLocaleString()}</span>
+            <span className="text-2xl font-bold text-white">${capture.priceUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             {capture.currency !== 'USD' && (
               <div className="text-xs text-white/40">
-                ({capture.currency} {capture.price.toLocaleString()})
+                ({capture.currency} {capture.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
               </div>
             )}
           </div>
@@ -729,14 +741,14 @@ const StayPortalCaptureCard: React.FC<{
         {capture.perNight && (
           <div className="flex justify-between items-center text-sm">
             <span className="text-white/40">Per night</span>
-            <span className="text-white/60">${capture.perNight.toLocaleString()}</span>
+            <span className="text-white/60">${capture.perNight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         )}
         
         {capture.taxesFees && (
           <div className="flex justify-between items-center text-sm">
             <span className="text-white/40">Taxes & fees (included)</span>
-            <span className="text-white/60">${capture.taxesFees.toLocaleString()}</span>
+            <span className="text-white/60">${capture.taxesFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         )}
         
@@ -744,7 +756,7 @@ const StayPortalCaptureCard: React.FC<{
         {capture.portalCreditApplied && capture.portalCreditApplied > 0 && (
           <div className="flex justify-between items-center text-sm text-emerald-400">
             <span>Travel credit applied</span>
-            <span>-${capture.portalCreditApplied.toLocaleString()}</span>
+            <span>-${capture.portalCreditApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         )}
         
@@ -752,7 +764,7 @@ const StayPortalCaptureCard: React.FC<{
         {capture.creditAlreadyApplied && capture.amountDueAfterCredit && (
           <div className="flex justify-between items-center pt-2 border-t border-white/[0.06]">
             <span className="text-white/80 text-sm font-medium">Pay today</span>
-            <span className="text-lg font-bold text-white">${capture.amountDueAfterCredit.toLocaleString()}</span>
+            <span className="text-lg font-bold text-white">${capture.amountDueAfterCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         )}
         
@@ -927,9 +939,10 @@ const StayDirectCaptureCard: React.FC<{
 const DirectCaptureCard: React.FC<{
   capture: DirectCapture;
   portalPriceUSD: number;
+  portalCapture?: PortalCapture;  // For flight mismatch detection
   onConfirm: () => void;
   onRecapture: () => void;
-}> = ({ capture, portalPriceUSD, onConfirm, onRecapture }) => {
+}> = ({ capture, portalPriceUSD, portalCapture, onConfirm, onRecapture }) => {
   const savings = portalPriceUSD - capture.priceUSD;
   const isDirectCheaper = savings > 0;
   
@@ -937,6 +950,92 @@ const DirectCaptureCard: React.FC<{
   const exchangeRate = capture.currency !== 'USD' && capture.price > 0
     ? (capture.price / capture.priceUSD).toFixed(4)
     : null;
+  
+  // Detect flight mismatch if we're on Google Flights
+  const [flightMismatches, setFlightMismatches] = React.useState<Array<{
+    type: string;
+    message: string;
+    portalValue: string;
+    googleValue: string;
+  }> | null>(null);
+  
+  React.useEffect(() => {
+    const checkFlightMatch = async () => {
+      // Check if we're on Google Flights - siteName might be "Google Flights", "www.google.com", etc.
+      const isOnGoogleFlights = capture.siteName &&
+        (capture.siteName.toLowerCase().includes('google') ||
+         capture.siteName.toLowerCase().includes('flight'));
+      
+      console.log('[DirectCaptureCard] 🔍 Checking flight match...', {
+        siteName: capture.siteName,
+        isOnGoogleFlights,
+        hasPortalCapture: !!portalCapture,
+      });
+      
+      if (!portalCapture || !isOnGoogleFlights) {
+        console.log('[DirectCaptureCard] ❌ Skipping mismatch check - missing portalCapture or not on Google Flights');
+        setFlightMismatches(null);
+        return;
+      }
+      
+      try {
+        // Get current tab URL
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.url) {
+          console.log('[DirectCaptureCard] ❌ No tab URL found');
+          return;
+        }
+        
+        console.log('[DirectCaptureCard] 📍 Tab URL:', tab.url.substring(0, 100));
+        
+        // Import the parser dynamically
+        const { detectFlightMismatch } = await import('../../lib/googleFlightsParser');
+        
+        // Build a complete portal flight object including all airlines from both legs
+        const portalFlightForComparison = {
+          origin: portalCapture.origin,
+          destination: portalCapture.destination,
+          departDate: portalCapture.departDate,
+          returnDate: portalCapture.returnDate,
+          airline: portalCapture.airline,
+          // Include ALL airlines from both outbound and return legs
+          airlines: [
+            ...(portalCapture.outbound?.airlines || []),
+            ...(portalCapture.returnFlight?.airlines || []),
+            ...(portalCapture.airline ? [portalCapture.airline] : []),
+          ].filter((a, i, arr) => arr.indexOf(a) === i), // Remove duplicates
+          stops: portalCapture.stops,
+          outbound: portalCapture.outbound,
+          returnFlight: portalCapture.returnFlight,
+        };
+        
+        console.log('[DirectCaptureCard] 📋 Portal flight for comparison:', {
+          origin: portalFlightForComparison.origin,
+          destination: portalFlightForComparison.destination,
+          airlines: portalFlightForComparison.airlines,
+          outboundAirlines: portalCapture.outbound?.airlines,
+          returnAirlines: portalCapture.returnFlight?.airlines,
+          singleAirline: portalCapture.airline,
+        });
+        
+        const mismatches = detectFlightMismatch(portalFlightForComparison, tab.url);
+        setFlightMismatches(mismatches);
+        
+        if (mismatches && mismatches.length > 0) {
+          console.log('[DirectCaptureCard] ⚠️ Flight mismatch detected:', mismatches);
+        } else {
+          console.log('[DirectCaptureCard] ✅ No mismatches found (or parsing failed)');
+        }
+      } catch (e) {
+        console.error('[DirectCaptureCard] Error checking flight match:', e);
+      }
+    };
+    
+    checkFlightMatch();
+    // IMPORTANT: Include capture.priceUSD in dependencies so mismatch detection
+    // re-runs when user navigates back and selects a different flight
+    // (the price changes but siteName stays the same)
+  }, [portalCapture, capture.siteName, capture.priceUSD]);
 
   return (
     <GlassCard variant="elevated" className="mb-4">
@@ -951,20 +1050,90 @@ const DirectCaptureCard: React.FC<{
       <div className="text-center mb-4">
         <span className="text-3xl font-bold text-white">${capture.priceUSD.toLocaleString()}</span>
         {capture.currency !== 'USD' && (
-          <div className="space-y-0.5">
+          <div className="space-y-1.5">
             <div className="text-xs text-white/40">
               ({capture.currency} {capture.price.toLocaleString()})
             </div>
-            {/* FX rate line for transparency */}
-            {exchangeRate && (
-              <div className="text-[10px] text-white/30 flex items-center justify-center gap-1">
-                <Info className="w-2.5 h-2.5" />
-                <span>Rate: 1 USD = {exchangeRate} {capture.currency}</span>
-              </div>
-            )}
+            {/* UX FIX P0-3: Enhanced FX rate display with source and sensitivity */}
+            <div className="flex justify-center">
+              <FxIndicator
+                fromCurrency={capture.currency}
+                originalAmount={capture.price}
+                convertedAmountUSD={capture.priceUSD}
+              />
+            </div>
           </div>
         )}
       </div>
+
+      {/* Flight Mismatch Warning */}
+      {flightMismatches && flightMismatches.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30"
+        >
+          <div className="flex items-start gap-2 mb-2">
+            <span className="text-lg flex-shrink-0">⚠️</span>
+            <div>
+              <div className="text-sm font-semibold text-amber-300 mb-1">
+                Different Flight Detected
+              </div>
+              <div className="text-xs text-amber-200/80 mb-2">
+                This flight doesn't match the one you selected on Capital One Travel:
+              </div>
+              <div className="space-y-1.5">
+                {flightMismatches.map((mismatch, i) => (
+                  <div key={i} className="text-xs text-white/70 bg-white/[0.04] p-2 rounded">
+                    <div className="font-medium text-amber-200 mb-0.5">{mismatch.message}</div>
+                    <div className="flex items-center gap-2 text-[10px]">
+                      <span className="text-white/50">Portal:</span>
+                      <span className="text-white/80">{mismatch.portalValue}</span>
+                      <span className="text-white/30">→</span>
+                      <span className="text-white/50">Google:</span>
+                      <span className="text-white/80">{mismatch.googleValue}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 pt-2 border-t border-amber-500/20">
+                <div className="text-xs text-amber-200/80 mb-2">
+                  💡 Make sure you're comparing the exact same flight to get an accurate comparison.
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      // Go back to Google Flights search with proper route/dates
+                      // The booking page tfs parameter has flight-specific data that won't work for search
+                      // So we build a fresh search URL from the portal capture data
+                      if (typeof chrome !== 'undefined' && chrome.tabs && portalCapture) {
+                        const origin = portalCapture.origin || '';
+                        const dest = portalCapture.destination || '';
+                        const departDate = portalCapture.departDate || '';
+                        const returnDate = portalCapture.returnDate || '';
+                        
+                        // Build a search query similar to handleConfirmPortal
+                        let searchQuery = `flights from ${origin} to ${dest}`;
+                        if (departDate) searchQuery += ` on ${departDate}`;
+                        if (returnDate) searchQuery += ` returning ${returnDate}`;
+                        
+                        const searchUrl = `https://www.google.com/travel/flights?q=${encodeURIComponent(searchQuery)}`;
+                        console.log('[DirectCaptureCard] Navigating back to search:', searchUrl);
+                        chrome.tabs.update({ url: searchUrl });
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs bg-white/[0.08] hover:bg-white/[0.12] border border-white/10 rounded-lg text-white/70 hover:text-white transition-colors"
+                  >
+                    ← Find the correct flight
+                  </button>
+                  <span className="text-[10px] text-amber-200/50 self-center">or</span>
+                  <span className="text-[10px] text-white/50 self-center">proceed with "See Verdict" anyway</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.08] mb-4">
         <div className="flex justify-between items-center">
@@ -1041,12 +1210,27 @@ const VerdictSection: React.FC<{
   tabMode?: UITabMode;
   onTabModeChange?: (mode: UITabMode) => void;
   bookingType?: 'flight' | 'hotel' | 'vacation_rental';
-}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight' }) => {
+  // Additional props for enhanced UX per critique
+  // NEW-8: Added 'airline' for flight bookings on Google Flights
+  sellerType?: 'airline' | 'hotel_direct' | 'ota' | 'metasearch' | 'unknown';
+  sellerName?: string;
+  hasFxConversion?: boolean;
+  fxCurrency?: string;
+}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency }) => {
   // Use controlled mode if provided, otherwise local state
   const [localTabMode, setLocalTabMode] = useState<UITabMode>('cheapest');
   const tabMode = controlledTabMode ?? localTabMode;
   const setTabMode = onTabModeChange ?? setLocalTabMode;
   const [applyTravelCredit, setApplyTravelCredit] = useState(true);
+  
+  // Mile value sensitivity control - default 1.8, user can adjust
+  const [mileValueCpp, setMileValueCpp] = useState(0.018); // 1.8¢/mi
+  const MILE_VALUE_PRESETS = [
+    { value: 0.010, label: '1.0¢' },
+    { value: 0.015, label: '1.5¢' },
+    { value: 0.018, label: '1.8¢' },
+    { value: 0.020, label: '2.0¢' },
+  ];
   
   // Max Value flow state
   const [maxValuePhase, setMaxValuePhase] = useState<MaxValuePhase>('ask');
@@ -1079,11 +1263,42 @@ const VerdictSection: React.FC<{
     creditRemaining,
     mileValuationCpp: 0.018, // 1.8¢/mi default
     objective: engineObjective,
+    // CRITICAL: Pass booking type for correct earn rate (10x hotels, 5x flights/rentals)
+    bookingType: bookingType === 'vacation_rental' ? 'vacation_rental'
+               : bookingType === 'hotel' ? 'hotel'
+               : 'flight',
   });
 
   const portalOOP = comparison.portalDetails.outOfPocket;
   const directOOP = comparison.directDetails.outOfPocket;
   const milesDiff = comparison.portalDetails.milesEarned - comparison.directDetails.milesEarned;
+  
+  // ============================================
+  // CLOSE-CALL DETECTION
+  // Per UX critique: When prices are within a small band,
+  // users expect "basically the same" — not a hard "WINNER"
+  // ============================================
+  const CLOSE_CALL_THRESHOLD_ABS = 25; // $25
+  const CLOSE_CALL_THRESHOLD_PERCENT = 2; // 2%
+  
+  const outOfPocketDiffAbs = Math.abs(portalOOP - directOOP);
+  const outOfPocketDiffPercent = Math.min(portalOOP, directOOP) > 0
+    ? (outOfPocketDiffAbs / Math.min(portalOOP, directOOP)) * 100
+    : 0;
+  
+  const isCloseCall = outOfPocketDiffAbs <= CLOSE_CALL_THRESHOLD_ABS ||
+                      outOfPocketDiffPercent <= CLOSE_CALL_THRESHOLD_PERCENT;
+  
+  // If FX is involved, widen the threshold (more uncertainty)
+  const isCloseCallWithFx = hasFxConversion
+    ? (outOfPocketDiffAbs <= CLOSE_CALL_THRESHOLD_ABS * 1.5 || outOfPocketDiffPercent <= CLOSE_CALL_THRESHOLD_PERCENT * 1.5)
+    : isCloseCall;
+  
+  const closeCallReason = isCloseCallWithFx
+    ? hasFxConversion
+      ? `Within $${CLOSE_CALL_THRESHOLD_ABS} or ${CLOSE_CALL_THRESHOLD_PERCENT}% (adjusted for FX uncertainty). Choose based on cancellation policy or support quality.`
+      : `Within $${CLOSE_CALL_THRESHOLD_ABS} or ${CLOSE_CALL_THRESHOLD_PERCENT}%. Choose based on cancellation policy, support quality, or personal preference.`
+    : undefined;
 
   // Tab definitions with descriptions and detailed tooltips - NOW CONTEXT-AWARE
   const tabDefs = [
@@ -1099,7 +1314,7 @@ const VerdictSection: React.FC<{
       label: 'Max Value',
       emoji: '📈',
       description: 'Lowest effective cost after valuing points earned/spent',
-      tooltip: 'Factors in the value of miles you\'ll earn. May recommend paying more upfront if you\'ll earn significantly more miles (valued at 1.8¢/mi default).',
+      tooltip: 'Best value after subtracting the estimated worth of miles you\'ll earn (at 1.8¢/mi). Higher upfront cost can be worth it if you\'ll earn significantly more miles. Adjust mile value in Settings.',
     },
     {
       mode: 'easiest' as UITabMode,
@@ -1276,49 +1491,85 @@ const VerdictSection: React.FC<{
   }
   
   if (!isAward) {
-    if (comparison.portalDetails.creditApplied > 0 && isPortal) {
-      whyBullets.push({
-        icon: '💰',
-        text: `Pay today: $${portalOOP.toLocaleString()} (after $${comparison.portalDetails.creditApplied} credit) vs $${directOOP.toLocaleString()} direct`,
-      });
-    } else if (outOfPocketDiff > 5) {
-      const cheaper = portalOOP < directOOP ? 'Portal' : 'Direct';
-      whyBullets.push({
-        icon: '💰',
-        text: `${cheaper} is $${outOfPocketDiff.toLocaleString()} cheaper out of pocket`,
-      });
-    }
-    
-    if (tabMode !== 'easiest' && Math.abs(milesDiff) > 100) {
-      const milesWinner = milesDiff > 0 ? 'Portal' : 'Direct';
-      whyBullets.push({
-        icon: '✈️',
-        text: `${milesWinner} earns ${Math.abs(milesDiff).toLocaleString()} more miles`,
-      });
-    }
-    
+    // For "easiest" tab: Focus on friction/convenience, NOT price
+    // Showing "Portal is cheaper" when recommending Direct is contradictory
     if (tabMode === 'easiest') {
+      // Context-aware messaging for hotels vs flights
+      const isStayBooking = bookingType === 'hotel' || bookingType === 'vacation_rental';
+      
+      // Primary bullet: Why the winner is easiest
       whyBullets.push({
         icon: '💡',
         text: isPortal
-          ? 'Portal bookings may have different change/cancel policies'
-          : 'Direct booking: changes handled by airline, easier for disruptions',
+          ? isStayBooking
+            ? 'Portal manages the booking end-to-end, but may not earn hotel loyalty'
+            : 'Portal manages the booking end-to-end, single point of contact'
+          : isStayBooking
+            ? 'Direct: easier modifications, special requests, hotel loyalty/elite nights'
+            : 'Direct: changes handled by airline, easier for disruptions (IRROPS)',
       });
-    } else if (comparison.confidence !== 'high' && comparison.confidenceReasons?.length) {
-      whyBullets.push({
-        icon: '⚠️',
-        text: comparison.confidenceReasons[0],
-      });
+      
+      // Secondary bullet: Acknowledge price difference if significant (but frame it correctly)
+      if (outOfPocketDiff > 20) {
+        const portalCheaper = portalOOP < directOOP;
+        if ((isPortal && portalCheaper) || (!isPortal && !portalCheaper)) {
+          // Winner is also cheaper - great!
+          whyBullets.push({
+            icon: '💰',
+            text: `Also saves $${outOfPocketDiff.toFixed(2)} vs the alternative`,
+          });
+        } else {
+          // Winner costs more - acknowledge the tradeoff
+          whyBullets.push({
+            icon: '💡',
+            text: isPortal
+              ? `Costs $${outOfPocketDiff.toFixed(2)} more, but easier booking experience`
+              : `Costs $${outOfPocketDiff.toFixed(2)} more, but better flexibility for changes`,
+          });
+        }
+      }
+    } else {
+      // For "cheapest" and "max_value" tabs: Price is the focus
+      if (comparison.portalDetails.creditApplied > 0 && isPortal) {
+        whyBullets.push({
+          icon: '💰',
+          text: `Pay today: $${portalOOP.toFixed(2)} (after $${comparison.portalDetails.creditApplied.toFixed(2)} credit) vs $${directOOP.toFixed(2)} direct`,
+        });
+      } else if (outOfPocketDiff > 5) {
+        const cheaper = portalOOP < directOOP ? 'Portal' : 'Direct';
+        whyBullets.push({
+          icon: '💰',
+          text: `${cheaper} is $${outOfPocketDiff.toFixed(2)} cheaper out of pocket`,
+        });
+      }
+      
+      if (Math.abs(milesDiff) > 100) {
+        const milesWinner = milesDiff > 0 ? 'Portal' : 'Direct';
+        whyBullets.push({
+          icon: '✈️',
+          text: `${milesWinner} earns ${Math.abs(milesDiff).toLocaleString()} more miles`,
+        });
+      }
+      
+      if (comparison.confidence !== 'high' && comparison.confidenceReasons?.length) {
+        whyBullets.push({
+          icon: '⚠️',
+          text: comparison.confidenceReasons[0],
+        });
+      }
     }
   }
   
   // Ensure at least one bullet
   if (whyBullets.length === 0) {
+    const isStayBooking = bookingType === 'hotel' || bookingType === 'vacation_rental';
     whyBullets.push({
       icon: '💡',
       text: isPortal
-        ? `Portal gives 5x miles on $${portalPriceUSD} purchase`
-        : `Direct may offer better flexibility with airline`,
+        ? `Portal gives ${isStayBooking ? (bookingType === 'hotel' ? '10x' : '5x') : '5x'} miles on $${portalPriceUSD.toFixed(2)} purchase`
+        : isStayBooking
+          ? 'Direct offers better flexibility for modifications'
+          : 'Direct may offer better flexibility with airline',
     });
   }
 
@@ -1326,6 +1577,7 @@ const VerdictSection: React.FC<{
   // Build friction level
   // ============================================
   const getFrictionLevel = (): { level: 'low' | 'medium' | 'high'; tooltip: string } => {
+    const isStayBooking = bookingType === 'hotel' || bookingType === 'vacation_rental';
     if (isAward) {
       return {
         level: 'high',
@@ -1335,12 +1587,16 @@ const VerdictSection: React.FC<{
     if (isPortal) {
       return {
         level: 'medium',
-        tooltip: 'Portal booking + credit. Easy, but changes/support can be slower than booking direct.',
+        tooltip: isStayBooking
+          ? 'Portal booking + credit. Changes/cancellations may need to go through the portal. May not earn hotel loyalty points.'
+          : 'Portal booking + credit. Easy, but changes/support can be slower than booking direct.',
       };
     }
     return {
       level: 'low',
-      tooltip: 'Direct booking. Changes handled by airline, easiest for disruptions (IRROPS).',
+      tooltip: isStayBooking
+        ? 'Direct hotel booking. Easier modifications, special requests, upgrades. Earn hotel loyalty/elite nights.'
+        : 'Direct booking. Changes handled by airline, easiest for disruptions (IRROPS).',
     };
   };
 
@@ -1348,6 +1604,7 @@ const VerdictSection: React.FC<{
   // Build secondary perk
   // ============================================
   const getSecondaryPerk = (): VerdictDataProgressive['secondaryPerk'] => {
+    const isStayBooking = bookingType === 'hotel' || bookingType === 'vacation_rental';
     if (isAward && awardData) {
       return {
         icon: 'miles',
@@ -1357,7 +1614,13 @@ const VerdictSection: React.FC<{
     if (tabMode === 'easiest') {
       return {
         icon: 'flexibility',
-        label: isPortal ? 'Portal change policies apply' : 'Standard airline policies',
+        label: isPortal
+          ? isStayBooking
+            ? 'Portal change policies apply'
+            : 'Portal change policies apply'
+          : isStayBooking
+            ? 'Direct: easier for modifications, special requests'
+            : 'Direct: easier for changes/disruptions (IRROPS)',
       };
     }
     if (Math.abs(milesDiff) > 100) {
@@ -1373,18 +1636,29 @@ const VerdictSection: React.FC<{
 
   // ============================================
   // Build full progressive verdict
+  // ENHANCED: Add close-call state for better trust
   // ============================================
-  const winnerLabel = isAward ? 'Award Booking' : isPortal ? 'Portal Booking' : 'Direct Booking';
+  const winnerLabel = isAward ? 'Award Booking' : isPortal ? 'Portal Booking' : 'Other Site Booking';
   const winnerPayToday = isAward ? awardOOP : isPortal ? portalOOP : directOOP;
   
+  // Calculate effective cost range for Max Value mode when miles range exists
+  const portalMilesRange = comparison.portalDetails.milesEarnedRange;
+  const portalEffectiveCostRange = portalMilesRange ? {
+    min: (portalPriceUSD - creditRemaining) - (portalMilesRange.max * mileValueCpp),
+    max: (portalPriceUSD - creditRemaining) - (portalMilesRange.min * mileValueCpp),
+  } : undefined;
+  
   const progressiveVerdict: VerdictDataProgressive = {
-    recommendation: isAward ? 'portal' : comparison.recommendation as 'portal' | 'direct' | 'tie',
+    // Override recommendation to 'tie' if it's a close call
+    recommendation: isCloseCallWithFx ? 'tie' : (isAward ? 'portal' : comparison.recommendation as 'portal' | 'direct' | 'tie'),
     winner: {
-      label: winnerLabel,
+      label: isCloseCallWithFx ? 'Essentially a Tie' : winnerLabel,
       payToday: winnerPayToday,
-      payTodayLabel: isAward
-        ? `Pay $${awardOOP} + ${awardData?.miles.toLocaleString()} miles`
-        : `Pay $${winnerPayToday.toLocaleString()} today`,
+      payTodayLabel: isCloseCallWithFx
+        ? `Both options within $${Math.round(outOfPocketDiffAbs)} — choose based on flexibility`
+        : isAward
+          ? `Pay $${awardOOP} + ${awardData?.miles.toLocaleString()} miles`
+          : `Pay $${winnerPayToday.toLocaleString()} today`,
     },
     primaryDelta: isAward && awardData ? {
       type: 'savings',
@@ -1506,31 +1780,53 @@ const VerdictSection: React.FC<{
         </div>
       </div>
 
-      {/* Credit Toggle */}
-      <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-        <div className="flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-indigo-400" />
-          <span className="text-sm text-white/80">Apply travel credit</span>
+      {/* Credit Toggle - Enhanced with verification messaging per UX critique P1-4 */}
+      <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-0.5 flex-1">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm text-white/80">Include ${initialCreditRemaining} credit in comparison</span>
+            </div>
+            <span className="text-[10px] text-white/40 ml-6">
+              {applyTravelCredit ? 'Portal price will reflect credit applied' : 'Comparing sticker prices only'}
+            </span>
+          </div>
+          <button
+            onClick={() => setApplyTravelCredit(!applyTravelCredit)}
+            className={cn(
+              'relative w-12 h-6 rounded-full transition-colors flex-shrink-0',
+              applyTravelCredit ? 'bg-indigo-500' : 'bg-white/20'
+            )}
+          >
+            <motion.div
+              className="absolute top-1 w-4 h-4 rounded-full bg-white shadow"
+              animate={{ left: applyTravelCredit ? 'calc(100% - 20px)' : '4px' }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+          </button>
         </div>
-        <button
-          onClick={() => setApplyTravelCredit(!applyTravelCredit)}
-          className={cn(
-            'relative w-12 h-6 rounded-full transition-colors',
-            applyTravelCredit ? 'bg-indigo-500' : 'bg-white/20'
-          )}
-        >
+        {/* P1-4: Credit verification messaging */}
+        {applyTravelCredit && (
           <motion.div
-            className="absolute top-1 w-4 h-4 rounded-full bg-white shadow"
-            animate={{ left: applyTravelCredit ? 'calc(100% - 20px)' : '4px' }}
-            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-          />
-        </button>
-        <span className={cn('text-sm font-semibold ml-2', applyTravelCredit ? 'text-emerald-400' : 'text-white/40')}>
-          ${initialCreditRemaining}
-        </span>
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-2 pt-2 border-t border-white/[0.06]"
+          >
+            <div className="flex items-start gap-2 text-[10px]">
+              <Info className="w-3 h-3 text-amber-400/70 flex-shrink-0 mt-0.5" />
+              <div className="text-white/50">
+                <span className="text-amber-400/80">Assumes you have ${initialCreditRemaining} credit available and unused.</span>
+                {' '}The credit applies only to Capital One Travel portal bookings.
+                Toggle off to compare prices without credit.
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
-      {/* Effective Cost display for Max Value mode */}
+      {/* Pay Today display for Max Value mode - UX FIX NEW-7 */}
       {tabMode === 'max_value' && (
         <motion.div
           initial={{ opacity: 0, y: -5 }}
@@ -1539,33 +1835,39 @@ const VerdictSection: React.FC<{
         >
           <div className={cn(
             'p-3 rounded-lg border text-center',
-            portalEffectiveCost < directEffectiveCost
+            portalOOP < directOOP
               ? 'bg-emerald-500/10 border-emerald-500/30'
               : 'bg-white/[0.04] border-white/[0.08]'
           )}>
-            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Portal Effective</div>
+            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Portal</div>
             <div className={cn(
               'text-lg font-bold',
-              portalEffectiveCost < directEffectiveCost ? 'text-emerald-400' : 'text-white/80'
+              portalOOP < directOOP ? 'text-emerald-400' : 'text-white/80'
             )}>
-              ${Math.round(portalEffectiveCost).toLocaleString()}
+              ${Math.round(portalOOP).toLocaleString()}
             </div>
-            <div className="text-[9px] text-white/40">after miles value</div>
+            <div className="text-[9px] text-white/60 font-medium mb-0.5">Pay Today</div>
+            <div className="text-[9px] text-white/40">
+              Effective: ${Math.round(portalEffectiveCost).toLocaleString()}
+            </div>
           </div>
           <div className={cn(
             'p-3 rounded-lg border text-center',
-            directEffectiveCost < portalEffectiveCost
+            directOOP < portalOOP
               ? 'bg-emerald-500/10 border-emerald-500/30'
               : 'bg-white/[0.04] border-white/[0.08]'
           )}>
-            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Direct Effective</div>
+            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Direct</div>
             <div className={cn(
               'text-lg font-bold',
-              directEffectiveCost < portalEffectiveCost ? 'text-emerald-400' : 'text-white/80'
+              directOOP < portalOOP ? 'text-emerald-400' : 'text-white/80'
             )}>
-              ${Math.round(directEffectiveCost).toLocaleString()}
+              ${Math.round(directOOP).toLocaleString()}
             </div>
-            <div className="text-[9px] text-white/40">after miles value</div>
+            <div className="text-[9px] text-white/60 font-medium mb-0.5">Pay Today</div>
+            <div className="text-[9px] text-white/40">
+              Effective: ${Math.round(directEffectiveCost).toLocaleString()}
+            </div>
           </div>
         </motion.div>
       )}
@@ -2144,13 +2446,13 @@ const CompareTabContent: React.FC<{
 
   return (
     <div className="flex-1 overflow-y-auto p-4 pb-6 bg-gradient-to-b from-transparent via-indigo-950/5 to-purple-950/10">
-      {/* Progress Rail - Clickable */}
+      {/* Progress Rail - Clickable - Uses "Other Site" instead of "Direct" per UX critique */}
       <div className="mb-6">
         <GlassProgressRail
           currentStep={currentStep}
           steps={[
             { label: 'Portal' },
-            { label: 'Direct' },
+            { label: 'Other Site' },
             { label: 'Verdict' },
           ]}
           onStepClick={handleStepClick}
@@ -2170,12 +2472,12 @@ const CompareTabContent: React.FC<{
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Booking Detected</h3>
           <p className="text-sm text-white/50 mb-6 max-w-[280px] mx-auto leading-relaxed">
-            Open Capital One Travel or Google Flights to start comparing prices.
+            Compare prices on flights, hotels, and vacation rentals to see if you should book via the Capital One Travel portal or directly. Start on the portal to capture your booking.
           </p>
           <div className="flex flex-col gap-3 max-w-[260px] mx-auto">
             <GlassButton
               variant="primary"
-              className="w-full"
+              className="w-full gap-2"
               onClick={() => {
                 if (typeof chrome !== 'undefined' && chrome.tabs) {
                   chrome.tabs.create({ url: 'https://travel.capitalone.com' });
@@ -2183,21 +2485,32 @@ const CompareTabContent: React.FC<{
               }}
             >
               <ExternalLink className="w-4 h-4" />
-              Open Portal
+              <span>Open Portal</span>
             </GlassButton>
-            <GlassButton variant="ghost" className="w-full" onClick={onSwitchToChat}>
+            <GlassButton variant="ghost" className="w-full gap-2" onClick={onSwitchToChat}>
               <MessageCircle className="w-4 h-4" />
-              Ask a Question
+              <span>Ask a Question</span>
             </GlassButton>
           </div>
           
-          {/* Supported sites hint */}
-          <div className="mt-8 pt-6 border-t border-white/[0.06]">
-            <p className="text-xs text-white/30 mb-3">Supported sites</p>
-            <div className="flex justify-center gap-4">
-              <span className="text-xs text-white/50">Capital One Travel</span>
+          {/* Force capture option for users already on checkout */}
+          <div className="mt-6 pt-4 border-t border-white/[0.04]">
+            <p className="text-[10px] text-white/30 mb-2">Already on a checkout page?</p>
+            <GlassButton variant="ghost" size="sm" className="gap-2" onClick={onRecapturePortal}>
+              <RefreshCw className="w-3 h-3" />
+              <span>Force Capture</span>
+            </GlassButton>
+          </div>
+          
+          {/* Supported booking types */}
+          <div className="mt-6 pt-6 border-t border-white/[0.06]">
+            <p className="text-xs text-white/30 mb-3">What you can compare</p>
+            <div className="flex justify-center gap-3 flex-wrap">
+              <span className="text-xs text-white/50">✈️ Flights</span>
               <span className="text-white/20">•</span>
-              <span className="text-xs text-white/50">Google Flights</span>
+              <span className="text-xs text-white/50">🏨 Hotels</span>
+              <span className="text-white/20">•</span>
+              <span className="text-xs text-white/50">🏠 Vacation Rentals</span>
             </div>
           </div>
         </motion.div>
@@ -2312,41 +2625,134 @@ const CompareTabContent: React.FC<{
         />
       )}
 
-      {/* Waiting for direct capture */}
-      {showWaitingForDirect && (
+      {/* Waiting for direct capture - ENHANCED with full flight details */}
+      {showWaitingForDirect && portalCapture && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center py-8"
+          className="py-4"
         >
           <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 flex items-center justify-center relative">
             <CreditCard className="w-10 h-10 text-blue-400/70" />
-            {/* Pulsing ring */}
             <motion.div
               className="absolute inset-0 rounded-2xl border-2 border-blue-400/30"
               animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             />
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Find the Direct Price</h3>
-          <p className="text-sm text-white/50 mb-6 max-w-[280px] mx-auto leading-relaxed">
-            Open Google Flights or the airline website to find the direct booking price.
+          <h3 className="text-lg font-semibold text-white mb-2 text-center">Find the Direct Price</h3>
+          <p className="text-sm text-white/50 mb-6 max-w-[280px] mx-auto leading-relaxed text-center">
+            Open Google Flights or the airline website to find the direct booking price for this flight:
           </p>
           
-          {/* Portal price summary */}
-          <GlassCard variant="default" className="mb-6 mx-auto max-w-[280px]">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-white/60">Portal price</span>
-              <span className="text-lg font-bold text-white">${portalCapture.priceUSD.toLocaleString()}</span>
+          {/* Portal Flight Details Card - FULL INFO */}
+          <GlassCard variant="elevated" className="mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+                <Plane className="w-4 h-4 text-indigo-300" />
+              </div>
+              <span className="font-semibold text-white">Portal Flight Details</span>
             </div>
-            {portalCapture.origin && portalCapture.destination && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-white/40">
-                <span>{portalCapture.origin}</span>
-                <Plane className="w-3 h-3" />
-                <span>{portalCapture.destination}</span>
+
+            {/* Route Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-white">{portalCapture.origin || '???'}</span>
+                <div className="w-8 h-[2px] bg-white/20 rounded-full relative">
+                  <Plane className="w-3 h-3 text-white/40 absolute -top-1 left-1/2 -translate-x-1/2" />
+                </div>
+                <span className="text-2xl font-bold text-white">{portalCapture.destination || '???'}</span>
+              </div>
+              {portalCapture.cabin && (
+                <GlassBadge variant="accent" size="md">
+                  {portalCapture.cabin}
+                </GlassBadge>
+              )}
+            </div>
+
+            {/* Detailed Flight Info */}
+            {portalCapture.outbound?.airlines && portalCapture.outbound.airlines.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {/* Outbound Flight */}
+                <FlightLegDisplay
+                  leg={portalCapture.outbound}
+                  label="Outbound"
+                  date={portalCapture.departDate ? new Date(portalCapture.departDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined}
+                />
+                {/* Return Flight */}
+                {portalCapture.returnFlight && portalCapture.returnFlight.airlines && (
+                  <FlightLegDisplay
+                    leg={portalCapture.returnFlight}
+                    label="Return"
+                    date={portalCapture.returnDate ? new Date(portalCapture.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined}
+                  />
+                )}
               </div>
             )}
+            
+            {/* If no detailed info, show basic badges */}
+            {(!portalCapture.outbound?.airlines || portalCapture.outbound.airlines.length === 0) && (
+              <div className="flex gap-2 flex-wrap mb-4">
+                {portalCapture.departDate && (
+                  <GlassBadge variant="default" size="md">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(portalCapture.departDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {portalCapture.returnDate && ` - ${new Date(portalCapture.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  </GlassBadge>
+                )}
+                {portalCapture.airline && (
+                  <GlassBadge variant="default" size="md">{portalCapture.airline}</GlassBadge>
+                )}
+                {typeof portalCapture.stops === 'number' && (
+                  <GlassBadge variant={portalCapture.stops === 0 ? 'success' : 'default'} size="sm">
+                    {portalCapture.stops === 0 ? 'Nonstop' : `${portalCapture.stops} stop${portalCapture.stops > 1 ? 's' : ''}`}
+                  </GlassBadge>
+                )}
+              </div>
+            )}
+
+            <GlassDivider className="my-4" />
+
+            {/* Price */}
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-sm">Portal Price</span>
+              <span className="text-2xl font-bold text-white">${portalCapture.priceUSD.toLocaleString()}</span>
+            </div>
           </GlassCard>
+          
+          {/* Instruction */}
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-4">
+            <div className="text-xs text-blue-300 font-medium mb-1">📍 Match this exact flight:</div>
+            <div className="text-xs text-white/60 leading-relaxed">
+              • Same airline{portalCapture.outbound?.airlines && portalCapture.outbound.airlines.length > 1 && 's'}: {portalCapture.outbound?.airlines?.join(' + ') || portalCapture.airline || 'Check airline'}
+              <br />• Same dates: {portalCapture.departDate ? new Date(portalCapture.departDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Check dates'}
+              {portalCapture.returnDate && ` - ${new Date(portalCapture.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+              <br />• Same cabin: {portalCapture.cabin || 'Economy'}
+            </div>
+            {/* IMPORTANT: Same times - highlighted to draw attention */}
+            {(portalCapture.outbound?.departureTime || portalCapture.outbound?.arrivalTime) && (
+              <div className="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                <div className="text-xs text-amber-300 font-medium flex items-center gap-1.5">
+                  <span>⚠️</span>
+                  <span>Same times:</span>
+                </div>
+                <div className="text-xs text-amber-200/80 mt-1">
+                  {portalCapture.outbound?.departureTime && (
+                    <span>Departs {portalCapture.outbound.departureTime}</span>
+                  )}
+                  {portalCapture.outbound?.arrivalTime && (
+                    <span> → Arrives {portalCapture.outbound.arrivalTime}</span>
+                  )}
+                  {portalCapture.returnFlight?.departureTime && (
+                    <span className="block mt-0.5">
+                      Return: {portalCapture.returnFlight.departureTime}
+                      {portalCapture.returnFlight?.arrivalTime && ` → ${portalCapture.returnFlight.arrivalTime}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Loading spinner */}
           <div className="flex items-center justify-center gap-2 text-white/40">
@@ -2365,6 +2771,7 @@ const CompareTabContent: React.FC<{
         <DirectCaptureCard
           capture={directCapture}
           portalPriceUSD={portalCapture.priceUSD}
+          portalCapture={portalCapture}
           onConfirm={onConfirmDirect}
           onRecapture={onRecaptureDirect}
         />
@@ -2387,6 +2794,12 @@ const CompareTabContent: React.FC<{
             tabMode={tabMode}
             onTabModeChange={onTabModeChange}
             bookingType="flight"
+            // NEW-8: Pass seller info from Google Flights booking page
+            sellerType={directCapture.sellerType}
+            sellerName={directCapture.sellerName}
+            // FX conversion detection
+            hasFxConversion={directCapture.currency !== 'USD'}
+            fxCurrency={directCapture.currency !== 'USD' ? directCapture.currency : undefined}
           />
           
           {/* Ask About This Verdict Module - with spacing from verdict card */}
@@ -2611,6 +3024,33 @@ export function SidePanelApp() {
       detectCurrentPage();
       loadCapturedData();
       
+      // ============================================
+      // TAB CHANGE LISTENER
+      // When user navigates or switches tabs, detect new page
+      // and clear stale captures from different booking type
+      // ============================================
+      const handleTabActivated = (_activeInfo: chrome.tabs.TabActiveInfo) => {
+        console.log('[SidePanelApp] 🔄 Tab activated - re-detecting page');
+        detectCurrentPage();
+      };
+      
+      const handleTabUpdated = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
+        // Only re-detect on URL changes for active tab
+        if (changeInfo.url && tab.active) {
+          console.log('[SidePanelApp] 🔄 URL changed - re-detecting page:', changeInfo.url.substring(0, 60));
+          detectCurrentPage();
+        }
+        // Also re-detect when page finishes loading (for SPA navigations)
+        if (changeInfo.status === 'complete' && tab.active) {
+          console.log('[SidePanelApp] 🔄 Page load complete - re-detecting');
+          detectCurrentPage();
+        }
+      };
+      
+      // Listen for tab activation and URL changes
+      chrome.tabs.onActivated.addListener(handleTabActivated);
+      chrome.tabs.onUpdated.addListener(handleTabUpdated);
+      
       // Set up message listener for price captures from content scripts
       const handleMessage = (message: { type: string; payload?: unknown }) => {
         console.log('[SidePanelApp] 📩 Message received:', message.type, 'has payload:', !!message.payload);
@@ -2628,6 +3068,12 @@ export function SidePanelApp() {
             console.log('[SidePanelApp] Processing portal snapshot:', snapshot);
             processPortalSnapshot(snapshot);
             setBookingType('flight');
+            // IMPORTANT: When receiving a new portal capture, reset to step 1
+            // This ensures we don't show step 2 from stale direct captures
+            setCurrentStep(1);
+            // Clear any stale direct capture that might be from a different flight
+            setDirectCapture(null);
+            console.log('[SidePanelApp] ✈️ New portal capture - reset to step 1');
           }
         }
         
@@ -2655,6 +3101,12 @@ export function SidePanelApp() {
             processStayPortalSnapshot(payload.stayCapture);
             setBookingType('stay');
             setDetectedSite('capital-one-stays');
+            // IMPORTANT: When receiving a new stay portal capture, reset to step 1
+            // This ensures we don't show step 2 from stale direct captures
+            setCurrentStep(1);
+            // Clear any stale direct stay capture that might be from a different property
+            setDirectStayCapture(null);
+            console.log('[SidePanelApp] 🏨 New stay portal capture - reset to step 1');
             // Auto-switch to compare tab when capture received
             if (userPrefs?.defaultOpenTab === 'auto' || !userPrefs) {
               setActiveTab('compare');
@@ -2719,6 +3171,10 @@ export function SidePanelApp() {
           processStayPortalSnapshot(changes.vx_stay_portal_snapshot.newValue);
           setBookingType('stay');
           setDetectedSite('capital-one-stays');
+          // IMPORTANT: Reset to step 1 and clear stale direct capture
+          setCurrentStep(1);
+          setDirectStayCapture(null);
+          console.log('[SidePanelApp] 🏨 New stay portal snapshot - reset to step 1');
           setActiveTab('compare');
         }
         
@@ -2734,6 +3190,10 @@ export function SidePanelApp() {
           console.log('[SidePanelApp] ✈️ Flight portal snapshot changed in storage!');
           processPortalSnapshot(changes.vx_portal_snapshot.newValue);
           setBookingType('flight');
+          // IMPORTANT: Reset to step 1 and clear stale direct capture
+          setCurrentStep(1);
+          setDirectCapture(null);
+          console.log('[SidePanelApp] ✈️ New flight portal snapshot - reset to step 1');
         }
         
         // Watch for flight direct capture changes
@@ -2749,6 +3209,8 @@ export function SidePanelApp() {
         console.log('[SidePanelApp] Cleaning up listeners');
         chrome.runtime.onMessage.removeListener(handleMessage);
         chrome.storage.local.onChanged.removeListener(handleStorageChange);
+        chrome.tabs.onActivated.removeListener(handleTabActivated);
+        chrome.tabs.onUpdated.removeListener(handleTabUpdated);
       };
     }
   }, [checkingOnboarding, showOnboarding]);
@@ -2782,9 +3244,76 @@ export function SidePanelApp() {
   }, [currentStep]);
 
   // Load any previously captured data from storage
+  // SMART LOADING: Only load captures relevant to the CURRENT PAGE
+  // ALSO: Force re-capture on portal pages to get fresh data
   const loadCapturedData = async () => {
     try {
       console.log('[SidePanelApp] 📦 Loading captured data from storage...');
+      
+      // First, detect what type of page we're currently on
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const currentUrl = (tab?.url || '').toLowerCase();
+      
+      // ============================================
+      // FORCE RE-CAPTURE ON PORTAL PAGES
+      // When the side panel opens on a portal page, force a fresh capture
+      // to ensure we have the latest price (not stale cached data)
+      // ============================================
+      // IMPORTANT: Only force capture on REVIEW/BOOK pages, NOT on search/selection pages!
+      // URL patterns:
+      // - flightShopProgress=1 = Departure selection (SEARCH - skip)
+      // - flightShopProgress=2 = Return selection (SEARCH - skip)
+      // - flightShopProgress=3 = Review itinerary (CAPTURE ✓)
+      // - /flights/book = Book page (CAPTURE ✓)
+      const flightProgressMatch = currentUrl.match(/flightshopprogress=(\d+)/i);
+      const flightProgress = flightProgressMatch ? parseInt(flightProgressMatch[1], 10) : 0;
+      const isOnReviewOrBookPage = (flightProgress === 3) || currentUrl.includes('/flights/book');
+      
+      const isOnCapitalOnePortalFlights = currentUrl.includes('capitalone.com') &&
+                                           currentUrl.includes('flights') &&
+                                           !currentUrl.includes('/stays/') &&
+                                           !currentUrl.includes('/hotels/');
+      const isOnCapitalOneStays = currentUrl.includes('capitalone.com') &&
+                                   (currentUrl.includes('/stays/') || currentUrl.includes('/hotels/') || currentUrl.includes('lodgings'));
+      
+      // Only force capture on REVIEW/BOOK pages, NOT while user is browsing flights
+      if (isOnCapitalOnePortalFlights && isOnReviewOrBookPage && tab?.id) {
+        console.log('[SidePanelApp] ✈️ On Capital One portal REVIEW/BOOK page - forcing fresh capture...');
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'FORCE_CAPTURE_PORTAL' });
+          // Give the content script a moment to capture and send the message
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+          console.log('[SidePanelApp] Force capture failed (content script may not be ready):', e);
+        }
+      } else if (isOnCapitalOnePortalFlights && !isOnReviewOrBookPage) {
+        console.log('[SidePanelApp] ✈️ On Capital One portal SEARCH page (progress=' + flightProgress + ') - NOT capturing, user is browsing');
+      }
+      
+      if (isOnCapitalOneStays && tab?.id) {
+        console.log('[SidePanelApp] 🏨 On Capital One stays - forcing fresh capture...');
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'FORCE_CAPTURE_STAY' });
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+          console.log('[SidePanelApp] Force stay capture failed:', e);
+        }
+      }
+      
+      // Determine current page type from URL
+      const isOnStaysPage = (currentUrl.includes('capitalone.com') &&
+                            (currentUrl.includes('/stays/') || currentUrl.includes('/hotels/') || currentUrl.includes('lodgings'))) ||
+                           (currentUrl.includes('google.com/travel') && currentUrl.includes('hotel'));
+      const isOnFlightsPage = (currentUrl.includes('capitalone.com') &&
+                              (currentUrl.includes('/flights') || currentUrl.includes('flights/shop'))) ||
+                             (currentUrl.includes('google.com') && (currentUrl.includes('/flights') || currentUrl.includes('/travel/flights')));
+      
+      console.log('[SidePanelApp] 📦 Current page analysis:', {
+        url: currentUrl.substring(0, 80),
+        isOnStaysPage,
+        isOnFlightsPage
+      });
+      
       const data = await chrome.storage.local.get([
         'vx_portal_snapshot',
         'vx_direct_snapshot',
@@ -2793,14 +3322,133 @@ export function SidePanelApp() {
         'vx_stay_direct_snapshot'
       ]);
       
-      console.log('[SidePanelApp] 📦 Storage keys found:', Object.keys(data));
+      console.log('[SidePanelApp] 📦 Storage keys found:', Object.keys(data).filter(k => data[k]));
       
-      // IMPORTANT: Load STAY captures FIRST so they take precedence
-      // If we have stay data, set booking type to stay
+      // ============================================
+      // SMART LOADING LOGIC:
+      // Only load captures that match the CURRENT page type
+      // This prevents stale hotel data from showing on flight pages
+      // ============================================
+      
+      // If we're on a FLIGHTS page, clear stale stay data and load flights
+      if (isOnFlightsPage) {
+        console.log('[SidePanelApp] ✈️ On flights page - clearing any stale stay data');
+        setStayCapture(null);
+        setDirectStayCapture(null);
+        
+        // Clear stale stay snapshots from storage
+        if (data.vx_stay_portal_snapshot || data.vx_stay_direct_snapshot) {
+          await chrome.storage.local.remove(['vx_stay_portal_snapshot', 'vx_stay_direct_snapshot']);
+          console.log('[SidePanelApp] 🗑️ Cleared stale stay snapshots from storage');
+        }
+        
+        // Determine if we're specifically on Capital One portal vs Google Flights
+        // This is important for setting the correct step
+        const isOnCapitalOnePortal = currentUrl.includes('capitalone.com');
+        const isOnGoogleFlights = currentUrl.includes('google.com') &&
+                                   (currentUrl.includes('/flights') || currentUrl.includes('/travel/flights'));
+        
+        // Load flight data if available
+        if (data.vx_portal_snapshot) {
+          console.log('[SidePanelApp] ✈️ Loading portal snapshot from storage');
+          processPortalSnapshot(data.vx_portal_snapshot);
+        }
+        
+        // Only load direct snapshot if we're NOT on the portal page
+        // When on portal, any existing direct capture is likely from a different flight
+        // and loading it would incorrectly set step to 2
+        if (data.vx_direct_snapshot) {
+          if (!isOnCapitalOnePortal) {
+            console.log('[SidePanelApp] ✈️ Loading direct snapshot from storage');
+            processDirectSnapshot(data.vx_direct_snapshot);
+          } else {
+            console.log('[SidePanelApp] ✈️ On portal page - NOT loading direct snapshot (stale from different flight)');
+            // Clear the direct capture state to ensure step 1 is shown
+            setDirectCapture(null);
+            // Clear stale direct snapshot from storage
+            await chrome.storage.local.remove(['vx_direct_snapshot']);
+            console.log('[SidePanelApp] 🗑️ Cleared stale direct snapshot from storage');
+          }
+        }
+        
+        // Explicitly set the correct step based on current page context
+        // This prevents showing step 2 when user is on the portal page
+        if (isOnCapitalOnePortal) {
+          console.log('[SidePanelApp] ✈️ On portal - setting step to 1');
+          setCurrentStep(1);
+        } else if (isOnGoogleFlights && data.vx_portal_snapshot) {
+          console.log('[SidePanelApp] ✈️ On Google Flights with portal data - setting step to 2');
+          setCurrentStep(2);
+        }
+        
+        setBookingType('flight');
+        return;
+      }
+      
+      // If we're on a STAYS page, clear stale flight data and load stays
+      if (isOnStaysPage) {
+        console.log('[SidePanelApp] 🏨 On stays page - clearing any stale flight data');
+        setPortalCapture(null);
+        setDirectCapture(null);
+        
+        // Clear stale flight snapshots from storage
+        if (data.vx_portal_snapshot || data.vx_direct_snapshot) {
+          await chrome.storage.local.remove(['vx_portal_snapshot', 'vx_direct_snapshot']);
+          console.log('[SidePanelApp] 🗑️ Cleared stale flight snapshots from storage');
+        }
+        
+        // Determine if we're specifically on Capital One stays portal vs Google Hotels
+        // This is important for setting the correct step
+        const isOnCapitalOneStays = currentUrl.includes('capitalone.com') &&
+                                     (currentUrl.includes('/stays/') || currentUrl.includes('/hotels/') || currentUrl.includes('lodgings'));
+        const isOnGoogleHotels = currentUrl.includes('google.com/travel') && currentUrl.includes('hotel');
+        
+        // Load stay data if available
+        if (data.vx_stay_portal_snapshot) {
+          console.log('[SidePanelApp] 🏨 Loading stay portal snapshot from storage');
+          processStayPortalSnapshot(data.vx_stay_portal_snapshot);
+          setBookingType('stay');
+          setDetectedSite('capital-one-stays');
+        }
+        
+        // Only load direct stay snapshot if we're NOT on the portal page
+        // When on portal, any existing direct capture is likely from a different property
+        // and loading it would incorrectly set step to 2
+        if (data.vx_stay_direct_snapshot) {
+          if (!isOnCapitalOneStays) {
+            console.log('[SidePanelApp] 🏨 Loading stay direct snapshot from storage');
+            processStayDirectSnapshot(data.vx_stay_direct_snapshot);
+          } else {
+            console.log('[SidePanelApp] 🏨 On portal stays page - NOT loading direct snapshot (stale from different property)');
+            // Clear the direct stay capture state to ensure step 1 is shown
+            setDirectStayCapture(null);
+            // Clear stale direct snapshot from storage
+            await chrome.storage.local.remove(['vx_stay_direct_snapshot']);
+            console.log('[SidePanelApp] 🗑️ Cleared stale stay direct snapshot from storage');
+          }
+        }
+        
+        // Explicitly set the correct step based on current page context
+        // This prevents showing step 2 when user is on the portal stays page
+        if (isOnCapitalOneStays) {
+          console.log('[SidePanelApp] 🏨 On portal stays - setting step to 1');
+          setCurrentStep(1);
+        } else if (isOnGoogleHotels && data.vx_stay_portal_snapshot) {
+          console.log('[SidePanelApp] 🏨 On Google Hotels with portal data - setting step to 2');
+          setCurrentStep(2);
+        }
+        
+        return;
+      }
+      
+      // If we're on an UNKNOWN page (neither flights nor stays),
+      // load the most recent data (stay data takes precedence for backwards compat)
+      console.log('[SidePanelApp] ❓ On unknown page - loading most recent captures');
+      
       let hasStayData = false;
       
       if (data.vx_stay_portal_snapshot) {
-        console.log('[SidePanelApp] 🏨 Found stay portal snapshot in storage:', data.vx_stay_portal_snapshot);
+        console.log('[SidePanelApp] 🏨 Found stay portal snapshot in storage');
         processStayPortalSnapshot(data.vx_stay_portal_snapshot);
         hasStayData = true;
         setBookingType('stay');
@@ -2813,7 +3461,6 @@ export function SidePanelApp() {
       }
       
       // Only load flight captures if we DON'T have stay data
-      // This prevents old flight data from interfering with stays UI
       if (!hasStayData) {
         if (data.vx_portal_snapshot) {
           console.log('[SidePanelApp] ✈️ Found portal snapshot in storage');
@@ -2829,21 +3476,21 @@ export function SidePanelApp() {
       if (data.vx_flow_state) {
         const flowState = data.vx_flow_state as { portalSnapshot?: unknown; directSnapshot?: unknown; stayPortalSnapshot?: unknown; stayDirectSnapshot?: unknown };
         
-        // Stay data takes precedence
-        if (flowState.stayPortalSnapshot) {
+        // Stay data takes precedence (only if on stays page or no page detected)
+        if (!isOnFlightsPage && flowState.stayPortalSnapshot) {
           console.log('[SidePanelApp] 🏨 Found stay portal snapshot in flow state');
           processStayPortalSnapshot(flowState.stayPortalSnapshot);
           hasStayData = true;
           setBookingType('stay');
         }
-        if (flowState.stayDirectSnapshot) {
+        if (!isOnFlightsPage && flowState.stayDirectSnapshot) {
           console.log('[SidePanelApp] 🏨 Found stay direct snapshot in flow state');
           processStayDirectSnapshot(flowState.stayDirectSnapshot);
           hasStayData = true;
         }
         
         // Flight data only if no stay data
-        if (!hasStayData) {
+        if (!hasStayData && !isOnStaysPage) {
           if (flowState.portalSnapshot) {
             console.log('[SidePanelApp] ✈️ Found portal snapshot in flow state');
             processPortalSnapshot(flowState.portalSnapshot);
@@ -2918,6 +3565,17 @@ export function SidePanelApp() {
     const s = snapshot as {
       totalPrice?: { amount?: number; currency?: string };
       siteName?: string;
+      // Seller info from Google Flights booking page (NEW-8 fix)
+      sellerType?: 'airline' | 'ota' | 'metasearch' | 'unknown';
+      sellerName?: string;
+      bookingOptions?: Array<{
+        provider: string;
+        providerType: 'airline' | 'ota' | 'metasearch' | 'unknown';
+        price: number;
+        currency: string;
+        isLowest: boolean;
+      }>;
+      lowestPriceProvider?: string;
     };
     
     if (s?.totalPrice?.amount) {
@@ -2925,11 +3583,26 @@ export function SidePanelApp() {
       const currency = s.totalPrice.currency || 'USD';
       const priceUSD = currency === 'USD' ? rawPrice : convertToUSD(rawPrice, currency);
       
+      // Log seller info for debugging (NEW-8)
+      if (s.sellerType || s.sellerName || s.bookingOptions) {
+        console.log('[SidePanelApp] ✈️ Direct capture with seller info:', {
+          sellerType: s.sellerType,
+          sellerName: s.sellerName,
+          bookingOptionsCount: s.bookingOptions?.length,
+          lowestPriceProvider: s.lowestPriceProvider,
+        });
+      }
+      
       setDirectCapture({
         price: rawPrice,
         priceUSD: Math.round(priceUSD),
         currency,
         siteName: s.siteName || 'Google Flights',
+        // Pass seller info from Google Flights booking page (NEW-8 fix)
+        sellerType: s.sellerType,
+        sellerName: s.sellerName,
+        bookingOptions: s.bookingOptions,
+        lowestPriceProvider: s.lowestPriceProvider,
       });
       setDetectedSite('google-flights');
       setCurrentStep(2);
@@ -3122,34 +3795,70 @@ export function SidePanelApp() {
       if (tab?.url) {
         const url = tab.url.toLowerCase();
         
+        // Determine what type of page this is
+        let newDetectedSite: DetectedSite = 'unknown';
+        let newBookingType: BookingType = 'flight';
+        let newStep: FlowStep = 1;
+        
         // Capital One Travel - Stays detection (check first, more specific)
         if ((url.includes('capitalone.com') || url.includes('travel.capitalone.com')) &&
             (url.includes('/stays/') || url.includes('/hotels/') || url.includes('lodgings'))) {
           console.log('[SidePanelApp] Detected Capital One Travel (Stays)');
-          setDetectedSite('capital-one-stays');
-          setBookingType('stay');
+          newDetectedSite = 'capital-one-stays';
+          newBookingType = 'stay';
         }
         // Capital One Travel - Flights
         else if (url.includes('capitalone.com/travel') || url.includes('travel.capitalone.com') || url.includes('capitalone.com/flights')) {
           console.log('[SidePanelApp] Detected Capital One portal (Flights)');
-          setDetectedSite('capital-one-portal');
-          setBookingType('flight');
+          newDetectedSite = 'capital-one-portal';
+          newBookingType = 'flight';
         }
         // Google Hotels
         else if (url.includes('google.com/travel/hotels') || (url.includes('google.com/travel') && url.includes('hotel'))) {
           console.log('[SidePanelApp] Detected Google Hotels');
-          setDetectedSite('google-hotels');
-          setBookingType('stay');
-          setCurrentStep(2);
+          newDetectedSite = 'google-hotels';
+          newBookingType = 'stay';
+          newStep = 2;
         }
         // Google Flights
         else if (url.includes('google.com/travel/flights') || url.includes('google.com/flights')) {
           console.log('[SidePanelApp] Detected Google Flights');
-          setDetectedSite('google-flights');
-          setBookingType('flight');
-          setCurrentStep(2);
+          newDetectedSite = 'google-flights';
+          newBookingType = 'flight';
+          newStep = 2;
         } else {
           console.log('[SidePanelApp] No matching site detected');
+        }
+        
+        // ============================================
+        // SMART INVALIDATION: Clear stale captures when
+        // user navigates to a DIFFERENT booking type
+        // ============================================
+        const previousBookingType = bookingType;
+        
+        // If we're moving from stays → flights, clear stay captures
+        if (previousBookingType === 'stay' && newBookingType === 'flight') {
+          console.log('[SidePanelApp] 🔄 Booking type changed: stay → flight. Clearing stale stay captures.');
+          setStayCapture(null);
+          setDirectStayCapture(null);
+          // Also clear from storage to prevent reload issues
+          chrome.storage.local.remove(['vx_stay_portal_snapshot', 'vx_stay_direct_snapshot']).catch(console.error);
+        }
+        
+        // If we're moving from flights → stays, clear flight captures
+        if (previousBookingType === 'flight' && newBookingType === 'stay') {
+          console.log('[SidePanelApp] 🔄 Booking type changed: flight → stay. Clearing stale flight captures.');
+          setPortalCapture(null);
+          setDirectCapture(null);
+          // Also clear from storage to prevent reload issues
+          chrome.storage.local.remove(['vx_portal_snapshot', 'vx_direct_snapshot']).catch(console.error);
+        }
+        
+        // Now update state
+        setDetectedSite(newDetectedSite);
+        setBookingType(newBookingType);
+        if (newStep !== 1) {
+          setCurrentStep(newStep);
         }
       }
     } catch (e) {

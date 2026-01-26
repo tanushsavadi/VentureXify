@@ -57,10 +57,14 @@ export interface VerdictDataProgressive {
   
   // Primary delta chip
   primaryDelta: {
-    type: 'savings' | 'cost';
+    type: 'savings' | 'cost' | 'tie'; // NEW: 'tie' for close calls
     amount: number;
-    label: string; // "Save $246" or "$246 more"
+    label: string; // "Save $246" or "$246 more" or "Essentially a tie"
   };
+  
+  // Close-call state - when prices are within threshold
+  isCloseCall?: boolean;
+  closeCallReason?: string; // e.g., "Within $25 or 2% - choose based on cancellation/support"
   
   // Secondary perk chip (optional)
   secondaryPerk?: {
@@ -153,7 +157,7 @@ interface ProgressiveVerdictCardProps {
 // ============================================
 
 const DetailChip: React.FC<{
-  type: 'success' | 'neutral' | 'warning' | 'confirm';
+  type: 'success' | 'neutral' | 'warning' | 'confirm' | 'tie';
   icon?: React.ReactNode;
   children: React.ReactNode;
   onClick?: () => void;
@@ -163,6 +167,8 @@ const DetailChip: React.FC<{
     success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
     neutral: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300',
     warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+    // 'tie' type: close-call situation - uses amber/yellow for "uncertain"
+    tie: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
     // 'confirm' type: actionable, not error-like - uses blue/cyan tones
     confirm: checked
       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
@@ -452,6 +458,7 @@ const DetailsModal: React.FC<{
 
           <div className="relative p-5 space-y-5">
             {/* ===== HERO SUMMARY (Always Visible) ===== */}
+            {/* UX FIX P0-1: Show actual out-of-pocket as PRIMARY, effective cost as SECONDARY */}
             <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 via-indigo-500/5 to-purple-500/10 border border-emerald-500/20">
               {/* Winner Badge */}
               <div className="flex items-center gap-2 mb-3">
@@ -461,21 +468,35 @@ const DetailsModal: React.FC<{
                 </span>
               </div>
               
-              {/* Hero Number: Effective Cost */}
-              <div className="flex items-baseline gap-2 mb-2">
+              {/* PRIMARY: Actual Out-of-Pocket (what you pay today) */}
+              <div className="flex items-baseline gap-2 mb-1">
                 <span className="text-[10px] text-white/50 uppercase tracking-wider">
-                  <InfoTooltip
-                    term="Effective Cost"
-                    definition="Out-of-pocket minus the value of miles earned. This shows true cost after accounting for rewards."
-                  />
+                  Pay Today
                 </span>
               </div>
-              <div className="text-3xl font-bold text-white mb-3">
-                {/* Math panel shows cents precision for accuracy */}
-                ${winnerEffective.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              <div className="text-3xl font-bold text-white mb-2">
+                ${(portalWins ? fullBreakdown.portalOutOfPocket : fullBreakdown.directOutOfPocket).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
               
-              {/* Secondary: Savings */}
+              {/* SECONDARY: Effective Cost (after valuing miles) - smaller, with explanation */}
+              <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] mb-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/40">
+                    <InfoTooltip
+                      term="Effective cost"
+                      definition="Your out-of-pocket minus the value of miles you'll earn (at 1.8¢/mi default). This is NOT real savings — it's what your cost looks like IF you value those miles. You can adjust the mile value in settings."
+                    />
+                  </span>
+                  <span className="text-sm font-semibold text-white/70">
+                    ${winnerEffective.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+                <div className="text-[9px] text-white/30 mt-1">
+                  = ${(portalWins ? fullBreakdown.portalOutOfPocket : fullBreakdown.directOutOfPocket).toLocaleString()} out-of-pocket − ${Math.round((portalWins ? portalMilesSafe : directMilesSafe) * MILE_VALUE).toLocaleString()} miles value
+                </div>
+              </div>
+              
+              {/* Savings vs alternative */}
               <div className="flex items-center gap-3 text-sm">
                 {savings > 0 ? (
                   <span className={cn(
@@ -501,6 +522,9 @@ const DetailsModal: React.FC<{
                     {portalMilesSafe > directMilesSafe ? 'Portal' : 'Direct'} earns{' '}
                     <span className="text-indigo-300 font-medium">
                       +{milesDiff.toLocaleString()} more miles
+                    </span>
+                    <span className="text-white/30 ml-1">
+                      (~${Math.round(milesDiff * MILE_VALUE).toLocaleString()} value at 1.8¢/mi)
                     </span>
                   </div>
                 </div>
@@ -896,6 +920,69 @@ const AwardRealityCheck: React.FC<{
 );
 
 // ============================================
+// CLOSE-CALL BANNER COMPONENT
+// Shows when prices are within threshold and verdict is uncertain
+// ============================================
+
+const CloseCallBanner: React.FC<{
+  reason?: string;
+}> = ({ reason }) => (
+  <motion.div
+    initial={{ opacity: 0, y: -8 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30"
+  >
+    <div className="flex items-start gap-2">
+      <span className="text-base mt-0.5">⚖️</span>
+      <div className="flex-1">
+        <div className="text-sm font-semibold text-amber-300 mb-1">
+          Essentially a tie
+        </div>
+        <div className="text-xs text-amber-200/80">
+          {reason || 'Prices are within $25 or 2% — choose based on cancellation policies, support quality, or personal preference.'}
+        </div>
+      </div>
+    </div>
+  </motion.div>
+);
+
+// ============================================
+// CONFIDENCE BADGE COMPONENT
+// Shows confidence level when not high
+// ============================================
+
+const ConfidenceBadge: React.FC<{
+  level: 'high' | 'medium' | 'low';
+}> = ({ level }) => {
+  if (level === 'high') return null;
+  
+  const config = {
+    medium: {
+      color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+      label: 'Medium confidence',
+      icon: '⚠️',
+    },
+    low: {
+      color: 'bg-red-500/15 text-red-400 border-red-500/30',
+      label: 'Low confidence',
+      icon: '❓',
+    },
+  };
+  
+  const { color, label, icon } = config[level];
+  
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border',
+      color
+    )}>
+      <span>{icon}</span>
+      {label}
+    </span>
+  );
+};
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -907,11 +994,15 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
   onCompareOthers,
   className,
 }) => {
-  const [showWhy, setShowWhy] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
+  // UX FIX P2-8: Expand "Why This Wins" by default for transparency
+  const [showWhy, setShowWhy] = useState(true);
+  // Auto-open math for low confidence verdicts
+  const [showDetails, setShowDetails] = useState(verdict.confidence === 'low');
   const [warningConfirmed, setWarningConfirmed] = useState(false);
 
   const getRecommendationEmoji = () => {
+    // Show tie emoji for close calls
+    if (verdict.isCloseCall) return '⚖️';
     switch (verdict.recommendation) {
       case 'portal': return '🏦';
       case 'direct': return '✈️';
@@ -921,13 +1012,15 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
   };
 
   // Friction level defaults based on recommendation
+  // Note: If a booking-type-aware friction is provided via verdict.friction, use it.
+  // Otherwise, provide generic defaults (booking type context passed via verdict.friction from parent)
   const getFriction = () => {
     if (verdict.friction) return verdict.friction;
-    // Default friction levels
+    // Default friction levels - generic fallback (booking-type-specific handled by parent)
     if (verdict.recommendation === 'direct') {
-      return { level: 'low' as const, tooltip: 'Direct booking. Changes handled by airline, easiest for disruptions.' };
+      return { level: 'low' as const, tooltip: 'Direct booking. Easier changes and support.' };
     }
-    return { level: 'medium' as const, tooltip: 'Portal booking + credit. Easy, but changes/support can be slower than booking direct.' };
+    return { level: 'medium' as const, tooltip: 'Portal booking + credit. Easy, but changes/support can be slower.' };
   };
   
   const friction = getFriction();
@@ -962,12 +1055,20 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
 
           {/* ===== LEVEL 0: HERO DECISION ===== */}
           <div className="relative z-10">
+            {/* Close-call banner (show when prices are within threshold) */}
+            {verdict.isCloseCall && (
+              <CloseCallBanner reason={verdict.closeCallReason} />
+            )}
+            
             {/* Recommended badge + Friction badge row */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Crown className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Recommended</span>
+                <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                  {verdict.isCloseCall ? 'Slight Edge' : 'Recommended'}
+                </span>
               </div>
+              {/* UX FIX P2-10: Friction badge now has detailed explanation in tooltip */}
               <FrictionBadge level={friction.level} tooltip={friction.tooltip} />
             </div>
             
@@ -992,12 +1093,16 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
 
             {/* Chips row: Primary delta + Secondary perk - semantic colors */}
             <div className="flex flex-wrap gap-2 mb-5">
-              {/* Primary delta chip - green for savings */}
+              {/* Primary delta chip - green for savings, amber for tie */}
               <DetailChip
-                type={verdict.primaryDelta.type === 'savings' ? 'success' : 'neutral'}
+                type={verdict.primaryDelta.type === 'savings' ? 'success'
+                    : verdict.primaryDelta.type === 'tie' ? 'tie'
+                    : 'neutral'}
                 icon={verdict.primaryDelta.type === 'savings'
                   ? <TrendingDown className="w-3 h-3" />
-                  : <DollarSign className="w-3 h-3" />
+                  : verdict.primaryDelta.type === 'tie'
+                    ? <span className="text-xs">⚖️</span>
+                    : <DollarSign className="w-3 h-3" />
                 }
               >
                 {verdict.primaryDelta.label}

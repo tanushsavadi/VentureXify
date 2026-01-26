@@ -89,20 +89,31 @@ const CURRENCY_SYMBOLS: Record<string, string[]> = {
 const CACHE_KEY = 'vx_exchange_rates';
 const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
+// FX source metadata for trust display
+export type FxSourceType = 'exchangerate.host' | 'fawazahmed0' | 'fallback' | 'pegged';
+
 interface CachedRates {
   rates: Record<string, number>;
   fetchedAt: number;
   source: 'api' | 'fallback';
+  /** Specific API name for display (e.g., 'exchangerate.host') */
+  sourceName?: string;
 }
 
 // In-memory cache for quick access
 let cachedRates: CachedRates | null = null;
 
+/** Result from fetching live rates, includes source metadata */
+interface FetchResult {
+  rates: Record<string, number>;
+  sourceName: FxSourceType;
+}
+
 /**
  * Get exchange rates from API
  * Uses exchangerate.host as primary, fallback to fawazahmed0/currency-api
  */
-async function fetchLiveRates(): Promise<Record<string, number>> {
+async function fetchLiveRates(): Promise<FetchResult> {
   // Primary API: exchangerate.host (free, no key required)
   // Returns rates FROM USD to other currencies
   const primaryUrl = 'https://api.exchangerate.host/latest?base=USD';
@@ -115,8 +126,8 @@ async function fetchLiveRates(): Promise<Record<string, number>> {
   // Try primary API
   try {
     console.log('[CurrencyConverter] Fetching rates from exchangerate.host...');
-    const response = await fetch(primaryUrl, { 
-      signal: AbortSignal.timeout(5000) 
+    const response = await fetch(primaryUrl, {
+      signal: AbortSignal.timeout(5000)
     });
     
     if (response.ok) {
@@ -129,8 +140,8 @@ async function fetchLiveRates(): Promise<Record<string, number>> {
           }
         }
         rates['USD'] = 1.0;
-        console.log('[CurrencyConverter] Fetched', Object.keys(rates).length, 'rates from primary API');
-        return rates;
+        console.log('[CurrencyConverter] Fetched', Object.keys(rates).length, 'rates from exchangerate.host');
+        return { rates, sourceName: 'exchangerate.host' };
       }
     }
   } catch (e) {
@@ -140,8 +151,8 @@ async function fetchLiveRates(): Promise<Record<string, number>> {
   // Try fallback API
   try {
     console.log('[CurrencyConverter] Trying fallback API (fawazahmed0)...');
-    const response = await fetch(fallbackUrl, { 
-      signal: AbortSignal.timeout(5000) 
+    const response = await fetch(fallbackUrl, {
+      signal: AbortSignal.timeout(5000)
     });
     
     if (response.ok) {
@@ -154,8 +165,8 @@ async function fetchLiveRates(): Promise<Record<string, number>> {
           }
         }
         rates['USD'] = 1.0;
-        console.log('[CurrencyConverter] Fetched', Object.keys(rates).length, 'rates from fallback API');
-        return rates;
+        console.log('[CurrencyConverter] Fetched', Object.keys(rates).length, 'rates from fawazahmed0');
+        return { rates, sourceName: 'fawazahmed0' };
       }
     }
   } catch (e) {
@@ -164,7 +175,7 @@ async function fetchLiveRates(): Promise<Record<string, number>> {
   
   // All APIs failed, return empty (will use fallback rates)
   console.log('[CurrencyConverter] All APIs failed, using hardcoded fallback rates');
-  return {};
+  return { rates: {}, sourceName: 'fallback' };
 }
 
 /**
@@ -217,13 +228,14 @@ async function getExchangeRates(): Promise<CachedRates> {
   }
   
   // Fetch fresh rates from API
-  const liveRates = await fetchLiveRates();
+  const fetchResult = await fetchLiveRates();
   
-  if (Object.keys(liveRates).length > 0) {
+  if (Object.keys(fetchResult.rates).length > 0) {
     cachedRates = {
-      rates: liveRates,
+      rates: fetchResult.rates,
       fetchedAt: Date.now(),
       source: 'api',
+      sourceName: fetchResult.sourceName,
     };
     await saveCachedRates(cachedRates);
     return cachedRates;
@@ -255,16 +267,17 @@ export async function refreshExchangeRates(): Promise<boolean> {
   console.log('[CurrencyConverter] Force refreshing rates...');
   cachedRates = null;
   
-  const liveRates = await fetchLiveRates();
+  const fetchResult = await fetchLiveRates();
   
-  if (Object.keys(liveRates).length > 0) {
+  if (Object.keys(fetchResult.rates).length > 0) {
     cachedRates = {
-      rates: liveRates,
+      rates: fetchResult.rates,
       fetchedAt: Date.now(),
       source: 'api',
+      sourceName: fetchResult.sourceName,
     };
     await saveCachedRates(cachedRates);
-    console.log('[CurrencyConverter] Refreshed', Object.keys(liveRates).length, 'rates');
+    console.log('[CurrencyConverter] Refreshed', Object.keys(fetchResult.rates).length, 'rates from', fetchResult.sourceName);
     return true;
   }
   
@@ -273,6 +286,7 @@ export async function refreshExchangeRates(): Promise<boolean> {
     rates: { ...FALLBACK_RATES_TO_USD },
     fetchedAt: Date.now(),
     source: 'fallback',
+    sourceName: 'fallback',
   };
   console.log('[CurrencyConverter] Refresh failed, using fallback rates');
   return false;
@@ -450,19 +464,95 @@ export function formatUSD(amount: number): string {
   return formatPrice(amount, 'USD');
 }
 
-/**
- * Get status of exchange rates
- */
-export function getExchangeRateStatus(): {
+/** Extended FX status with trust-building metadata */
+export interface FxRateStatus {
+  /** High-level source type */
   source: 'api' | 'fallback' | 'none';
+  /** Specific source name for display (e.g., 'exchangerate.host', 'Visa', etc.) */
+  sourceName: string;
+  /** Timestamp when rates were fetched */
   lastUpdated: number | null;
+  /** How long ago in milliseconds */
+  cacheAgeMs: number;
+  /** How many currencies we have rates for */
   currencyCount: number;
-} {
+  /** Whether the cache is stale (> 1 hour old) */
+  isStale: boolean;
+  /** Human-readable cache age */
+  cacheAgeFormatted: string;
+}
+
+/**
+ * Get status of exchange rates with detailed metadata for trust display
+ * TRUST PRINCIPLE: Never show "unknown" - always provide actionable info
+ */
+export function getExchangeRateStatus(): FxRateStatus {
+  const now = Date.now();
+  const lastUpdated = cachedRates?.fetchedAt || null;
+  const cacheAgeMs = lastUpdated ? now - lastUpdated : 0;
+  const isStale = cacheAgeMs > CACHE_DURATION_MS;
+  
+  // Format cache age for display - NEVER "unknown"
+  let cacheAgeFormatted: string;
+  if (lastUpdated) {
+    const mins = Math.round(cacheAgeMs / 60000);
+    if (mins < 1) cacheAgeFormatted = 'just now';
+    else if (mins < 60) cacheAgeFormatted = `cached ${mins}m ago`;
+    else {
+      const hours = Math.round(mins / 60);
+      if (hours < 24) cacheAgeFormatted = `cached ${hours}h ago`;
+      else cacheAgeFormatted = `cached ${Math.round(hours / 24)}d ago`;
+    }
+  } else {
+    // No cache yet - will use fallback rates
+    cacheAgeFormatted = 'using built-in rates';
+  }
+  
+  // Determine source name for display - NEVER "Unknown"
+  // Trust principle: Users need to know where data comes from
+  let sourceName: string;
+  if (cachedRates?.sourceName) {
+    // Proper source name from API
+    sourceName = cachedRates.sourceName;
+  } else if (cachedRates?.source === 'api') {
+    // API source but no specific name
+    sourceName = 'Live exchange rates';
+  } else if (cachedRates?.source === 'fallback') {
+    // Using hardcoded fallback rates
+    sourceName = 'Built-in rates (Jan 2025)';
+  } else {
+    // No rates loaded yet - will use fallback
+    sourceName = 'Built-in rates (Jan 2025)';
+  }
+  
   return {
-    source: cachedRates?.source || 'none',
-    lastUpdated: cachedRates?.fetchedAt || null,
+    source: cachedRates?.source || 'fallback',
+    sourceName,
+    lastUpdated,
+    cacheAgeMs,
     currencyCount: cachedRates?.rates ? Object.keys(cachedRates.rates).length : 0,
+    isStale,
+    cacheAgeFormatted,
   };
+}
+
+/**
+ * Check if a currency uses a pegged (fixed) rate
+ */
+export function isPeggedCurrency(currency: string): boolean {
+  return currency.toUpperCase() in PEGGED_RATES_TO_USD;
+}
+
+/**
+ * Get the rate source for a specific currency
+ * Returns 'pegged' for pegged currencies, otherwise the general source
+ */
+export function getRateSourceForCurrency(currency: string): FxSourceType {
+  const code = currency.toUpperCase();
+  if (PEGGED_RATES_TO_USD[code]) {
+    return 'pegged';
+  }
+  return (cachedRates?.sourceName as FxSourceType) || 'fallback';
 }
 
 // Export fallback rates for reference

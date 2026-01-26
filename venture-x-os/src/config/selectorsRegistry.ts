@@ -212,13 +212,34 @@ export const SELECTOR_REGISTRY: SiteSelectorConfig[] = [
   {
     siteKey: 'travel.capitalone.com',
     siteName: 'Capital One Travel',
-    version: '2026-01-22',
-    lastUpdated: '2026-01-22',
+    version: '2026-01-26',
+    lastUpdated: '2026-01-26',
     siteType: 'portal',
     bookingType: 'multi',
     selectors: {
       totalPrice: {
         primary: [
+          // Flight review/itinerary page - "Continue | $XXX per traveler" button
+          'button[class*="continue" i]',
+          'button[class*="Continue" i]',
+          '[class*="continue-button" i]',
+          '[data-testid*="continue"]',
+          // Price display with miles - "$896 / 89,633 Miles"
+          '[class*="price-display"]',
+          '[class*="priceDisplay"]',
+          '[class*="PriceDisplay"]',
+          // Per traveler price sections
+          '[class*="per-traveler" i]',
+          '[class*="perTraveler" i]',
+          // Flight price sections
+          '[class*="flight-price"]',
+          '[class*="flightPrice"]',
+          '[class*="FlightPrice"]',
+          // Trip cost sections
+          '[class*="trip-cost"]',
+          '[class*="tripCost"]',
+          '[class*="TripCost"]',
+          // Generic price containers
           '[data-testid*="total"]',
           '[data-testid*="price"]',
           '[class*="total-price"]',
@@ -226,6 +247,22 @@ export const SELECTOR_REGISTRY: SiteSelectorConfig[] = [
           '[class*="TotalPrice"]',
         ],
         fallback: [
+          // Review itinerary sections
+          '[class*="review"]',
+          '[class*="Review"]',
+          '[class*="itinerary"]',
+          '[class*="Itinerary"]',
+          // Booking summary areas
+          '[class*="booking-summary"]',
+          '[class*="bookingSummary"]',
+          '[class*="BookingSummary"]',
+          // Price protection sections often show price
+          '[class*="price-protection"]',
+          '[class*="priceProtection"]',
+          // Fare display
+          '[class*="fare"]',
+          '[class*="Fare"]',
+          // Trip total fallbacks
           '[class*="trip-total"]',
           '[class*="tripTotal"]',
           '[class*="grand-total"]',
@@ -233,6 +270,9 @@ export const SELECTOR_REGISTRY: SiteSelectorConfig[] = [
         ],
         semantic: [
           '[aria-label*="total" i]',
+          '[aria-label*="price" i]',
+          '[aria-label*="per traveler" i]',
+          '[aria-label*="continue" i]',
           '[aria-label*="due today" i]',
         ],
         container: [
@@ -240,6 +280,11 @@ export const SELECTOR_REGISTRY: SiteSelectorConfig[] = [
           '[class*="Summary"]',
           '[class*="checkout-breakdown"]',
           '[class*="price-breakdown"]',
+          '[class*="booking-details"]',
+          '[class*="BookingDetails"]',
+          // Right sidebar/panel where prices are typically shown
+          'aside',
+          '[role="complementary"]',
         ],
       },
       taxesFees: {

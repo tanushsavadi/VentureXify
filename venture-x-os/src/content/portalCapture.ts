@@ -108,12 +108,153 @@ function parsePrice(priceStr: string): number | null {
 function extractPriceCandidates(): PriceCandidate[] {
   const candidates: PriceCandidate[] = [];
   const hostname = window.location.hostname;
+  const bodyText = document.body.innerText;
   
-  // Strategy 0 (NEW): Use Selector Registry for Capital One Travel
+  console.log('[PortalCapture] Extracting prices from:', hostname);
+  console.log('[PortalCapture] Body text length:', bodyText.length);
+  
+  // Strategy 0: Capital One Travel specific extraction
+  // Look for their specific price patterns FIRST before trying generic selectors
+  const isCapitalOne = hostname.includes('capitalone');
+  
+  if (isCapitalOne) {
+    console.log('[PortalCapture] ✅ Capital One Travel detected, using specialized extraction');
+    
+    // Debug: Show what we're searching in
+    const textSample = bodyText.substring(0, 2000);
+    console.log('[PortalCapture] Text sample:', textSample);
+    
+    // Pattern 1: Look for "$XXX per traveler" in buttons or text
+    // This is the main pattern on the review itinerary page
+    const perTravelerPattern = /\$[\d,]+(?:\.\d{2})?\s*per\s*traveler/gi;
+    console.log('[PortalCapture] Looking for per-traveler pattern...');
+    let match;
+    while ((match = perTravelerPattern.exec(bodyText)) !== null) {
+      console.log('[PortalCapture] Found per-traveler match:', match[0]);
+      const priceMatch = match[0].match(PRICE_REGEX);
+      if (priceMatch) {
+        const price = parsePrice(priceMatch[0]);
+        if (price && price > 50 && price < 50000) {
+          candidates.push({
+            amount: price,
+            element: document.body,
+            context: `[C1 PerTraveler] ${match[0]}`,
+            confidence: 'HIGH',
+            isTotal: true,
+          });
+          console.log('[PortalCapture] Found per-traveler price:', price);
+        }
+      }
+    }
+    
+    // Pattern 2: Look for "Continue | $XXX per traveler" button pattern (exact Capital One format)
+    const continueButtonPattern = /Continue\s*\|\s*\$[\d,]+(?:\.\d{2})?\s*per\s*traveler/gi;
+    console.log('[PortalCapture] Looking for Continue button pattern...');
+    while ((match = continueButtonPattern.exec(bodyText)) !== null) {
+      console.log('[PortalCapture] Found Continue button match:', match[0]);
+      const priceMatch = match[0].match(PRICE_REGEX);
+      if (priceMatch) {
+        const price = parsePrice(priceMatch[0]);
+        if (price && price > 50 && price < 50000) {
+          // Check if already added
+          const isDuplicate = candidates.some(c => Math.abs(c.amount - price) < 0.01);
+          if (!isDuplicate) {
+            candidates.push({
+              amount: price,
+              element: document.body,
+              context: `[C1 ContinueBtn] ${match[0]}`,
+              confidence: 'HIGH',
+              isTotal: true,
+            });
+            console.log('[PortalCapture] Found continue button price:', price);
+          }
+        }
+      }
+    }
+    
+    // Pattern 3: Look for "$XXX / XXX,XXX Miles" pattern (price with miles alternative)
+    const priceWithMilesPattern = /\$[\d,]+(?:\.\d{2})?\s*\/\s*[\d,]+\s*Miles/gi;
+    while ((match = priceWithMilesPattern.exec(bodyText)) !== null) {
+      const priceMatch = match[0].match(PRICE_REGEX);
+      if (priceMatch) {
+        const price = parsePrice(priceMatch[0]);
+        if (price && price > 50 && price < 50000) {
+          const isDuplicate = candidates.some(c => Math.abs(c.amount - price) < 0.01);
+          if (!isDuplicate) {
+            candidates.push({
+              amount: price,
+              element: document.body,
+              context: `[C1 WithMiles] ${match[0]}`,
+              confidence: 'HIGH',
+              isTotal: true,
+            });
+            console.log('[PortalCapture] Found price with miles:', price);
+          }
+        }
+      }
+    }
+    
+    // Pattern 4: Look for "Round trip, per traveler" price
+    const roundTripPattern = /Round\s*trip[,\s]*per\s*traveler/gi;
+    if (roundTripPattern.test(bodyText)) {
+      // Find the price near this text
+      const allPrices = bodyText.match(PRICE_REGEX) || [];
+      for (const priceStr of allPrices) {
+        const price = parsePrice(priceStr);
+        if (price && price > 100 && price < 50000) {
+          const isDuplicate = candidates.some(c => Math.abs(c.amount - price) < 0.01);
+          if (!isDuplicate) {
+            candidates.push({
+              amount: price,
+              element: document.body,
+              context: `[C1 RoundTrip] ${priceStr}`,
+              confidence: 'MED',
+              isTotal: true,
+            });
+          }
+        }
+      }
+    }
+    
+    // Pattern 5: Look specifically in "Free price drop protection included" section
+    // This section shows the total: "$896 / 89,633 Miles Round trip, per traveler"
+    const priceProtectionElements = document.querySelectorAll('[class*="price"], [class*="Price"], [class*="protection"], [class*="Protection"]');
+    for (const el of priceProtectionElements) {
+      const text = el.textContent || '';
+      if (text.length < 500) {
+        const matches = text.match(PRICE_REGEX);
+        if (matches) {
+          for (const priceStr of matches) {
+            const price = parsePrice(priceStr);
+            if (price && price > 100 && price < 50000) {
+              const isDuplicate = candidates.some(c => Math.abs(c.amount - price) < 0.01);
+              if (!isDuplicate) {
+                candidates.push({
+                  amount: price,
+                  element: el,
+                  context: `[C1 PriceSection] ${text.substring(0, 100)}`,
+                  confidence: 'HIGH',
+                  isTotal: true,
+                });
+                console.log('[PortalCapture] Found price in price section:', price);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // If we found candidates from Capital One specific patterns, log it
+    if (candidates.length > 0) {
+      console.log('[PortalCapture] Found', candidates.length, 'candidates from Capital One patterns');
+    }
+  }
+  
+  // Strategy 0.5: Use Selector Registry for all supported sites
   // This uses the centralized selector registry for consistent extraction
   const siteConfig = getSelectorConfig(hostname);
   
-  if (siteConfig) {
+  if (siteConfig && candidates.length === 0) {
     console.log('[PortalCapture] Using selector registry for price extraction');
     const registrySelectors = getTotalPriceSelectors(hostname);
     
@@ -127,13 +268,16 @@ function extractPriceCandidates(): PriceCandidate[] {
             for (const priceMatch of matches) {
               const price = parsePrice(priceMatch);
               if (price && price > 50 && price < 50000) {
-                candidates.push({
-                  amount: price,
-                  element,
-                  context: `[Registry] ${text.substring(0, 100)}`,
-                  confidence: 'HIGH',
-                  isTotal: true,
-                });
+                const isDuplicate = candidates.some(c => Math.abs(c.amount - price) < 0.01);
+                if (!isDuplicate) {
+                  candidates.push({
+                    amount: price,
+                    element,
+                    context: `[Registry] ${text.substring(0, 100)}`,
+                    confidence: 'HIGH',
+                    isTotal: true,
+                  });
+                }
               }
             }
           }
@@ -150,14 +294,13 @@ function extractPriceCandidates(): PriceCandidate[] {
   }
   
   // Strategy 1: Look for "Total" label with nearby price
+  // bodyText is declared at top of function
   const totalPatterns = [
     /Total[:\s]*(\$[\d,]+(?:\.\d{2})?)/gi,
     /Amount\s*due[:\s]*(\$[\d,]+(?:\.\d{2})?)/gi,
     /Trip\s*total[:\s]*(\$[\d,]+(?:\.\d{2})?)/gi,
     /Grand\s*total[:\s]*(\$[\d,]+(?:\.\d{2})?)/gi,
   ];
-  
-  const bodyText = document.body.innerText;
   
   for (const pattern of totalPatterns) {
     let match;
@@ -385,6 +528,46 @@ function extractFlightFingerprint(): FlightFingerprint | null {
     const hasReturnLeg = routeMatches.some(r => r.origin === destination && r.dest === origin);
     isRoundTrip = hasReturnLeg;
     console.log('[PortalCapture] Return leg found:', hasReturnLeg);
+  } else {
+    // ============================================
+    // FALLBACK: New Capital One layout detection
+    // The "Confirm and Book" page shows airport codes in specific elements
+    // Look for pattern: "AUH - JFK" or codes near departure/arrival times
+    // ============================================
+    console.log('[PortalCapture] No route matches found via standard patterns, trying fallback...');
+    
+    // Try to find airport codes near time patterns (12:20 PM)
+    const timeWithAirportPattern = /(\d{1,2}:\d{2}\s*[APap][Mm])[\s\S]{0,200}?([A-Z]{3})\s*[-–—]\s*([A-Z]{3})/;
+    const fallbackMatch = pageText.match(timeWithAirportPattern);
+    
+    if (fallbackMatch) {
+      const code1 = fallbackMatch[2];
+      const code2 = fallbackMatch[3];
+      if (!nonAirportCodes.includes(code1) && !nonAirportCodes.includes(code2)) {
+        origin = code1;
+        destination = code2;
+        console.log('[PortalCapture] Fallback route extraction:', origin, '->', destination);
+      }
+    }
+    
+    // Also try extracting from outbound/return sections directly
+    if (!origin || !destination) {
+      // Look for "AUH" and "JFK" separately in common airport list
+      const foundCodes: string[] = [];
+      for (const airport of commonAirports) {
+        // Use word boundary to avoid partial matches
+        const regex = new RegExp(`\\b${airport}\\b`, 'g');
+        if (regex.test(pageText)) {
+          foundCodes.push(airport);
+          if (foundCodes.length >= 2) break;
+        }
+      }
+      if (foundCodes.length >= 2) {
+        origin = foundCodes[0];
+        destination = foundCodes[1];
+        console.log('[PortalCapture] Extracted codes from common airports:', origin, '->', destination);
+      }
+    }
   }
   
   // Strategy 3: Check for "Outbound" and "Return" sections (Capital One Travel specific)
@@ -493,22 +676,70 @@ function extractFlightFingerprint(): FlightFingerprint | null {
   
   // ============================================
   // CABIN CLASS EXTRACTION
+  // Enhanced to capture full fare class names (e.g., "Economy Convenience", "Basic Economy")
   // ============================================
   
   let cabin: FlightFingerprint['cabin'] = 'economy';
-  const cabinText = pageText.toLowerCase();
+  let cabinFull: string | undefined; // Full fare class name
   
-  if (cabinText.includes('first class') || cabinText.includes('first-class')) {
+  // Capital One Travel shows fare classes like:
+  // "Qatar Airways - Economy Convenience"
+  // "JetBlue - Economy Cabin"
+  // "Economy Basic", "Economy Comfort", "Economy Standard", etc.
+  
+  // Pattern 1: Look for "Airline - Fare Class" pattern (e.g., "Qatar Airways - Economy Convenience")
+  const fareClassPatterns = [
+    /(?:airways?|airlines?|air|jet\s*blue)\s*[-–—]\s*((?:economy|business|first|premium)\s*(?:basic|standard|comfort|convenience|plus|classic|flex|semi\s*flex|semiflex|cabin)?)/gi,
+    /((?:economy|business|first|premium)\s*(?:basic|standard|comfort|convenience|plus|classic|flex|semi\s*flex|semiflex|cabin)?)\s*class/gi,
+    /(basic|standard|enhanced|premium|luxury)\s*(?:economy)?/gi,
+  ];
+  
+  for (const pattern of fareClassPatterns) {
+    const match = pageText.match(pattern);
+    if (match && match[1]) {
+      cabinFull = match[1].trim();
+      console.log('[PortalCapture] Found fare class:', cabinFull);
+      break;
+    }
+  }
+  
+  // If no fare class found from patterns, try to extract from capital one's class selection tabs
+  // Look for patterns like "Basic", "Standard", "Enhanced", "Premium", "Luxury" which are C1's fare names
+  if (!cabinFull) {
+    const c1FarePatterns = [
+      /(basic|standard|enhanced|premium|luxury)\s*$/im,
+      /(?:Main|Economy)\s+(Basic|Standard|Comfort|Convenience|Plus|Flexible|Flex|Semiflexible|Semi\s*Flexible|Classic)/gi,
+      /(Economy\s+(?:Basic|Standard|Comfort|Convenience|Plus|Flexible|Flex|Semiflexible|Semi\s*Flexible|Classic|Cabin))/gi,
+      /(Business\s+(?:Basic|Standard|Comfort|Plus|Flexible|Flex|Class))/gi,
+      /(First\s+(?:Basic|Standard|Flexible|Flex|Class))/gi,
+      /(Premium\s+Economy(?:\s+(?:Basic|Standard|Comfort|Plus|Flexible|Flex))?)/gi,
+    ];
+    
+    for (const pattern of c1FarePatterns) {
+      const match = pageText.match(pattern);
+      if (match) {
+        cabinFull = match[1] || match[0];
+        cabinFull = cabinFull.trim();
+        console.log('[PortalCapture] Found C1 fare class:', cabinFull);
+        break;
+      }
+    }
+  }
+  
+  // Map full fare class to base cabin type
+  const cabinTextLower = (cabinFull || pageText).toLowerCase();
+  
+  if (cabinTextLower.includes('first')) {
     cabin = 'first';
-  } else if (cabinText.includes('business class') || cabinText.includes('business-class')) {
+  } else if (cabinTextLower.includes('business')) {
     cabin = 'business';
-  } else if (cabinText.includes('premium economy') || cabinText.includes('premium-economy')) {
+  } else if (cabinTextLower.includes('premium')) {
     cabin = 'premium';
-  } else if (cabinText.includes('main cabin') || cabinText.includes('main semiflexible') || cabinText.includes('economy')) {
+  } else {
     cabin = 'economy';
   }
   
-  console.log('[PortalCapture] Cabin class:', cabin);
+  console.log('[PortalCapture] Cabin class:', cabin, cabinFull ? `(${cabinFull})` : '');
   
   // ============================================
   // PASSENGER COUNT
@@ -533,6 +764,9 @@ function extractFlightFingerprint(): FlightFingerprint | null {
   
   let departureTime: string | undefined;
   let arrivalTime: string | undefined;
+  let arrivalNextDay: number | undefined; // +1 or +2 for next day arrivals
+  let departureTimezone: string | undefined;
+  let arrivalTimezone: string | undefined;
   let duration: string | undefined;
   let stops: number | undefined; // undefined means unknown, 0 means nonstop
   let stopAirports: string[] = [];
@@ -543,12 +777,69 @@ function extractFlightFingerprint(): FlightFingerprint | null {
   // RETURN flight variables
   let returnDepartureTime: string | undefined;
   let returnArrivalTime: string | undefined;
+  let returnArrivalNextDay: number | undefined; // +1 or +2 for next day arrivals
+  let returnDepartureTimezone: string | undefined;
+  let returnArrivalTimezone: string | undefined;
   let returnDuration: string | undefined;
   let returnStops: number | undefined;
   let returnStopAirports: string[] = [];
   let returnLayoverDurations: string[] = [];
   let returnTotalLayoverTime: string | undefined;
   let returnAirlines: string[] = [];
+  
+  // Airport timezone mapping (common airports)
+  const airportTimezones: Record<string, string> = {
+    // Middle East
+    'AUH': 'Asia/Dubai', 'DXB': 'Asia/Dubai', 'DOH': 'Asia/Qatar', 'RUH': 'Asia/Riyadh',
+    'JED': 'Asia/Riyadh', 'BAH': 'Asia/Bahrain', 'KWI': 'Asia/Kuwait', 'MCT': 'Asia/Muscat',
+    'AMM': 'Asia/Amman', 'TLV': 'Asia/Jerusalem', 'CAI': 'Africa/Cairo',
+    // US East
+    'JFK': 'America/New_York', 'EWR': 'America/New_York', 'LGA': 'America/New_York',
+    'BOS': 'America/New_York', 'PHL': 'America/New_York', 'IAD': 'America/New_York',
+    'DCA': 'America/New_York', 'MIA': 'America/New_York', 'FLL': 'America/New_York',
+    'ATL': 'America/New_York', 'CLT': 'America/New_York', 'MCO': 'America/New_York',
+    // US Central
+    'ORD': 'America/Chicago', 'DFW': 'America/Chicago', 'IAH': 'America/Chicago',
+    'MSP': 'America/Chicago', 'STL': 'America/Chicago', 'AUS': 'America/Chicago',
+    // US Mountain
+    'DEN': 'America/Denver', 'PHX': 'America/Phoenix', 'SLC': 'America/Denver',
+    // US West
+    'LAX': 'America/Los_Angeles', 'SFO': 'America/Los_Angeles', 'SEA': 'America/Los_Angeles',
+    'SAN': 'America/Los_Angeles', 'LAS': 'America/Los_Angeles', 'PDX': 'America/Los_Angeles',
+    // Europe
+    'LHR': 'Europe/London', 'LGW': 'Europe/London', 'CDG': 'Europe/Paris', 'ORY': 'Europe/Paris',
+    'AMS': 'Europe/Amsterdam', 'FRA': 'Europe/Berlin', 'MUC': 'Europe/Berlin',
+    'MAD': 'Europe/Madrid', 'BCN': 'Europe/Madrid', 'FCO': 'Europe/Rome',
+    'ZRH': 'Europe/Zurich', 'VIE': 'Europe/Vienna', 'IST': 'Europe/Istanbul',
+    // Asia
+    'SIN': 'Asia/Singapore', 'HKG': 'Asia/Hong_Kong', 'BKK': 'Asia/Bangkok',
+    'NRT': 'Asia/Tokyo', 'HND': 'Asia/Tokyo', 'ICN': 'Asia/Seoul',
+    'PEK': 'Asia/Shanghai', 'PVG': 'Asia/Shanghai', 'DEL': 'Asia/Kolkata',
+    'BOM': 'Asia/Kolkata', 'KUL': 'Asia/Kuala_Lumpur', 'TPE': 'Asia/Taipei',
+    // Australia
+    'SYD': 'Australia/Sydney', 'MEL': 'Australia/Melbourne', 'BNE': 'Australia/Brisbane',
+    // Canada
+    'YYZ': 'America/Toronto', 'YVR': 'America/Vancouver', 'YUL': 'America/Montreal',
+  };
+  
+  // Helper to get timezone offset in hours
+  const getTimezoneOffset = (tz: string): number => {
+    // Approximate UTC offsets (summer time not accounted for)
+    const offsets: Record<string, number> = {
+      'Asia/Dubai': 4, 'Asia/Qatar': 3, 'Asia/Riyadh': 3, 'Asia/Bahrain': 3,
+      'Asia/Kuwait': 3, 'Asia/Muscat': 4, 'Asia/Amman': 2, 'Asia/Jerusalem': 2,
+      'Africa/Cairo': 2, 'America/New_York': -5, 'America/Chicago': -6,
+      'America/Denver': -7, 'America/Phoenix': -7, 'America/Los_Angeles': -8,
+      'Europe/London': 0, 'Europe/Paris': 1, 'Europe/Amsterdam': 1, 'Europe/Berlin': 1,
+      'Europe/Madrid': 1, 'Europe/Rome': 1, 'Europe/Zurich': 1, 'Europe/Vienna': 1,
+      'Europe/Istanbul': 3, 'Asia/Singapore': 8, 'Asia/Hong_Kong': 8, 'Asia/Bangkok': 7,
+      'Asia/Tokyo': 9, 'Asia/Seoul': 9, 'Asia/Shanghai': 8, 'Asia/Kolkata': 5.5,
+      'Asia/Kuala_Lumpur': 8, 'Asia/Taipei': 8, 'Australia/Sydney': 10,
+      'Australia/Melbourne': 10, 'Australia/Brisbane': 10, 'America/Toronto': -5,
+      'America/Vancouver': -8, 'America/Montreal': -5,
+    };
+    return offsets[tz] ?? 0;
+  };
   
   // Time extraction patterns - Capital One shows times like "10:45 AM" or "8:05 PM"
   // Look in the outbound flight section specifically
@@ -580,27 +871,70 @@ function extractFlightFingerprint(): FlightFingerprint | null {
     console.log('[PortalCapture] Return section preview:', returnSection.substring(0, 500));
   }
   
-  // Pattern: "10:45 AM" or "8:05pm" or "11:40 PM"
+  // Pattern: "10:45 AM" or "8:05pm" or "11:40 PM" - optionally followed by "+1" or "+2"
+  // Enhanced pattern to capture next-day indicator
+  const timeWithNextDayPattern = /(\d{1,2}:\d{2}\s*[APap][Mm])(?:\s*\+(\d))?/g;
   const timePattern = /(\d{1,2}:\d{2}\s*[APap][Mm])/g;
-  const times = outboundSection.match(timePattern) || [];
-  console.log('[PortalCapture] Found times in outbound section:', times);
   
-  if (times.length >= 2 && times[0] && times[1]) {
+  // Extract times with next-day info from outbound section
+  const extractTimesWithNextDay = (section: string): { time: string; nextDay: number }[] => {
+    const results: { time: string; nextDay: number }[] = [];
+    let match;
+    const pattern = /(\d{1,2}:\d{2}\s*[APap][Mm])(?:\s*\+(\d))?/g;
+    while ((match = pattern.exec(section)) !== null) {
+      results.push({
+        time: match[1],
+        nextDay: match[2] ? parseInt(match[2], 10) : 0,
+      });
+    }
+    return results;
+  };
+  
+  const outboundTimes = extractTimesWithNextDay(outboundSection);
+  console.log('[PortalCapture] Found times in outbound section:', outboundTimes);
+  
+  if (outboundTimes.length >= 2 && outboundTimes[0] && outboundTimes[1]) {
     // First time is departure, second is arrival for outbound leg
-    departureTime = convertTo24Hour(times[0]);
-    arrivalTime = convertTo24Hour(times[1]);
-    console.log('[PortalCapture] Extracted outbound times:', departureTime, '->', arrivalTime);
+    departureTime = convertTo24Hour(outboundTimes[0].time);
+    arrivalTime = convertTo24Hour(outboundTimes[1].time);
+    arrivalNextDay = outboundTimes[1].nextDay || undefined;
+    
+    // Set timezones based on origin/destination
+    if (origin && airportTimezones[origin]) {
+      departureTimezone = airportTimezones[origin];
+    }
+    if (destination && airportTimezones[destination]) {
+      arrivalTimezone = airportTimezones[destination];
+    }
+    
+    console.log('[PortalCapture] Extracted outbound times:', departureTime, '->', arrivalTime,
+      arrivalNextDay ? `(+${arrivalNextDay})` : '',
+      departureTimezone ? `[${departureTimezone}]` : '',
+      arrivalTimezone ? `-> [${arrivalTimezone}]` : '');
   }
   
   // Extract RETURN flight times
   if (returnSection && isRoundTrip) {
-    const returnTimes = returnSection.match(timePattern) || [];
+    const returnTimes = extractTimesWithNextDay(returnSection);
     console.log('[PortalCapture] Found times in return section:', returnTimes);
     
     if (returnTimes.length >= 2 && returnTimes[0] && returnTimes[1]) {
-      returnDepartureTime = convertTo24Hour(returnTimes[0]);
-      returnArrivalTime = convertTo24Hour(returnTimes[1]);
-      console.log('[PortalCapture] Extracted return times:', returnDepartureTime, '->', returnArrivalTime);
+      returnDepartureTime = convertTo24Hour(returnTimes[0].time);
+      returnArrivalTime = convertTo24Hour(returnTimes[1].time);
+      returnArrivalNextDay = returnTimes[1].nextDay || undefined;
+      
+      // For return, destination becomes departure and origin becomes arrival
+      if (destination && airportTimezones[destination]) {
+        returnDepartureTimezone = airportTimezones[destination];
+      }
+      if (origin && airportTimezones[origin]) {
+        returnArrivalTimezone = airportTimezones[origin];
+      }
+      
+      console.log('[PortalCapture] Extracted return times:', returnDepartureTime, '->', returnArrivalTime,
+        returnArrivalNextDay ? `(+${returnArrivalNextDay})` : '',
+        returnDepartureTimezone ? `[${returnDepartureTimezone}]` : '',
+        returnArrivalTimezone ? `-> [${returnArrivalTimezone}]` : '');
     }
   }
   
@@ -990,6 +1324,28 @@ function extractFlightFingerprint(): FlightFingerprint | null {
     return null;
   }
   
+  // Infer next-day arrival if not explicitly detected but duration suggests it
+  if (!arrivalNextDay && duration && departureTime && arrivalTime && departureTimezone && arrivalTimezone) {
+    const depTzOffset = getTimezoneOffset(departureTimezone);
+    const arrTzOffset = getTimezoneOffset(arrivalTimezone);
+    const inferredNextDay = inferNextDayArrival(departureTime, arrivalTime, duration, depTzOffset, arrTzOffset);
+    if (inferredNextDay > 0) {
+      arrivalNextDay = inferredNextDay;
+      console.log('[PortalCapture] Inferred outbound next-day arrival:', arrivalNextDay);
+    }
+  }
+  
+  // Infer return next-day arrival
+  if (!returnArrivalNextDay && returnDuration && returnDepartureTime && returnArrivalTime && returnDepartureTimezone && returnArrivalTimezone) {
+    const depTzOffset = getTimezoneOffset(returnDepartureTimezone);
+    const arrTzOffset = getTimezoneOffset(returnArrivalTimezone);
+    const inferredNextDay = inferNextDayArrival(returnDepartureTime, returnArrivalTime, returnDuration, depTzOffset, arrTzOffset);
+    if (inferredNextDay > 0) {
+      returnArrivalNextDay = inferredNextDay;
+      console.log('[PortalCapture] Inferred return next-day arrival:', returnArrivalNextDay);
+    }
+  }
+  
   const result: FlightFingerprint = {
     type: 'flight',
     origin,
@@ -997,12 +1353,16 @@ function extractFlightFingerprint(): FlightFingerprint | null {
     departDate,
     returnDate: isRoundTrip ? returnDate : undefined,
     cabin,
+    cabinFull,
     paxCount,
     flightNumbers: flightNumbers.length > 0 ? flightNumbers : undefined,
     operatingCarrier: flightNumbers[0]?.substring(0, 2),
     // Outbound flight details
     departureTime,
     arrivalTime,
+    arrivalNextDay,
+    departureTimezone,
+    arrivalTimezone,
     duration,
     stops,
     stopAirports: stopAirports.length > 0 ? stopAirports : undefined,
@@ -1012,6 +1372,9 @@ function extractFlightFingerprint(): FlightFingerprint | null {
     // Return flight details (for round trips)
     returnDepartureTime: isRoundTrip ? returnDepartureTime : undefined,
     returnArrivalTime: isRoundTrip ? returnArrivalTime : undefined,
+    returnArrivalNextDay: isRoundTrip ? returnArrivalNextDay : undefined,
+    returnDepartureTimezone: isRoundTrip ? returnDepartureTimezone : undefined,
+    returnArrivalTimezone: isRoundTrip ? returnArrivalTimezone : undefined,
     returnDuration: isRoundTrip ? returnDuration : undefined,
     returnStops: isRoundTrip ? returnStops : undefined,
     returnStopAirports: isRoundTrip && returnStopAirports.length > 0 ? returnStopAirports : undefined,
@@ -1040,22 +1403,120 @@ function convertTo24Hour(time12h: string): string {
   return `${String(hours).padStart(2, '0')}:${mins}`;
 }
 
-// Helper function to calculate duration in minutes from two 24h times
-function calculateDurationMinutes(departure: string, arrival: string): number {
+/**
+ * Calculate duration in minutes from departure to arrival time
+ * Accounts for:
+ * - Simple overnight flights (arrival time < departure time)
+ * - Multi-day flights (nextDayOffset of +1, +2, etc.)
+ * - Timezone differences between departure and arrival airports
+ *
+ * @param departure - Departure time in HH:MM format (24h)
+ * @param arrival - Arrival time in HH:MM format (24h)
+ * @param nextDayOffset - Number of days the arrival is after departure (0, 1, 2)
+ * @param depTzOffset - Departure timezone offset from UTC in hours (e.g., 4 for Dubai)
+ * @param arrTzOffset - Arrival timezone offset from UTC in hours (e.g., -5 for NYC)
+ */
+function calculateDurationMinutes(
+  departure: string,
+  arrival: string,
+  nextDayOffset: number = 0,
+  depTzOffset?: number,
+  arrTzOffset?: number
+): number {
   const depMatch = departure.match(/(\d{1,2}):(\d{2})/);
   const arrMatch = arrival.match(/(\d{1,2}):(\d{2})/);
   
   if (!depMatch || !arrMatch) return 0;
   
+  // Get times in minutes since midnight (in local time)
   const depMins = parseInt(depMatch[1], 10) * 60 + parseInt(depMatch[2], 10);
   let arrMins = parseInt(arrMatch[1], 10) * 60 + parseInt(arrMatch[2], 10);
   
-  // Handle overnight flights (arrival next day)
-  if (arrMins < depMins) {
+  // Apply explicit next-day offset if provided
+  if (nextDayOffset > 0) {
+    arrMins += nextDayOffset * 24 * 60;
+  } else if (arrMins < depMins) {
+    // Fallback: If no explicit offset but arrival < departure, assume next day
     arrMins += 24 * 60;
   }
   
-  return arrMins - depMins;
+  // Calculate timezone adjustment if both offsets are provided
+  // Example: AUH (UTC+4) to JFK (UTC-5) = 9 hours difference
+  // A flight departing at 09:00 AUH (05:00 UTC) arriving at 14:00 JFK (19:00 UTC)
+  // Actual duration = 19:00 - 05:00 = 14 hours
+  // Without TZ adjustment: 14:00 - 09:00 = 5 hours (wrong!)
+  // TZ adjustment: (4 - (-5)) * 60 = 540 minutes = 9 hours added to arrival
+  // With adjustment: 14:00 + 9h - 09:00 = 14 hours (correct!)
+  if (depTzOffset !== undefined && arrTzOffset !== undefined) {
+    const tzDiffMins = (depTzOffset - arrTzOffset) * 60;
+    arrMins += tzDiffMins;
+  }
+  
+  const duration = arrMins - depMins;
+  
+  // Sanity check: duration should be positive and reasonable (0-40 hours)
+  if (duration <= 0 || duration > 40 * 60) {
+    console.log('[PortalCapture] Warning: Calculated duration seems off:', duration, 'minutes');
+    // Return without timezone adjustment as fallback
+    const basicDuration = arrMins - depMins - ((depTzOffset !== undefined && arrTzOffset !== undefined)
+      ? (depTzOffset - arrTzOffset) * 60 : 0);
+    return basicDuration > 0 ? basicDuration : 0;
+  }
+  
+  return duration;
+}
+
+/**
+ * Infer if a flight is likely a next-day arrival based on:
+ * - Flight duration (extracted from page)
+ * - Timezone difference
+ * - Time comparison
+ */
+function inferNextDayArrival(
+  depTime: string,
+  arrTime: string,
+  durationStr?: string,
+  depTzOffset?: number,
+  arrTzOffset?: number
+): number {
+  const depMatch = depTime.match(/(\d{1,2}):(\d{2})/);
+  const arrMatch = arrTime.match(/(\d{1,2}):(\d{2})/);
+  
+  if (!depMatch || !arrMatch) return 0;
+  
+  const depMins = parseInt(depMatch[1], 10) * 60 + parseInt(depMatch[2], 10);
+  const arrMins = parseInt(arrMatch[1], 10) * 60 + parseInt(arrMatch[2], 10);
+  
+  // If we have explicit duration from page, use that to infer
+  if (durationStr) {
+    const durMatch = durationStr.match(/(\d+)\s*h(?:r|our)?s?\s*(\d+)?\s*m?/i);
+    if (durMatch) {
+      const durationMins = parseInt(durMatch[1], 10) * 60 + (durMatch[2] ? parseInt(durMatch[2], 10) : 0);
+      
+      // Calculate expected arrival time based on departure + duration - timezone difference
+      let expectedArrMins = depMins + durationMins;
+      if (depTzOffset !== undefined && arrTzOffset !== undefined) {
+        // Adjust for timezone: going west adds hours to local arrival time
+        expectedArrMins -= (depTzOffset - arrTzOffset) * 60;
+      }
+      
+      // How many days would that be?
+      const daysOffset = Math.floor(expectedArrMins / (24 * 60));
+      if (daysOffset > 0) {
+        console.log('[PortalCapture] Inferred next-day arrival:', daysOffset, 'based on duration:', durationStr);
+        return daysOffset;
+      }
+    }
+  }
+  
+  // Fallback: if arrival time is significantly earlier than departure AND we're flying east-to-west
+  // (crossing many time zones), likely a next-day arrival
+  if (arrMins < depMins) {
+    // Without other info, assume +1 day
+    return 1;
+  }
+  
+  return 0;
 }
 
 // Helper to normalize airline names

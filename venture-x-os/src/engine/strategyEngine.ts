@@ -715,6 +715,16 @@ export interface SimpleCompareInput {
   bookingType?: 'flight' | 'hotel' | 'rental' | 'vacation_rental' | 'other';
   // Pay-at-property fee (resort fee, etc.) - shown separately but included in total
   payAtPropertyFee?: number;
+  // NEW: Direct seller information from Google Flights extraction
+  directSellerType?: 'airline' | 'ota' | 'metasearch' | 'unknown';
+  directSellerName?: string;
+  directBookingOptions?: Array<{
+    provider: string;
+    providerType: 'airline' | 'ota' | 'metasearch' | 'unknown';
+    price: number;
+    currency: string;
+    isLowest: boolean;
+  }>;
 }
 
 export type CreditBehavior = 'reduces_charge' | 'posts_later' | 'unknown';
@@ -1026,7 +1036,18 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
   }
 
   // Easiest heuristic: airline-direct is easiest; OTA is hardest
-  const directIsOTA = input.directIsOTA ?? 'unknown';
+  // NEW: Use directSellerType if available, fall back to directIsOTA
+  let directIsOTA: boolean | 'unknown' = input.directIsOTA ?? 'unknown';
+  
+  // If we have explicit seller type from Google Flights extraction, use it
+  if (input.directSellerType === 'airline') {
+    directIsOTA = false;
+  } else if (input.directSellerType === 'ota') {
+    directIsOTA = true;
+  } else if (input.directSellerType === 'metasearch') {
+    directIsOTA = 'unknown'; // Metasearch could be either
+  }
+  
   let easiestWinner: 'portal' | 'direct' = 'direct';
   if (directIsOTA === true) easiestWinner = 'portal';      // avoid OTA
   if (directIsOTA === 'unknown') easiestWinner = 'direct'; // default to direct, but warn
@@ -1247,7 +1268,22 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     editable: true,
   });
   
-  if (directIsOTA === 'unknown') {
+  // NEW: Use seller name if available from Google Flights extraction
+  const sellerName = input.directSellerName;
+  
+  if (sellerName) {
+    // We have specific seller info from Google Flights
+    const typeLabel = directIsOTA === true
+      ? 'OTA (third-party)'
+      : directIsOTA === false
+      ? 'Airline direct'
+      : '';
+    assumptions.push({
+      label: '"Direct" seller',
+      value: typeLabel ? `${sellerName} (${typeLabel})` : sellerName,
+      editable: false,
+    });
+  } else if (directIsOTA === 'unknown') {
     assumptions.push({
       label: '"Direct" seller type',
       value: 'Unknown (verify if airline or OTA)',
@@ -1278,6 +1314,7 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
   
   // ----------------------------
   // Build "could flip if" conditions
+  // Only show conditions that are actually relevant to the current situation
   // ----------------------------
   const couldFlipIf: string[] = [];
   
@@ -1285,12 +1322,25 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     couldFlipIf.push(`If credit is already used → Direct likely wins (out-of-pocket: ${fmtUSD(portalSticker)} vs ${fmtUSD(directSticker)})`);
   }
   
-  if (recommendation === 'portal' && portalSticker > directSticker) {
-    couldFlipIf.push(`If you value miles below ${(breakEvenCpp * 100).toFixed(1)}¢ → Direct wins`);
+  // IMPORTANT: Only show break-even threshold when:
+  // 1. Portal is recommended but costs MORE than direct (sticker price)
+  // 2. The threshold value is sensible (positive and reasonable, < 5¢/mi)
+  // When portal is cheaper AND earns more miles, there's no threshold where direct wins.
+  if (recommendation === 'portal' && portalOutOfPocket > directOutOfPocket) {
+    // Only if portal costs more out-of-pocket, there might be a break-even
+    const beThreshold = breakEvenCpp * 100;
+    if (Number.isFinite(beThreshold) && beThreshold > 0 && beThreshold < 5) {
+      couldFlipIf.push(`If you value miles below ${beThreshold.toFixed(1)}¢ → Direct wins`);
+    }
   }
   
+  // For flights, mention airline checkout. For hotels, don't use IRROPS terminology
   if (directIsOTA === 'unknown') {
-    couldFlipIf.push('If "Direct" is airline checkout → may be worth it for easier changes/IRROPS');
+    if (bookingType === 'hotel' || bookingType === 'vacation_rental') {
+      couldFlipIf.push('If "Direct" is the hotel\'s own website → earn loyalty points & easier modifications');
+    } else {
+      couldFlipIf.push('If "Direct" is airline checkout → may be worth it for easier changes/IRROPS');
+    }
   }
   
   if (recommendation !== 'eraser' && eraserBest) {
@@ -1312,9 +1362,13 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     confidenceReasons.push('Credit balance unknown');
   }
   
-  if (directIsOTA === 'unknown') {
+  // NEW: Only flag as unknown if we don't have seller info from Google Flights
+  if (directIsOTA === 'unknown' && !input.directSellerName) {
     if (confidence === 'high') confidence = 'medium';
     confidenceReasons.push('Direct seller type unknown');
+  } else if (input.directSellerName) {
+    // We have seller info, add it to reasons
+    confidenceReasons.push(`Direct seller: ${input.directSellerName}`);
   }
   
   if (creditBehavior === 'unknown' && portalCreditApplied > 0) {

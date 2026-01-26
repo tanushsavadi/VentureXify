@@ -12,6 +12,7 @@ import {
   getAirlineByDomain,
   FlightFingerprint,
   PortalSnapshot,
+  BookingOption,
 } from '../lib/compareTypes';
 import { ConfidenceLevel } from '../lib/types';
 
@@ -888,6 +889,236 @@ function extractGoogleFlightsBookingPrice(): ExtractionCandidate | null {
 }
 
 // ============================================
+// GOOGLE FLIGHTS BOOKING OPTIONS EXTRACTOR
+// Extracts "Book with KLM", "Book with Delta", etc. from booking page
+// ============================================
+
+/** Known OTA patterns for provider type detection */
+const OTA_PATTERNS = /expedia|booking\.com|makemytrip|wego|kayak|priceline|orbitz|travelocity|hotwire|cheaptickets|edreams|lastminute|trip\.com|agoda|skyscanner|momondo|cheapoair|bravofly|opodo|gotogate|mytrip|budgetair|kiwi\.com|flightnetwork|justfly|onetravel|smartfares|travala/i;
+
+const AIRLINE_PATTERNS = /^(klm|delta|united|american|southwest|jetblue|alaska|spirit|frontier|british|emirates|qatar|etihad|lufthansa|air france|singapore|cathay|ana|jal|qantas|virgin|air canada|turkish|sas|finnair|swiss|austrian|iberia|tap|lot|aeromexico|avianca|latam|copa|azul|gol|volaris|interjet|air new zealand|air india|indigo|vistara|spicejet|garuda|thai|malaysia|philippine|eva|china|korean|asiana|hawaiian|sun country|breeze|avelo|play|icelandair|norse|westjet|flair|porter|air transat|condor|eurowings|ryanair|easyjet|vueling|norwegian|wizz|pegasus|flydubai|air arabia|saudia|royal jordanian|el al|aegean|olympic|aeroflot|s7|ural|utair)/i;
+
+/**
+ * Determine provider type from name
+ */
+function detectProviderType(providerName: string): 'airline' | 'ota' | 'metasearch' | 'unknown' {
+  const normalized = providerName.toLowerCase().trim();
+  
+  if (OTA_PATTERNS.test(normalized)) {
+    return 'ota';
+  }
+  
+  if (AIRLINE_PATTERNS.test(normalized)) {
+    return 'airline';
+  }
+  
+  // Google Flights itself is a metasearch
+  if (normalized.includes('google')) {
+    return 'metasearch';
+  }
+  
+  return 'unknown';
+}
+
+interface BookingOptionsResult {
+  options: BookingOption[];
+  lowestPriceProvider: string | null;
+  lowestPrice: number | null;
+  primarySeller: {
+    name: string;
+    type: 'airline' | 'ota' | 'metasearch' | 'unknown';
+  } | null;
+}
+
+/**
+ * Extract booking options from Google Flights booking page
+ * Looks for "Book with [Provider]" buttons and their associated prices
+ *
+ * Google Flights booking pages show:
+ * - "Lowest total price" with the cheapest option
+ * - Multiple "Book with [Airline/OTA]" options with prices
+ *
+ * Example DOM structure:
+ * <div>Book with KLM</div>
+ * <div>AED 3,240</div>
+ */
+function extractGoogleFlightsBookingOptions(): BookingOptionsResult {
+  const result: BookingOptionsResult = {
+    options: [],
+    lowestPriceProvider: null,
+    lowestPrice: null,
+    primarySeller: null,
+  };
+  
+  const pageText = getCleanPageText();
+  
+  console.log('[DirectCapture] Extracting booking options from Google Flights');
+  
+  // Strategy 1: Look for "Book with [Provider]" patterns in page text
+  // Format: "Book with KLM" followed by a price like "AED 3,240"
+  const bookWithPattern = /Book\s+with\s+([A-Za-z\s\.]+?)(?:\s|$|[,\n])/gi;
+  const providers: string[] = [];
+  
+  let match;
+  bookWithPattern.lastIndex = 0;
+  while ((match = bookWithPattern.exec(pageText)) !== null) {
+    const provider = match[1].trim();
+    if (provider && provider.length > 1 && provider.length < 50) {
+      providers.push(provider);
+    }
+  }
+  
+  console.log('[DirectCapture] Found providers:', providers);
+  
+  // Strategy 2: Search DOM for booking option elements
+  // Google Flights uses specific class patterns for booking buttons
+  const bookingSelectors = [
+    '[class*="booking-option"]',
+    '[class*="Tgc1ob"]', // Known Google Flights booking button class
+    '[class*="kGXqV"]',  // Another known class
+    '[data-ved]', // Google's click tracking elements often wrap booking buttons
+    'a[href*="airlines"]',
+    'a[href*="book"]',
+  ];
+  
+  // Also try to find elements containing "Book with" text
+  const allElements = document.querySelectorAll('*');
+  const bookingElements: Element[] = [];
+  
+  for (const el of allElements) {
+    if (isInsideVentureXWidget(el)) continue;
+    
+    const text = el.textContent?.trim() || '';
+    if (text.startsWith('Book with') && text.length < 100) {
+      bookingElements.push(el);
+    }
+  }
+  
+  console.log('[DirectCapture] Found booking elements:', bookingElements.length);
+  
+  // For each "Book with X" element, find associated price
+  for (const el of bookingElements) {
+    const text = el.textContent?.trim() || '';
+    const providerMatch = text.match(/Book\s+with\s+([A-Za-z\s\.]+?)$/i);
+    
+    if (!providerMatch) continue;
+    
+    const provider = providerMatch[1].trim();
+    
+    // Look for price in parent or sibling elements
+    const parent = el.parentElement?.parentElement || el.parentElement;
+    if (!parent) continue;
+    
+    const parentText = parent.textContent || '';
+    
+    // Extract price from parent context
+    const pricePattern = /(AED|USD|EUR|GBP|\$|€|£)\s*([\d,]+(?:\.\d{2})?)/i;
+    const priceMatch = parentText.match(pricePattern);
+    
+    if (priceMatch) {
+      const symbolMap: Record<string, string> = {
+        '$': 'USD', '£': 'GBP', '€': 'EUR'
+      };
+      const currency = symbolMap[priceMatch[1]] || priceMatch[1].toUpperCase();
+      const amount = parseFloat(priceMatch[2].replace(/,/g, ''));
+      
+      if (amount > 50 && amount < 500000) {
+        const providerType = detectProviderType(provider);
+        const isLowest = result.options.length === 0; // First one is typically lowest
+        
+        result.options.push({
+          provider,
+          providerType,
+          price: amount,
+          currency,
+          isLowest,
+        });
+        
+        console.log('[DirectCapture] Found booking option:', { provider, providerType, amount, currency });
+      }
+    }
+  }
+  
+  // Strategy 3: Parse from text using patterns
+  // "Book with KLM\nAED 3,240" or similar
+  if (result.options.length === 0 && providers.length > 0) {
+    for (const provider of providers) {
+      // Find price near this provider in the text
+      const providerIdx = pageText.indexOf(`Book with ${provider}`);
+      if (providerIdx === -1) continue;
+      
+      const textAround = pageText.substring(providerIdx, providerIdx + 200);
+      const pricePattern = /(AED|USD|EUR|GBP|\$|€|£)\s*([\d,]+(?:\.\d{2})?)/i;
+      const priceMatch = textAround.match(pricePattern);
+      
+      if (priceMatch) {
+        const symbolMap: Record<string, string> = {
+          '$': 'USD', '£': 'GBP', '€': 'EUR'
+        };
+        const currency = symbolMap[priceMatch[1]] || priceMatch[1].toUpperCase();
+        const amount = parseFloat(priceMatch[2].replace(/,/g, ''));
+        
+        if (amount > 50 && amount < 500000) {
+          const providerType = detectProviderType(provider);
+          
+          result.options.push({
+            provider,
+            providerType,
+            price: amount,
+            currency,
+            isLowest: false,
+          });
+        }
+      }
+    }
+  }
+  
+  // Determine lowest price and primary seller
+  if (result.options.length > 0) {
+    // Sort by price to find lowest
+    result.options.sort((a, b) => a.price - b.price);
+    
+    // Mark lowest
+    result.options[0].isLowest = true;
+    result.lowestPrice = result.options[0].price;
+    result.lowestPriceProvider = result.options[0].provider;
+    
+    // Primary seller is the lowest price option
+    result.primarySeller = {
+      name: result.options[0].provider,
+      type: result.options[0].providerType,
+    };
+    
+    console.log('[DirectCapture] Primary seller:', result.primarySeller);
+  } else {
+    // Fallback: if no booking options found but we know it's Google Flights booking page
+    // try to infer from page content
+    const isBookingPage = pageText.toLowerCase().includes('lowest total price');
+    
+    if (isBookingPage) {
+      // Look for any airline names in the visible text
+      const airlineNames = ['KLM', 'Delta', 'United', 'American', 'British Airways', 'Emirates',
+                          'Qatar', 'Lufthansa', 'Air France', 'Singapore Airlines', 'Etihad'];
+      
+      for (const airline of airlineNames) {
+        // Check if airline name appears in context suggesting it's a booking option
+        const airlinePattern = new RegExp(`(Book with\\s+)?${airline}`, 'i');
+        if (airlinePattern.test(pageText)) {
+          result.primarySeller = {
+            name: airline,
+            type: 'airline',
+          };
+          console.log('[DirectCapture] Inferred seller from page content:', airline);
+          break;
+        }
+      }
+    }
+  }
+  
+  return result;
+}
+
+// ============================================
 // MAIN EXTRACTION FUNCTION
 // ============================================
 
@@ -963,13 +1194,54 @@ export function captureDirectSnapshot(): DirectSnapshot | null {
   }
   
   const airlineConfig = getAirlineByDomain(window.location.hostname);
+  const domain = window.location.hostname;
+  const fullUrl = window.location.href;
+  
+  // For Google Flights, extract booking options to determine seller
+  const isGoogleFlights = domain.includes('google.com') &&
+    (fullUrl.includes('/travel/flights') || fullUrl.includes('/flights'));
+  
+  let sellerType: DirectSnapshot['sellerType'] = 'unknown';
+  let sellerName: string | undefined;
+  let bookingOptions: BookingOption[] | undefined;
+  let lowestPriceProvider: string | undefined;
+  
+  if (isGoogleFlights) {
+    const bookingResult = extractGoogleFlightsBookingOptions();
+    
+    if (bookingResult.primarySeller) {
+      sellerName = bookingResult.primarySeller.name;
+      sellerType = bookingResult.primarySeller.type;
+    }
+    
+    if (bookingResult.options.length > 0) {
+      bookingOptions = bookingResult.options;
+      lowestPriceProvider = bookingResult.lowestPriceProvider || undefined;
+    }
+    
+    console.log('[DirectCapture] Google Flights seller info:', {
+      sellerName,
+      sellerType,
+      optionsCount: bookingOptions?.length ?? 0,
+      lowestPriceProvider,
+    });
+  } else if (airlineConfig) {
+    // If it's a known airline domain, it's airline direct
+    sellerType = 'airline';
+    sellerName = airlineConfig.name;
+  }
   
   return {
     totalPrice: priceSnapshot,
-    siteName: airlineConfig?.name || window.location.hostname,
+    siteName: airlineConfig?.name || (isGoogleFlights ? 'Google Flights' : window.location.hostname),
     siteUrl: window.location.href,
     pageType: detectDirectPageType(),
     capturedAt: Date.now(),
+    // NEW: Include seller information
+    sellerType,
+    sellerName,
+    bookingOptions,
+    lowestPriceProvider,
   };
 }
 

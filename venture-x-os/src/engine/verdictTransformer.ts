@@ -148,14 +148,8 @@ export function transformToProgressiveVerdict(
   // Warning chip (max 1, only if relevant)
   let warning: VerdictDataProgressive['warning'] | undefined;
   
-  // Only show warning if it could change the decision
-  if (directDetails.isOTA === 'unknown' && !isPortal) {
-    // Direct is recommended but we don't know if it's an OTA
-    warning = {
-      severity: 'warning',
-      label: 'Verify: airline checkout (not OTA)',
-    };
-  } else if (directDetails.isOTA === true && !isPortal) {
+  // Only show warning for confirmed OTA (not for unknown seller type)
+  if (directDetails.isOTA === true && !isPortal) {
     warning = {
       severity: 'critical',
       label: '⚠️ OTA detected – no airline miles',
@@ -191,12 +185,20 @@ export function transformToProgressiveVerdict(
   // Bullet 2: Miles (for cheapest/max_value tabs)
   if (tabMode !== 'easiest' && Math.abs(milesDiff) > 100) {
     const milesWinner = milesDiff > 0 ? 'Portal' : 'Direct';
-    const milesEarnedDisplay = portalDetails.milesEarnedRange 
-      ? `${portalDetails.milesEarnedRange.min.toLocaleString()}–${portalDetails.milesEarnedRange.max.toLocaleString()}`
-      : portalDetails.milesEarned.toLocaleString();
+    
+    // Show clearer miles breakdown instead of confusing range notation
+    let milesExplanation: string;
+    if (portalDetails.milesEarnedRange && portalDetails.milesEarnedRange.min !== portalDetails.milesEarnedRange.max) {
+      // Show clearer range explanation: "Portal earns X–Y mi (5x on $Z)"
+      milesExplanation = `Portal: ${portalDetails.milesEarnedRange.min.toLocaleString()}–${portalDetails.milesEarnedRange.max.toLocaleString()} mi (5x), Direct: ${directDetails.milesEarned.toLocaleString()} mi (2x)`;
+    } else {
+      // Simple case: no range
+      milesExplanation = `Portal: ${portalDetails.milesEarned.toLocaleString()} mi (5x), Direct: ${directDetails.milesEarned.toLocaleString()} mi (2x)`;
+    }
+    
     whyBullets.push({
       icon: '✈️',
-      text: `${milesWinner} earns ${Math.abs(milesDiff).toLocaleString()} more miles (Portal: ${milesEarnedDisplay}, Direct: ${directDetails.milesEarned.toLocaleString()})`,
+      text: `${milesWinner} earns +${Math.abs(milesDiff).toLocaleString()} more miles (${milesExplanation})`,
     });
   }
   
@@ -302,9 +304,9 @@ function generateCouldFlipIf(comparison: ComparisonOutput, tabMode: RankingMode)
     }
   }
   
-  // Condition: Direct is actually an OTA
-  if (comparison.directDetails.isOTA === 'unknown' && !isPortal) {
-    conditions.push('The "direct" price is actually from an OTA (no airline miles earned)');
+  // Condition: Direct is actually an OTA (only mention if it IS an OTA)
+  if (comparison.directDetails.isOTA === true && !isPortal) {
+    conditions.push('Direct is an OTA - no airline miles earned');
   }
   
   // Condition: Travel credit changes

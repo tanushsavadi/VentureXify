@@ -642,7 +642,9 @@ export interface DoubleDipRecommendation {
     milesEarned: number;
     milesValue: number;
     eraseLater: number;
+    milesUsedForErase: number; // How many miles used for erasing
     effectiveCost: number;
+    totalMilesAfterBooking?: number; // Current balance + earned
   };
 }
 
@@ -664,17 +666,24 @@ export function calculateDoubleDipRecommendation(
   const portalMilesEarned = Math.round(portalOutOfPocket * 5); // 5x on portal flights
   const portalMilesValue = portalMilesEarned * mileValueCpp;
   
-  // Can we erase the portal booking later?
-  const portalCanErase = milesBalance >= Math.ceil(portalOutOfPocket * 100);
-  const portalEraseAmount = portalCanErase ? portalOutOfPocket : 0;
+  // CRITICAL FIX: Calculate eraser potential using TOTAL miles available
+  // (current balance + miles earned from this booking)
+  // Travel Eraser has NO MINIMUM - user can erase ANY amount at 1¢/mile
+  const portalTotalMilesAfterBooking = milesBalance + portalMilesEarned;
+  const portalMaxEraseAtOneCent = portalTotalMilesAfterBooking / 100; // At 1¢/mile
+  // Can erase up to the out-of-pocket amount (no need to erase more than paid)
+  const portalEraseAmount = Math.min(portalOutOfPocket, portalMaxEraseAtOneCent);
+  const portalMilesUsedForErase = Math.round(portalEraseAmount * 100);
   
   // Direct route
   const directMilesEarned = Math.round(directPrice * 2); // 2x on direct
   const directMilesValue = directMilesEarned * mileValueCpp;
   
-  // Can we erase the direct booking later?
-  const directCanErase = milesBalance >= Math.ceil(directPrice * 100);
-  const directEraseAmount = directCanErase ? directPrice : 0;
+  // Same for direct: total miles after booking
+  const directTotalMilesAfterBooking = milesBalance + directMilesEarned;
+  const directMaxEraseAtOneCent = directTotalMilesAfterBooking / 100;
+  const directEraseAmount = Math.min(directPrice, directMaxEraseAtOneCent);
+  const directMilesUsedForErase = Math.round(directEraseAmount * 100);
   
   // Calculate effective costs for each strategy
   // Portal + Erase: Pay cash, earn 5x, erase later
@@ -688,6 +697,11 @@ export function calculateDoubleDipRecommendation(
   
   // Direct pay cash (no erase): Just pay and earn
   const directPayCashEffective = directPrice - directMilesValue;
+  
+  // Since Travel Eraser has NO MINIMUM, we can always erase SOME amount
+  // The question is whether we have enough miles to make a meaningful dent
+  const portalCanErase = portalEraseAmount > 0;
+  const directCanErase = directEraseAmount > 0;
   
   // Find best strategy
   const strategies = [
@@ -710,7 +724,9 @@ export function calculateDoubleDipRecommendation(
       milesEarned: portalMilesEarned,
       milesValue: portalMilesValue,
       eraseLater: portalEraseAmount,
+      milesUsedForErase: portalMilesUsedForErase,
       effectiveCost: portalThenEraseEffective,
+      totalMilesAfterBooking: portalTotalMilesAfterBooking,
     };
   } else if (best.strategy === 'direct_then_erase') {
     explanation = `Book direct ($${directPrice.toFixed(0)}), earn ${directMilesEarned.toLocaleString()} miles, then erase within 90 days.`;
@@ -719,7 +735,9 @@ export function calculateDoubleDipRecommendation(
       milesEarned: directMilesEarned,
       milesValue: directMilesValue,
       eraseLater: directEraseAmount,
+      milesUsedForErase: directMilesUsedForErase,
       effectiveCost: directThenEraseEffective,
+      totalMilesAfterBooking: directTotalMilesAfterBooking,
     };
   } else if (best.strategy === 'portal_pay_cash') {
     explanation = `Book portal ($${portalOutOfPocket.toFixed(0)}) and earn ${portalMilesEarned.toLocaleString()} miles at 5x rate.`;
@@ -728,7 +746,9 @@ export function calculateDoubleDipRecommendation(
       milesEarned: portalMilesEarned,
       milesValue: portalMilesValue,
       eraseLater: 0,
+      milesUsedForErase: 0,
       effectiveCost: portalPayCashEffective,
+      totalMilesAfterBooking: portalTotalMilesAfterBooking,
     };
   } else {
     explanation = `Book direct ($${directPrice.toFixed(0)}) and earn ${directMilesEarned.toLocaleString()} miles at 2x rate.`;
@@ -737,7 +757,9 @@ export function calculateDoubleDipRecommendation(
       milesEarned: directMilesEarned,
       milesValue: directMilesValue,
       eraseLater: 0,
+      milesUsedForErase: 0,
       effectiveCost: directPayCashEffective,
+      totalMilesAfterBooking: directTotalMilesAfterBooking,
     };
   }
   

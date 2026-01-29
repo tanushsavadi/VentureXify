@@ -239,9 +239,8 @@ function calculateDirectCash(input: StrategyInput): StrategyResult {
     pros.push('Third-party (OTA) booking');
     // Don't claim airline benefits for OTA
   } else {
-    // Unknown - hedge the language
-    pros.push('⚠️ Verify: airline checkout or OTA?');
-    pros.push('If airline: easier changes/cancellations');
+    // Unknown seller type - just show it as a direct booking without warnings
+    pros.push('Direct booking');
   }
   
   pros.push(`Earn ${milesEarned.toLocaleString()} miles (${C.BASE_RATE}x)`);
@@ -707,7 +706,7 @@ export interface SimpleCompareInput {
   mileValuationCpp?: number; // User's mile valuation in cpp (e.g., 0.018 for 1.8¢)
   // Extended fields for better accuracy
   creditDetectedInPrice?: boolean;   // true if portal UI shows credit already applied in price
-  creditBehavior?: CreditBehavior;   // unknown by default
+  creditBehavior?: CreditBehavior;   // 'reduces_charge' by default (Venture X earns miles on post-credit amount)
   directIsOTA?: boolean | 'unknown'; // true if MakeMyTrip/Expedia/etc, false if airline direct
   itineraryMatch?: number | 'unknown'; // 0..1 confidence that portal/direct are same itinerary
   objective?: 'cheapest_cash' | 'max_value' | 'easiest';
@@ -897,9 +896,20 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     directSticker > 0 ? (portalSticker - directSticker) / directSticker : 0;
 
   // ----------------------------
-  // Miles earned (RANGE-aware)
+  // Miles earned
   // ----------------------------
-  const creditBehavior: CreditBehavior = input.creditBehavior ?? 'unknown';
+  // IMPORTANT: Capital One explicitly states:
+  // "Rewards will not be earned on the Credit."
+  // Source: Capital One Venture X terms page
+  //
+  // This means when the $300 credit is applied at checkout:
+  // - Sticker: $1,136
+  // - Credit applied: $300
+  // - Amount charged: $836
+  // - Miles earned: 5 × $836 = 4,180 miles (NOT 5,680)
+  //
+  // The credit REDUCES the charged amount, and miles are earned only on what you pay.
+  const creditBehavior: CreditBehavior = input.creditBehavior ?? 'reduces_charge';
   
   // ============================================
   // BOOKING-TYPE-AWARE PORTAL MULTIPLIER
@@ -1142,11 +1152,9 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     explanation.push(`ℹ️ Credit detected in portal price → avoided double-counting`);
   }
   if (creditBehavior === 'unknown' && portalCreditApplied > 0) {
-    explanation.push(`ℹ️ Portal miles shown as a range because credit may or may not reduce earning base`);
+    explanation.push(`ℹ️ Miles shown as range (${fmtMiles(portalMilesEarnedMin)}–${fmtMiles(portalMilesEarnedMax)}) — conservative estimate used for recommendation`);
   }
-  if (directIsOTA === 'unknown') {
-    explanation.push(`💡 Tip: verify "direct" is airline checkout (not an OTA) for easier changes/refunds`);
-  } else if (directIsOTA === true) {
+  if (directIsOTA === true) {
     explanation.push(`⚠️ Warning: "direct" appears to be an OTA → airline changes/IRROPS can be harder`);
   }
 
@@ -1283,13 +1291,7 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
       value: typeLabel ? `${sellerName} (${typeLabel})` : sellerName,
       editable: false,
     });
-  } else if (directIsOTA === 'unknown') {
-    assumptions.push({
-      label: '"Direct" seller type',
-      value: 'Unknown (verify if airline or OTA)',
-      editable: false,
-    });
-  } else {
+  } else if (directIsOTA !== 'unknown') {
     assumptions.push({
       label: '"Direct" seller',
       value: directIsOTA ? 'OTA (third-party)' : 'Airline direct',
@@ -1334,14 +1336,7 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     }
   }
   
-  // For flights, mention airline checkout. For hotels, don't use IRROPS terminology
-  if (directIsOTA === 'unknown') {
-    if (bookingType === 'hotel' || bookingType === 'vacation_rental') {
-      couldFlipIf.push('If "Direct" is the hotel\'s own website → earn loyalty points & easier modifications');
-    } else {
-      couldFlipIf.push('If "Direct" is airline checkout → may be worth it for easier changes/IRROPS');
-    }
-  }
+  // Removed unknown seller type warnings - no longer cluttering the UI
   
   if (recommendation !== 'eraser' && eraserBest) {
     couldFlipIf.push(`If you want guaranteed redemption → Eraser gives ${fmtUSD(eraserBest.cashSaved)} back at 1¢/mile`);
@@ -1362,18 +1357,15 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     confidenceReasons.push('Credit balance unknown');
   }
   
-  // NEW: Only flag as unknown if we don't have seller info from Google Flights
-  if (directIsOTA === 'unknown' && !input.directSellerName) {
-    if (confidence === 'high') confidence = 'medium';
-    confidenceReasons.push('Direct seller type unknown');
-  } else if (input.directSellerName) {
+  // NEW: Only add seller info to confidence reasons if available
+  if (input.directSellerName) {
     // We have seller info, add it to reasons
     confidenceReasons.push(`Direct seller: ${input.directSellerName}`);
   }
   
   if (creditBehavior === 'unknown' && portalCreditApplied > 0) {
     if (confidence === 'high') confidence = 'medium';
-    confidenceReasons.push('Portal miles earning basis uncertain');
+    confidenceReasons.push(`Miles shown as range (credit behavior varies)`);
   }
   
   if (Math.abs(netEffectiveDiff) < 20) {

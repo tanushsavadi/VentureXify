@@ -1,11 +1,14 @@
 // ============================================
 // SUPABASE CONFIGURATION
 // ============================================
-// 
+//
 // This file contains your Supabase project configuration.
 // The extension calls Supabase Edge Functions which proxy
 // to Groq (AI) and handle vector storage - keeping API keys
 // safe on the server.
+//
+// NOTE: Using the new publishable key format (sb_publishable_*)
+// Edge functions must be deployed with --no-verify-jwt flag
 //
 // ============================================
 
@@ -13,8 +16,8 @@
 // Get from: https://supabase.com/dashboard/project/YOUR_PROJECT/settings/api
 export const SUPABASE_URL: string = 'https://yxbbmwebqjpxvpgzcyph.supabase.co';
 
-// Supabase anon key (safe to expose - it's rate limited by RLS)
-// Get from: https://supabase.com/dashboard/project/YOUR_PROJECT/settings/api
+// Supabase publishable key (new format)
+// Get from: Settings → API Keys → "Publishable and secret API keys" tab
 export const SUPABASE_ANON_KEY: string = 'sb_publishable_Pq37hXBqizmq3sBeh-Dreg_eHUjJQqz';
 
 // Edge function endpoints

@@ -229,9 +229,10 @@ TRANSFER PARTNERS:
 - Partners include: Turkish Miles&Smiles, Emirates Skywards, British Airways Avios, Air France-KLM Flying Blue, Singapore Airlines KrisFlyer, Avianca LifeMiles, TAP Miles&Go, Finnair Plus, Etihad Guest, Qantas Frequent Flyer, Air Canada Aeroplan, Choice Privileges, Accor Live Limitless, Wyndham Rewards
 
 TRAVEL ERASER:
-- Redeem miles for travel purchases at a rate of 1 cent per mile
+- Redeem miles for travel purchases at a rate of 1 cent per mile (1cpp)
 - Apply miles to erase travel purchases made in the past 90 days
-- Minimum redemption: 5,000 miles ($50)
+- NO minimum redemption - erase any amount, even $0.01
+- Partial redemptions allowed - choose exactly how much to erase
 
 ADDITIONAL BENEFITS:
 - No foreign transaction fees
@@ -344,7 +345,15 @@ TRANSFER TIPS:
 ];
 
 /**
- * Get Capital One content
+ * Get Capital One static content synchronously
+ * Returns the manually curated content without attempting to scrape
+ */
+export function getCapitalOneStaticContent(): ScrapedDocument[] {
+  return CAPITAL_ONE_STATIC_CONTENT;
+}
+
+/**
+ * Get Capital One content (async version)
  *
  * Note: In browser extension context, CORS prevents scraping Capital One pages.
  * We use comprehensive static content that is manually curated from official sources.

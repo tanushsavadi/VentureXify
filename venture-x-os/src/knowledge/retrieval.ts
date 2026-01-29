@@ -1,6 +1,7 @@
 // ============================================
 // KNOWLEDGE RETRIEVAL SYSTEM (SUPABASE)
 // Uses Supabase pgvector for semantic search
+// Supports hybrid search (dense + sparse) with RRF fusion
 // ============================================
 
 import { ScrapedDocument, fullRedditScrape } from './scrapers/reddit';
@@ -16,6 +17,18 @@ import {
   type ChatContext,
 } from './vectorStore/supabase';
 import { isSupabaseConfigured } from '../config/supabase';
+import { contentSanitizer, type SanitizeResult } from '../security/contentSanitizer';
+import {
+  hybridSearch,
+  textOnlySearch,
+  type HybridSearchConfig,
+  type HybridSearchResponse,
+} from './retrieval/hybridSearch';
+import {
+  ChunkWithProvenance,
+  SourceMetadata,
+  sourceFreshnessManager,
+} from './sourceMetadata';
 
 // Storage keys
 const KNOWLEDGE_CACHE_KEY = 'vx_knowledge_cache';
@@ -27,6 +40,10 @@ export interface CitedSource {
   source: 'reddit-post' | 'reddit-comment' | 'capitalone' | 'custom';
   author?: string;
   relevanceScore: number;
+  // Trust and sanitization metadata
+  trustTier?: 1 | 2 | 3 | 4;
+  wasSanitized?: boolean;
+  freshnessStatus?: 'fresh' | 'stale' | 'expired' | 'unknown';
 }
 
 export interface RetrievalResult {
@@ -34,6 +51,25 @@ export interface RetrievalResult {
   context: string;
   sources: CitedSource[];
   retrievedAt: string;
+}
+
+/**
+ * Extended retrieval result with provenance and hybrid search metadata
+ */
+export interface EnhancedRetrievalResult extends RetrievalResult {
+  /** Chunks with full provenance metadata */
+  chunks: ChunkWithProvenance[];
+  
+  /** Search method used */
+  searchMethod: 'hybrid' | 'dense' | 'sparse' | 'keyword' | 'cache';
+  
+  /** Hybrid search metrics (if applicable) */
+  hybridMetrics?: {
+    denseResultCount: number;
+    sparseResultCount: number;
+    fusedResultCount: number;
+    sparseSearchAvailable: boolean;
+  };
 }
 
 /**
@@ -182,11 +218,15 @@ export async function updateKnowledgeBase(
 
 /**
  * Search the knowledge base using Supabase pgvector
+ * Now includes content sanitization for prompt injection defense
  */
 export async function searchKnowledge(
   query: string,
-  topK: number = 5
+  topK: number = 5,
+  options: { sanitize?: boolean; filterExpired?: boolean } = {}
 ): Promise<RetrievalResult> {
+  const { sanitize = true, filterExpired = true } = options;
+  
   const result: RetrievalResult = {
     query,
     context: '',
@@ -204,16 +244,49 @@ export async function searchKnowledge(
       if (searchResult.success && searchResult.results && searchResult.results.length > 0) {
         const { context, sources } = buildRAGContext(searchResult.results);
         
-        return {
-          query,
-          context,
-          sources: sources.map(s => ({
+        // Sanitize sources for prompt injection defense
+        const sanitizedSources: CitedSource[] = [];
+        const sanitizedContextParts: string[] = [];
+        
+        for (const s of sources) {
+          // Get original content from the results
+          const originalResult = searchResult.results.find(r => r.url === s.url);
+          const content = originalResult?.content || '';
+          
+          // Sanitize content based on source trust tier
+          let sanitizedContent = content;
+          let wasSanitized = false;
+          
+          if (sanitize) {
+            const sanitizeResult: SanitizeResult = contentSanitizer.sanitize(content, s.source);
+            sanitizedContent = sanitizeResult.sanitized;
+            wasSanitized = sanitizeResult.wasModified;
+            
+            // Log injection attempts
+            if (sanitizeResult.injectionDetected) {
+              contentSanitizer.logInjectionAttempt(content, s.source);
+            }
+          }
+          
+          // Build sanitized context part
+          const sourceIdx = sanitizedSources.length + 1;
+          sanitizedContextParts.push(`[${sourceIdx}] ${s.title}: ${sanitizedContent.slice(0, 300)}...`);
+          
+          sanitizedSources.push({
             title: s.title,
             url: s.url,
             source: s.source as CitedSource['source'],
             author: s.author,
             relevanceScore: s.relevanceScore,
-          })),
+            trustTier: getTrustTierForSource(s.source),
+            wasSanitized,
+          });
+        }
+        
+        return {
+          query,
+          context: sanitize ? sanitizedContextParts.join('\n\n') : context,
+          sources: sanitizedSources,
           retrievedAt: new Date().toISOString(),
         };
       }
@@ -271,6 +344,322 @@ export async function searchKnowledge(
     console.error('[Knowledge] Search failed:', error);
     return result;
   }
+}
+
+/**
+ * Enhanced search using hybrid retrieval (dense + sparse)
+ * Returns chunks with full provenance for span-level citations
+ */
+export async function searchKnowledgeHybrid(
+  query: string,
+  options: {
+    topK?: number;
+    sanitize?: boolean;
+    filterExpired?: boolean;
+    hybridConfig?: Partial<HybridSearchConfig>;
+  } = {}
+): Promise<EnhancedRetrievalResult> {
+  const {
+    topK = 10,
+    sanitize = true,
+    filterExpired = true,
+    hybridConfig = {},
+  } = options;
+  
+  const emptyResult: EnhancedRetrievalResult = {
+    query,
+    context: '',
+    sources: [],
+    retrievedAt: new Date().toISOString(),
+    chunks: [],
+    searchMethod: 'hybrid',
+  };
+  
+  try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      console.log('[Knowledge] Supabase not configured, using local cache');
+      return await searchLocalCacheEnhanced(query, topK, sanitize);
+    }
+    
+    console.log('[Knowledge] Performing hybrid search...');
+    
+    // Perform hybrid search
+    const hybridResult = await hybridSearch(query, {
+      finalTopK: topK,
+      ...hybridConfig,
+    });
+    
+    if (!hybridResult.success || hybridResult.results.length === 0) {
+      console.log('[Knowledge] Hybrid search returned no results, trying text-only...');
+      
+      // Fallback to text-only search (returns SearchResult[], not HybridSearchResponse)
+      const textResults = await textOnlySearch(query, topK);
+      
+      if (textResults.length > 0) {
+        // Convert SearchResult[] to HybridSearchResponse format
+        const textResponse: HybridSearchResponse = {
+          success: true,
+          results: textResults.map(r => ({
+            ...r,
+            denseScore: 0,
+            sparseScore: r.score,
+            fusedScore: r.score,
+            searchType: 'sparse' as const,
+          })),
+          meta: {
+            denseCount: 0,
+            sparseCount: textResults.length,
+            fusedCount: textResults.length,
+            denseWeight: 0,
+            sparseWeight: 1,
+            searchTimeMs: 0,
+          },
+        };
+        return processHybridResults(query, textResponse, sanitize, filterExpired, 'sparse');
+      }
+      
+      // Final fallback to local cache
+      return await searchLocalCacheEnhanced(query, topK, sanitize);
+    }
+    
+    return processHybridResults(query, hybridResult, sanitize, filterExpired, 'hybrid');
+    
+  } catch (error) {
+    console.error('[Knowledge] Hybrid search failed:', error);
+    
+    // Fallback to regular search
+    const fallbackResult = await searchKnowledge(query, topK, { sanitize, filterExpired });
+    
+    return {
+      ...fallbackResult,
+      chunks: [],
+      searchMethod: 'dense',
+    };
+  }
+}
+
+/**
+ * Process hybrid search results into EnhancedRetrievalResult
+ */
+function processHybridResults(
+  query: string,
+  hybridResult: HybridSearchResponse,
+  sanitize: boolean,
+  filterExpired: boolean,
+  searchMethod: 'hybrid' | 'sparse'
+): EnhancedRetrievalResult {
+  const chunks: ChunkWithProvenance[] = [];
+  const sources: CitedSource[] = [];
+  const contextParts: string[] = [];
+  
+  for (const result of hybridResult.results) {
+    // Get trust tier
+    const trustTier = getTrustTierForSource(result.source);
+    
+    // Build source metadata
+    const metadata: SourceMetadata = {
+      id: result.id,
+      source: result.source,
+      url: result.url,
+      title: result.title,
+      retrievedAt: new Date().toISOString(),
+      trustTier,
+      contentHash: '',
+      version: 1,
+      isActive: true,
+    };
+    
+    // Calculate freshness
+    const freshnessResult = sourceFreshnessManager.calculateFreshness(metadata);
+    
+    // Skip expired content if filtering is enabled
+    if (filterExpired && freshnessResult.status === 'expired') {
+      console.log(`[Knowledge] Skipping expired content: ${result.title}`);
+      continue;
+    }
+    
+    // Sanitize content if enabled
+    let content = result.content;
+    let wasSanitized = false;
+    
+    if (sanitize) {
+      const sanitizeResult = contentSanitizer.sanitize(content, result.source);
+      content = sanitizeResult.sanitized;
+      wasSanitized = sanitizeResult.wasModified;
+      
+      if (sanitizeResult.injectionDetected) {
+        contentSanitizer.logInjectionAttempt(result.content, result.source);
+      }
+    }
+    
+    // Build chunk with provenance
+    const chunk: ChunkWithProvenance = {
+      id: result.id,
+      content,
+      metadata,
+      score: result.fusedScore || result.denseScore || result.sparseScore || 0,
+      rankPosition: chunks.length + 1,
+      freshnessStatus: freshnessResult.status,
+      daysOld: freshnessResult.daysOld,
+    };
+    
+    chunks.push(chunk);
+    
+    // Build context part
+    const sourceIdx = sources.length + 1;
+    contextParts.push(`[${sourceIdx}] ${result.title}: ${content.slice(0, 300)}...`);
+    
+    // Build cited source
+    sources.push({
+      title: result.title,
+      url: result.url || '',
+      source: mapSourceType(result.source),
+      author: result.author,
+      relevanceScore: result.fusedScore || result.denseScore || 0,
+      trustTier,
+      wasSanitized,
+      freshnessStatus: freshnessResult.status,
+    });
+  }
+  
+  return {
+    query,
+    context: contextParts.join('\n\n'),
+    sources,
+    retrievedAt: new Date().toISOString(),
+    chunks,
+    searchMethod,
+    hybridMetrics: {
+      denseResultCount: hybridResult.meta.denseCount,
+      sparseResultCount: hybridResult.meta.sparseCount,
+      fusedResultCount: hybridResult.meta.fusedCount,
+      sparseSearchAvailable: hybridResult.meta.sparseCount > 0,
+    },
+  };
+}
+
+/**
+ * Search local cache with enhanced result format
+ */
+async function searchLocalCacheEnhanced(
+  query: string,
+  topK: number,
+  sanitize: boolean
+): Promise<EnhancedRetrievalResult> {
+  const storage = await chrome.storage.local.get([KNOWLEDGE_CACHE_KEY]);
+  const cachedDocs = storage[KNOWLEDGE_CACHE_KEY] as ScrapedDocument[] | undefined;
+  
+  const emptyResult: EnhancedRetrievalResult = {
+    query,
+    context: '',
+    sources: [],
+    retrievedAt: new Date().toISOString(),
+    chunks: [],
+    searchMethod: 'cache',
+  };
+  
+  if (!cachedDocs || cachedDocs.length === 0) {
+    return emptyResult;
+  }
+  
+  // Simple keyword-based search
+  const queryTerms = query.toLowerCase().split(/\s+/);
+  const scored = cachedDocs.map(doc => {
+    const text = `${doc.title} ${doc.content}`.toLowerCase();
+    const matches = queryTerms.filter(term => text.includes(term)).length;
+    return { doc, score: matches / queryTerms.length };
+  });
+  
+  const relevant = scored
+    .filter(s => s.score > 0.2)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+  
+  if (relevant.length === 0) {
+    return emptyResult;
+  }
+  
+  const chunks: ChunkWithProvenance[] = [];
+  const sources: CitedSource[] = [];
+  const contextParts: string[] = [];
+  
+  for (const r of relevant) {
+    const trustTier = getTrustTierForSource(r.doc.source);
+    
+    const metadata: SourceMetadata = {
+      id: r.doc.id,
+      source: r.doc.source,
+      url: r.doc.url,
+      title: r.doc.title,
+      retrievedAt: new Date().toISOString(),
+      trustTier,
+      contentHash: '',
+      version: 1,
+      isActive: true,
+    };
+    
+    let content = r.doc.content;
+    let wasSanitized = false;
+    
+    if (sanitize) {
+      const sanitizeResult = contentSanitizer.sanitize(content, r.doc.source);
+      content = sanitizeResult.sanitized;
+      wasSanitized = sanitizeResult.wasModified;
+    }
+    
+    const chunk: ChunkWithProvenance = {
+      id: r.doc.id,
+      content,
+      metadata,
+      score: r.score,
+      rankPosition: chunks.length + 1,
+      freshnessStatus: 'unknown',
+    };
+    
+    chunks.push(chunk);
+    
+    const sourceIdx = sources.length + 1;
+    contextParts.push(`[${sourceIdx}] ${r.doc.title}: ${content.slice(0, 300)}...`);
+    
+    sources.push({
+      title: r.doc.title,
+      url: r.doc.url,
+      source: mapSourceType(r.doc.source),
+      author: r.doc.author,
+      relevanceScore: r.score,
+      trustTier,
+      wasSanitized,
+    });
+  }
+  
+  return {
+    query,
+    context: contextParts.join('\n\n'),
+    sources,
+    retrievedAt: new Date().toISOString(),
+    chunks,
+    searchMethod: 'cache',
+  };
+}
+
+/**
+ * Map source string to CitedSource source type
+ */
+function mapSourceType(source: string): CitedSource['source'] {
+  const normalized = source.toLowerCase();
+  
+  if (normalized.includes('capitalone') || normalized === 'official') {
+    return 'capitalone';
+  }
+  if (normalized.includes('comment')) {
+    return 'reddit-comment';
+  }
+  if (normalized.includes('reddit') || normalized.includes('post')) {
+    return 'reddit-post';
+  }
+  
+  return 'custom';
 }
 
 /**
@@ -368,6 +757,35 @@ function getSourceLabel(source: CitedSource['source']): string {
     case 'custom': return '📌 Custom';
     default: return '📄 Source';
   }
+}
+
+/**
+ * Map source type to trust tier
+ * Tier 1: Official sources (highest trust)
+ * Tier 2: Editorial sources
+ * Tier 3: Structured community content
+ * Tier 4: Unstructured user content (lowest trust)
+ */
+function getTrustTierForSource(source: string): 1 | 2 | 3 | 4 {
+  const normalized = source.toLowerCase();
+  
+  // Tier 1: Official sources
+  if (normalized.includes('capitalone') || normalized === 'official') {
+    return 1;
+  }
+  
+  // Tier 2: Editorial sources
+  if (['tpg', 'nerdwallet', 'doctorofcredit', 'editorial'].some(s => normalized.includes(s))) {
+    return 2;
+  }
+  
+  // Tier 3: Structured community content
+  if (['flyertalk', 'churning'].some(s => normalized.includes(s))) {
+    return 3;
+  }
+  
+  // Tier 4: Unstructured user content (Reddit, custom, unknown)
+  return 4;
 }
 
 // Re-export for convenience

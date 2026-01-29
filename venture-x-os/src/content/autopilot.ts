@@ -45,13 +45,29 @@ function injectToastStyles(): void {
   style.id = 'vx-toast-styles';
   style.textContent = `
     @keyframes vx-toast-slide-in {
-      from {
+      0% {
         opacity: 0;
-        transform: translateX(100%);
+        transform: translateX(100%) scale(0.95);
       }
-      to {
+      60% {
         opacity: 1;
-        transform: translateX(0);
+        transform: translateX(-8px) scale(1.02);
+      }
+      80% {
+        transform: translateX(4px) scale(1);
+      }
+      100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+    }
+    
+    @keyframes vx-toast-attention-pulse {
+      0%, 100% {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(99, 102, 241, 0);
+      }
+      50% {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 20px 4px rgba(99, 102, 241, 0.4);
       }
     }
     
@@ -81,7 +97,7 @@ function injectToastStyles(): void {
       font-size: 13px;
       max-width: 320px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-      animation: vx-toast-slide-in 0.3s ease-out;
+      animation: vx-toast-slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), vx-toast-attention-pulse 1.5s ease-in-out 0.4s 2;
       display: flex;
       align-items: center;
       gap: 12px;

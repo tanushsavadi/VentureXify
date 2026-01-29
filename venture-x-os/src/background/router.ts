@@ -775,7 +775,7 @@ function generateChatResponse(
   
   // Eraser question
   if (q.includes('eraser')) {
-    return 'Travel Eraser lets you redeem Capital One miles at 1¢ each for travel purchases made in the last 90 days. Minimum redemption is 5,000 miles ($50). Best used for smaller purchases when you can\'t find better transfer partner value.';
+    return 'Travel Eraser lets you redeem Capital One miles at 1¢ each for travel purchases made in the last 90 days. There is NO minimum redemption - you can erase any amount from $0.01 up. Great for flexibility, though transfer partners can offer better value (1.5-2¢+) for larger redemptions.';
   }
   
   // Transfer question

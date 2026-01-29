@@ -88,14 +88,31 @@ export function calculatePortalVsDirect(input: PortalDirectInput): PortalDirectC
   }
 
   // Calculate break-even premium
-  // At what portal price would they be equal?
-  // netDirect = netPortal
-  // valueDirect + statusAdjustment - directPrice = valuePortal - portalPrice
-  // portalPrice = valuePortal - valueDirect - statusAdjustment + directPrice
-  const extraPointsPerDollarPortal =
-    VENTURE_X_CONSTANTS.PORTAL_MULTIPLIER - VENTURE_X_CONSTANTS.BASE_MULTIPLIER;
-  const valuePerDollarDifference = (extraPointsPerDollarPortal * milesValuation) / 100;
-  const breakEvenPremium = (valueDirect + statusAdjustment - valuePortal + portalPrice - directPrice) / (1 - valuePerDollarDifference);
+  // How much more can portal cost before it's no longer worth it?
+  // At break-even: netDirect = netPortal(breakEvenPrice)
+  //
+  // netDirect = directPrice * baseMultiplier * v - directPrice + statusAdjustment
+  // netPortal(P) = P * portalMultiplier * v - P
+  //
+  // where v = milesValuation / 100
+  //
+  // Setting equal and solving for breakEvenPrice:
+  // breakEvenPrice = (directPrice * (baseMultiplier * v - 1) + statusAdjustment) / (portalMultiplier * v - 1)
+  //
+  // breakEvenPremium = breakEvenPrice - directPrice
+  const portalMultiplier = getPortalMultiplier(bookingType);
+  const v = milesValuation / 100;
+  const directNetPerDollar = VENTURE_X_CONSTANTS.BASE_MULTIPLIER * v - 1;
+  const portalNetPerDollar = portalMultiplier * v - 1;
+  
+  // Calculate break-even portal price
+  // Note: portalNetPerDollar is typically negative (e.g., 10 * 0.017 - 1 = -0.83)
+  // This means higher prices result in lower net value, which is correct
+  const breakEvenPrice = portalNetPerDollar !== 0
+    ? (directPrice * directNetPerDollar + statusAdjustment) / portalNetPerDollar
+    : directPrice; // Fallback if division would be by zero
+  
+  const breakEvenPremium = breakEvenPrice - directPrice;
 
   return {
     directPrice: {
@@ -119,7 +136,7 @@ export function calculatePortalVsDirect(input: PortalDirectInput): PortalDirectC
     valuePortal,
     netDifference: Math.abs(netDifference),
     winner,
-    breakEvenPremium: Math.max(0, breakEvenPremium - directPrice),
+    breakEvenPremium: Math.max(0, breakEvenPremium),
   };
 }
 
@@ -218,22 +235,31 @@ export function calculateRedemption(input: RedemptionInput): RedemptionOutput {
 
   let recommendation: 'eraser' | 'transfer' | 'portal' | 'cash';
 
-  if (transferRecommended && milesBalance >= eraserData.points) {
+  // First check eligibility - if not eligible for eraser, recommend cash
+  // (Transfer only makes sense for eraser-eligible travel purchases)
+  if (!isEraserEligible) {
+    recommendation = 'cash';
+    reasoning.push('Purchase not eligible for Travel Eraser (not a travel expense or outside 90-day window)');
+  } else if (milesBalance < eraserData.points) {
+    // Insufficient balance for any redemption
+    recommendation = 'cash';
+    reasoning.push('Insufficient miles balance for redemption');
+  } else if (transferRecommended) {
+    // User has enough miles and transfer offers better value
     recommendation = 'transfer';
     reasoning.push(
       `Transfer partners offer ${targetCPM.toFixed(1)}¢/mile vs Eraser's ${eraserCPM.toFixed(1)}¢/mile`
     );
     reasoning.push('Consider transferring to airline partners for better value');
   } else if (canUseEraser) {
+    // Eraser is the best option
     recommendation = 'eraser';
     reasoning.push(`Eraser gives ${eraserCPM.toFixed(1)}¢/mile - solid baseline value`);
     reasoning.push(`Would use ${eraserData.points.toLocaleString()} miles`);
-  } else if (!isEraserEligible) {
-    recommendation = 'cash';
-    reasoning.push('Purchase not eligible for Travel Eraser (not a travel expense or outside 90-day window)');
   } else {
+    // Fallback
     recommendation = 'cash';
-    reasoning.push('Insufficient miles balance for redemption');
+    reasoning.push('Cash payment recommended');
   }
 
   return {

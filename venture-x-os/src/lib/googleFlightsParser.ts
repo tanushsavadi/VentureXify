@@ -180,8 +180,23 @@ export function parseGoogleFlightsUrl(url: string): GoogleFlightDetails | null {
     // Keep airports in order of appearance (not unique yet) to detect the pattern
     const airportsInOrder = airportMatches.map(m => m[1]);
     
-    // Filter out non-airport codes
-    const nonAirportCodes = ['USD', 'EUR', 'GBP', 'AED', 'CAD', 'AUD', 'THE', 'AND', 'FOR', 'ONE', 'TWO', 'DAY', 'TAX', 'FEE', 'ALL', 'ANY', 'GET', 'SET', 'NEW', 'OLD'];
+    // Filter out non-airport codes - comprehensive list to avoid false positives
+    const nonAirportCodes = [
+      // Currencies
+      'USD', 'EUR', 'GBP', 'AED', 'CAD', 'AUD', 'CHF', 'JPY', 'CNY', 'INR', 'SGD', 'HKD', 'NZD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RUB', 'BRL', 'MXN', 'ZAR', 'TRY', 'KRW', 'THB', 'MYR', 'PHP', 'IDR', 'VND',
+      // Months
+      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+      // Days
+      'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN',
+      // Common words that might appear in encoded data
+      'THE', 'AND', 'FOR', 'BUT', 'NOT', 'ARE', 'WAS', 'HAS', 'HAD', 'GET', 'SET', 'PUT', 'NEW', 'OLD', 'ALL', 'ANY', 'ONE', 'TWO', 'TEN', 'PER', 'VIA', 'OFF', 'OUT', 'MIN', 'MAX', 'AVG', 'NET', 'SUM', 'ADD', 'SUB', 'MUL', 'DIV', 'END', 'TOP', 'BOT', 'MID', 'LOW', 'BIG', 'FLY', 'AIR', 'JET', 'SKY',
+      // Finance/API terms
+      'TAX', 'FEE', 'VAT', 'TIP', 'API', 'URL', 'KEY', 'VAL', 'REF', 'SRC', 'DST', 'ERR', 'LOG', 'MSG', 'ACK', 'NAK', 'SYN', 'FIN', 'RST', 'PSH',
+      // Misc Google-specific patterns
+      'TFS', 'UTM', 'SID', 'UID', 'PID', 'GID', 'CID', 'AID', 'BID', 'MID', 'RID', 'TID', 'XID',
+      // Class/fare codes that look like airports
+      'ECO', 'BIZ', 'PRM', 'FIR', 'BAS', 'STD', 'FLX', 'PLU',
+    ];
     const filteredAirports = airportsInOrder.filter(code => !nonAirportCodes.includes(code));
     
     // Get unique airports while preserving first-occurrence order
@@ -256,21 +271,25 @@ export function parseGoogleFlightsUrl(url: string): GoogleFlightDetails | null {
           if (firstDestIndex !== -1 && lastOriginIndex !== -1 && firstDestIndex < lastOriginIndex) {
             // Outbound segment: from first origin to first destination
             const outboundSegment = filteredAirports.slice(0, firstDestIndex + 1);
-            details.outboundStops = outboundSegment.filter(
-              a => a !== details.origin && a !== details.destination
-            );
+            // Filter to only layover airports and DEDUPLICATE
+            // (the same airport can appear multiple times in protobuf encoding)
+            details.outboundStops = [...new Set(
+              outboundSegment.filter(a => a !== details.origin && a !== details.destination)
+            )];
             
             // Return segment: from first destination to last origin
             const returnSegment = filteredAirports.slice(firstDestIndex, lastOriginIndex + 1);
-            details.returnStops = returnSegment.filter(
-              a => a !== details.origin && a !== details.destination
-            );
+            // Filter to only layover airports and DEDUPLICATE
+            details.returnStops = [...new Set(
+              returnSegment.filter(a => a !== details.origin && a !== details.destination)
+            )];
             
             console.log('[GF Parser] Outbound stops:', details.outboundStops);
             console.log('[GF Parser] Return stops:', details.returnStops);
           } else {
             // Fallback: couldn't determine segments, assume equal split
             console.log('[GF Parser] Could not definitively split segments, using heuristic');
+            // details.stops is already deduplicated unique airports
             const midpoint = Math.ceil(details.stops.length / 2);
             details.outboundStops = details.stops.slice(0, midpoint);
             details.returnStops = details.stops.slice(midpoint);

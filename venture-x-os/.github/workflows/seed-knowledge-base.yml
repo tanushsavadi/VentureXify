@@ -1,0 +1,65 @@
+# ============================================
+# VENTUREX KNOWLEDGE BASE SEEDER
+# GitHub Action to scrape Reddit and populate Supabase
+# ============================================
+# 
+# Runs every 2 weeks on Sunday at 3am UTC
+# Can also be triggered manually from Actions tab
+#
+# Required secrets:
+# - SUPABASE_URL: Your Supabase project URL
+# - SUPABASE_SERVICE_ROLE_KEY: Service role key (not anon key)
+# - HF_API_KEY: (optional) Hugging Face API key for embeddings
+#
+
+name: Seed Knowledge Base
+
+on:
+  # Run every 2 weeks on Sunday at 3am UTC
+  schedule:
+    - cron: '0 3 */14 * 0'
+  
+  # Allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      max_posts:
+        description: 'Maximum Reddit posts to scrape'
+        required: false
+        default: '50'
+      include_reddit:
+        description: 'Include Reddit scraping'
+        required: false
+        default: 'true'
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: venture-x-os
+
+      - name: Seed Knowledge Base
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          MAX_POSTS: ${{ github.event.inputs.max_posts || '50' }}
+          INCLUDE_REDDIT: ${{ github.event.inputs.include_reddit || 'true' }}
+        run: |
+          node scripts/seed-knowledge-base.js
+        working-directory: venture-x-os
+
+      - name: Summary
+        run: echo "✅ Knowledge base seeding complete!"

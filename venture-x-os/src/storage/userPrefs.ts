@@ -3,13 +3,26 @@
  *
  * Manages onboarding state and user preferences for VentureXify.
  * Stores to chrome.storage.sync with fallback to localStorage.
- * 
+ *
  * This is the single source of truth for:
  * - Credit remaining (no longer hardcoded!)
  * - Default decision mode (Cheapest/Max Value/Easiest)
  * - Miles balance and valuation
  * - PointsYeah toggle
+ *
+ * P0 Fixes Applied:
+ * - Storage versioning for migrations
+ * - Debounced saves to prevent quota exceeded errors
+ * - Retry logic with exponential backoff
  */
+
+// ============================================
+// STORAGE VERSION & MIGRATION
+// ============================================
+
+const STORAGE_VERSION = 2;
+const SAVE_DEBOUNCE_MS = 500;
+const MAX_RETRIES = 3;
 
 // ============================================
 // TYPES
@@ -58,6 +71,9 @@ export interface UserPrefs {
 // DEFAULTS
 // ============================================
 
+/** Single source of truth for default mile valuation - 1.5¢ conservative */
+export const DEFAULT_MILE_VALUATION_CPP = 0.015;
+
 export const DEFAULT_USER_PREFS: UserPrefs = {
   // Onboarding
   onboardingCompleted: false,
@@ -73,7 +89,7 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
 
   // Miles
   milesBalance: undefined,
-  mileValuationCpp: 0.018,  // 1.8¢ conservative default
+  mileValuationCpp: DEFAULT_MILE_VALUATION_CPP,  // Use single source of truth
   customMileValuation: false,
 
   // PointsYeah
@@ -94,10 +110,17 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
 export const CURRENT_ONBOARDING_VERSION = 1;
 
 // ============================================
-// STORAGE KEY
+// STORAGE KEY & VERSIONED FORMAT
 // ============================================
 
 const STORAGE_KEY = 'vx_user_prefs';
+
+/** Versioned storage wrapper for migration support */
+interface StoredPrefsWrapper {
+  version: number;
+  lastModified: number;
+  data: UserPrefs;
+}
 
 // ============================================
 // VALIDATION HELPERS
@@ -189,7 +212,140 @@ export function sanitizePrefs(prefs: Partial<UserPrefs>): UserPrefs {
 }
 
 // ============================================
-// STORAGE FUNCTIONS
+// MIGRATION FUNCTIONS
+// ============================================
+
+/**
+ * Migrate stored data to latest version
+ */
+function migrateStoredData(stored: unknown): StoredPrefsWrapper {
+  // Handle legacy format (no version wrapper)
+  if (stored && typeof stored === 'object' && !('version' in stored)) {
+    // Legacy format: direct UserPrefs object
+    console.log('[UserPrefs] Migrating from legacy format to v2');
+    return {
+      version: STORAGE_VERSION,
+      lastModified: Date.now(),
+      data: sanitizePrefs(stored as Partial<UserPrefs>),
+    };
+  }
+  
+  const wrapper = stored as StoredPrefsWrapper;
+  
+  // Already at current version
+  if (wrapper.version === STORAGE_VERSION) {
+    return {
+      ...wrapper,
+      data: sanitizePrefs(wrapper.data),
+    };
+  }
+  
+  // Future: Add version-specific migrations here
+  // if (wrapper.version === 1) { ... migrate to 2 ... }
+  
+  console.log(`[UserPrefs] Migrated from v${wrapper.version} to v${STORAGE_VERSION}`);
+  return {
+    version: STORAGE_VERSION,
+    lastModified: Date.now(),
+    data: sanitizePrefs(wrapper.data),
+  };
+}
+
+// ============================================
+// DEBOUNCING INFRASTRUCTURE
+// ============================================
+
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingPrefs: Partial<UserPrefs> | null = null;
+let saveResolvers: Array<{ resolve: () => void; reject: (err: Error) => void }> = [];
+
+/**
+ * Flush pending saves immediately
+ */
+async function flushPendingUpdates(): Promise<void> {
+  if (!pendingPrefs) return;
+  
+  const prefsToSave = { ...pendingPrefs };
+  const resolversToNotify = [...saveResolvers];
+  
+  pendingPrefs = null;
+  saveResolvers = [];
+  
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  
+  try {
+    await savePrefsImmediately(prefsToSave);
+    resolversToNotify.forEach(r => r.resolve());
+  } catch (error) {
+    resolversToNotify.forEach(r => r.reject(error as Error));
+    throw error;
+  }
+}
+
+/**
+ * Save with retry and exponential backoff
+ */
+async function saveWithRetry(wrapper: StoredPrefsWrapper, attempt = 1): Promise<void> {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
+      await chrome.storage.sync.set({ [STORAGE_KEY]: wrapper });
+    }
+  } catch (error) {
+    const isQuotaError = (error as Error)?.message?.includes('QUOTA') ||
+                         (error as Error)?.message?.includes('quota');
+    
+    if (attempt < MAX_RETRIES && !isQuotaError) {
+      const delay = Math.pow(2, attempt) * 100; // 200ms, 400ms, 800ms
+      console.warn(`[UserPrefs] Retry ${attempt}/${MAX_RETRIES} in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      return saveWithRetry(wrapper, attempt + 1);
+    }
+    
+    if (isQuotaError) {
+      console.error('[UserPrefs] Storage quota exceeded. Try reducing saved data.');
+    }
+    
+    throw error;
+  }
+}
+
+/**
+ * Internal: Save preferences immediately (no debouncing)
+ */
+async function savePrefsImmediately(prefs: Partial<UserPrefs>): Promise<void> {
+  const current = await getUserPrefs();
+  const updated = sanitizePrefs({ ...current, ...prefs });
+  
+  const wrapper: StoredPrefsWrapper = {
+    version: STORAGE_VERSION,
+    lastModified: Date.now(),
+    data: updated,
+  };
+  
+  // Try chrome.storage.sync with retry
+  await saveWithRetry(wrapper);
+  
+  // Also save to localStorage as backup (always succeeds)
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(wrapper));
+  } catch {
+    console.warn('[UserPrefs] localStorage backup failed (quota?)');
+  }
+  
+  // Emit change event for reactive updates
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('vx-prefs-changed', { detail: updated }));
+  }
+  
+  // Also notify via chrome.storage.onChanged for service workers
+  // (This happens automatically via chrome.storage.sync.set)
+}
+
+// ============================================
+// STORAGE FUNCTIONS (Public API)
 // ============================================
 
 /**
@@ -201,14 +357,19 @@ export async function getUserPrefs(): Promise<UserPrefs> {
     if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
       const result = await chrome.storage.sync.get(STORAGE_KEY);
       if (result[STORAGE_KEY]) {
-        return sanitizePrefs(result[STORAGE_KEY]);
+        const migrated = migrateStoredData(result[STORAGE_KEY]);
+        return migrated.data;
       }
     }
     
     // Fallback to localStorage
-    const local = localStorage.getItem(STORAGE_KEY);
-    if (local) {
-      return sanitizePrefs(JSON.parse(local));
+    if (typeof localStorage !== 'undefined') {
+      const local = localStorage.getItem(STORAGE_KEY);
+      if (local) {
+        const parsed = JSON.parse(local);
+        const migrated = migrateStoredData(parsed);
+        return migrated.data;
+      }
     }
   } catch (error) {
     console.error('[UserPrefs] Error loading preferences:', error);
@@ -218,42 +379,71 @@ export async function getUserPrefs(): Promise<UserPrefs> {
 }
 
 /**
- * Set user preferences to storage
+ * Set user preferences to storage (debounced)
+ *
+ * Multiple rapid calls will be batched into a single write.
+ * Returns a promise that resolves when the save is complete.
  */
-export async function setUserPrefs(prefs: Partial<UserPrefs>): Promise<void> {
-  try {
-    const current = await getUserPrefs();
-    const updated = sanitizePrefs({ ...current, ...prefs });
+export function setUserPrefs(prefs: Partial<UserPrefs>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Merge with any pending updates
+    pendingPrefs = { ...pendingPrefs, ...prefs };
+    saveResolvers.push({ resolve, reject });
     
-    // Try chrome.storage.sync first
-    if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
-      await chrome.storage.sync.set({ [STORAGE_KEY]: updated });
+    // Clear existing timeout
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
     }
     
-    // Also save to localStorage as backup
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    
-    // Emit change event for reactive updates
-    window.dispatchEvent(new CustomEvent('vx-prefs-changed', { detail: updated }));
-  } catch (error) {
-    console.error('[UserPrefs] Error saving preferences:', error);
-    throw error;
-  }
+    // Schedule debounced save
+    saveTimeout = setTimeout(() => {
+      flushPendingUpdates().catch(console.error);
+    }, SAVE_DEBOUNCE_MS);
+  });
+}
+
+/**
+ * Set user preferences immediately (no debouncing)
+ * Use sparingly - only for critical saves like onboarding completion
+ */
+export async function setUserPrefsImmediate(prefs: Partial<UserPrefs>): Promise<void> {
+  // Flush any pending updates first
+  await flushPendingUpdates();
+  // Then save immediately
+  await savePrefsImmediately(prefs);
 }
 
 /**
  * Reset preferences to defaults
  */
 export async function resetUserPrefs(): Promise<void> {
+  // Cancel any pending saves
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  pendingPrefs = null;
+  saveResolvers.forEach(r => r.reject(new Error('Reset cancelled pending save')));
+  saveResolvers = [];
+  
+  const wrapper: StoredPrefsWrapper = {
+    version: STORAGE_VERSION,
+    lastModified: Date.now(),
+    data: { ...DEFAULT_USER_PREFS },
+  };
+  
   try {
-    const defaults = { ...DEFAULT_USER_PREFS };
-    
     if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
-      await chrome.storage.sync.set({ [STORAGE_KEY]: defaults });
+      await chrome.storage.sync.set({ [STORAGE_KEY]: wrapper });
     }
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
-    window.dispatchEvent(new CustomEvent('vx-prefs-changed', { detail: defaults }));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(wrapper));
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vx-prefs-changed', { detail: wrapper.data }));
+    }
   } catch (error) {
     console.error('[UserPrefs] Error resetting preferences:', error);
     throw error;
@@ -262,9 +452,10 @@ export async function resetUserPrefs(): Promise<void> {
 
 /**
  * Mark onboarding as completed
+ * Uses immediate save since this is a critical action
  */
 export async function completeOnboarding(prefs: Partial<UserPrefs>): Promise<void> {
-  await setUserPrefs({
+  await setUserPrefsImmediate({
     ...prefs,
     onboardingCompleted: true,
     onboardingVersion: CURRENT_ONBOARDING_VERSION,

@@ -136,9 +136,7 @@ function buildContextForLLM(ctx: VerdictContext): string {
   if (ctx.isPriceClose || diff < 30) {
     lines.push(`⚠️ Prices are very close - essentially a tie`);
   }
-  if (ctx.sellerType === 'unknown') {
-    lines.push(`⚠️ Direct seller type unknown`);
-  } else if (ctx.sellerName) {
+  if (ctx.sellerName && ctx.sellerType && ctx.sellerType !== 'unknown') {
     lines.push(`Direct seller: ${ctx.sellerName} (${ctx.sellerType})`);
   }
   if (ctx.tabMode) {
@@ -240,8 +238,8 @@ async function generateQuestionsViaLLM(ctx: VerdictContext): Promise<PromptChip[
 }
 
 // ============================================
-// FALLBACK QUESTIONS (used when LLM unavailable)
-// These are context-aware but not as specific as LLM
+// SMART FALLBACK QUESTIONS (used when LLM unavailable)
+// Context-aware, verdict-specific, and actionable
 // ============================================
 
 function generateFallbackQuestions(ctx: VerdictContext): PromptChip[] {
@@ -249,82 +247,143 @@ function generateFallbackQuestions(ctx: VerdictContext): PromptChip[] {
   const isStay = ctx.bookingType === 'hotel' || ctx.bookingType === 'vacation_rental';
   const diff = Math.abs(ctx.portalPrice - ctx.directPrice);
   const milesDiff = (ctx.portalMilesEarned || 0) - (ctx.directMilesEarned || 0);
+  const portalWins = ctx.winner === 'portal';
+  const directWins = ctx.winner === 'direct';
+  const isTie = ctx.winner === 'tie' || diff < 25;
   
-  // Question 1: About the price/value
-  if (ctx.creditApplied && ctx.creditApplied > 0) {
+  // ============================================
+  // QUESTION 1: Verdict-specific "challenge" question
+  // Challenge the verdict to help user understand trade-offs
+  // ============================================
+  if (portalWins) {
+    // Portal won - ask about what you might lose
+    if (isStay) {
+      chips.push({
+        id: 'portal-tradeoff',
+        text: 'Will I lose Marriott/Hilton elite night credits by booking portal?',
+        shortText: 'Lose elite nights?',
+      });
+    } else {
+      chips.push({
+        id: 'portal-tradeoff',
+        text: `What do I give up by booking Portal instead of direct with ${ctx.airline || 'the airline'}?`,
+        shortText: 'What do I lose?',
+      });
+    }
+  } else if (directWins) {
+    // Direct won - ask about the miles you're missing
     chips.push({
-      id: 'credit-usage',
-      text: `Should I use my $${ctx.creditApplied} credit on this $${ctx.portalPrice} booking or save it?`,
-      shortText: 'Use credit here?',
+      id: 'direct-tradeoff',
+      text: `I'm missing ${milesDiff > 0 ? milesDiff.toLocaleString() : 'extra'} portal miles — is Direct really better?`,
+      shortText: 'Why not portal?',
     });
-  } else if (diff < 30) {
+  } else if (isTie) {
     chips.push({
       id: 'tie-breaker',
-      text: `Prices are within $${diff.toFixed(0)} — what should be the tie-breaker?`,
+      text: `Both are within $${diff.toFixed(0)} — what's the tie-breaker?`,
       shortText: 'Tie-breaker?',
-    });
-  } else {
-    chips.push({
-      id: 'price-diff',
-      text: `Is the $${diff.toFixed(0)} ${ctx.portalPrice < ctx.directPrice ? 'savings' : 'premium'} worth it for portal?`,
-      shortText: `Worth $${diff.toFixed(0)}?`,
     });
   }
   
-  // Question 2: About flexibility/cancellation
-  if (isStay) {
+  // ============================================
+  // QUESTION 2: Credit-specific (if applicable) or flexibility
+  // ============================================
+  if (ctx.creditApplied && ctx.creditApplied > 0) {
+    // Credit is being used
+    if (portalWins) {
+      chips.push({
+        id: 'credit-strategy',
+        text: `Is now the right time to use my $${ctx.creditApplied} credit, or save it for a bigger trip?`,
+        shortText: 'Save credit?',
+      });
+    } else {
+      // Direct won even with credit available!
+      chips.push({
+        id: 'credit-unused',
+        text: `You recommend Direct even with $${ctx.creditApplied} credit available — why?`,
+        shortText: 'Why skip credit?',
+      });
+    }
+  } else if (isStay) {
     chips.push({
       id: 'hotel-flex',
-      text: 'Which booking has better cancellation terms for this hotel?',
-      shortText: 'Cancellation policy?',
+      text: `Can I cancel this ${ctx.hotelName || 'hotel'} for free if my plans change?`,
+      shortText: 'Free cancellation?',
     });
   } else {
     chips.push({
       id: 'flight-flex',
-      text: 'Which is easier to change if my plans shift?',
-      shortText: 'Change flexibility?',
+      text: 'What if I need to change dates or cancel this flight?',
+      shortText: 'Change/cancel?',
     });
   }
   
-  // Question 3: About miles/loyalty
-  if (Math.abs(milesDiff) > 500) {
+  // ============================================
+  // QUESTION 3: Miles value / loyalty question
+  // ============================================
+  if (Math.abs(milesDiff) > 1000 && !portalWins) {
+    // Significant miles difference and we're NOT recommending portal
     chips.push({
-      id: 'miles-worth',
-      text: `Are ${Math.abs(milesDiff).toLocaleString()} extra miles worth the ${milesDiff > 0 ? 'portal' : 'direct'} booking?`,
-      shortText: `${(Math.abs(milesDiff)/1000).toFixed(0)}k miles worth it?`,
+      id: 'miles-value',
+      text: `Are ${milesDiff.toLocaleString()} extra portal miles worth $${(milesDiff * 0.018).toFixed(0)}?`,
+      shortText: `${(milesDiff/1000).toFixed(0)}k miles = $${(milesDiff * 0.018).toFixed(0)}?`,
+    });
+  } else if (Math.abs(milesDiff) > 500 && portalWins) {
+    chips.push({
+      id: 'miles-earned',
+      text: `How should I use the +${milesDiff.toLocaleString()} miles I'll earn on Portal?`,
+      shortText: 'Best miles use?',
     });
   } else if (isStay) {
     chips.push({
-      id: 'hotel-loyalty',
-      text: 'Will I earn hotel loyalty points and elite nights via portal?',
-      shortText: 'Hotel loyalty?',
+      id: 'hotel-status',
+      text: 'Will portal booking count toward my hotel elite status?',
+      shortText: 'Elite status?',
     });
   } else {
     chips.push({
-      id: 'airline-status',
-      text: 'Will I earn airline status credits with both options?',
-      shortText: 'Airline status?',
+      id: 'airline-miles',
+      text: `Will I earn ${ctx.airline || 'airline'} miles on both options?`,
+      shortText: 'Airline miles?',
     });
   }
   
-  // Question 4: FX or specific concern
+  // ============================================
+  // QUESTION 4: Specific actionable question
+  // Based on booking details and context
+  // ============================================
   if (ctx.hasFxConversion && ctx.fxCurrency) {
     chips.push({
-      id: 'fx-rate',
-      text: `Is the ${ctx.fxCurrency} → USD rate accurate? Any FX fees?`,
-      shortText: 'FX rate accurate?',
+      id: 'fx-accuracy',
+      text: `Is the ${ctx.fxCurrency} → USD conversion accurate? Any hidden FX fees?`,
+      shortText: 'FX accurate?',
     });
-  } else if (ctx.sellerType === 'unknown') {
+  } else if (ctx.sellerType === 'ota' && directWins) {
     chips.push({
-      id: 'seller-check',
-      text: 'Is the direct price from the airline or an OTA?',
-      shortText: 'Who is seller?',
+      id: 'ota-warning',
+      text: `${ctx.sellerName || 'This'} is an OTA — is my booking still protected?`,
+      shortText: 'OTA safe?',
+    });
+  } else if (ctx.isPriceClose && diff < 50) {
+    chips.push({
+      id: 'close-call',
+      text: `With only $${diff.toFixed(0)} difference, when would ${portalWins ? 'Direct' : 'Portal'} be better?`,
+      shortText: `When ${portalWins ? 'direct' : 'portal'}?`,
+    });
+  } else if (portalWins && ctx.effectiveCost && ctx.effectiveCost < ctx.directPrice) {
+    chips.push({
+      id: 'effective-cost',
+      text: `How is Portal's effective cost only $${ctx.effectiveCost.toFixed(0)} when sticker is $${ctx.portalPrice}?`,
+      shortText: 'Show the math?',
     });
   } else {
+    // Default: specific "what about" question
     chips.push({
-      id: 'why-winner',
-      text: `Why is ${ctx.winnerLabel} the better choice here?`,
-      shortText: `Why ${ctx.winner}?`,
+      id: 'alternative',
+      text: portalWins
+        ? 'When would booking Direct be worth it instead?'
+        : 'When would Portal actually be the better choice?',
+      shortText: portalWins ? 'When direct?' : 'When portal?',
     });
   }
   
@@ -423,7 +482,7 @@ export const AskAboutVerdictModule: React.FC<AskAboutVerdictModuleProps> = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about portal vs direct, travel eraser, transfer partners…"
+            placeholder="Ask about this comparison..."
             className={cn(
               'w-full px-3 py-2.5 pr-10',
               'text-sm text-white placeholder:text-white/30',

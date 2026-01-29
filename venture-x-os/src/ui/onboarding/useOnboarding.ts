@@ -19,6 +19,7 @@ import {
   type UserPrefs,
   type DefaultMode,
   DEFAULT_USER_PREFS,
+  DEFAULT_MILE_VALUATION_CPP,
 } from '../../storage/userPrefs';
 
 // ============================================
@@ -92,14 +93,14 @@ const initialState: OnboardingState = {
   canGoBack: false,
   canGoNext: true,
   
-  creditRemaining: 300,
+  creditRemaining: DEFAULT_USER_PREFS.creditRemaining,
   creditChoice: null,
-  defaultMode: 'cheapest',
+  defaultMode: DEFAULT_USER_PREFS.defaultMode,
   milesBalance: undefined,
   wantsMilesFactored: false,
-  mileValuationCpp: 0.015, // 1.5¢ conservative default
+  mileValuationCpp: DEFAULT_MILE_VALUATION_CPP, // Use single source of truth
   useConservativeValuation: true,
-  enableAwardSearch: false,
+  enableAwardSearch: DEFAULT_USER_PREFS.enableAwardSearch,
   
   isLoading: true,
   isCompleted: false,

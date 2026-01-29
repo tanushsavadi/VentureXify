@@ -18,6 +18,8 @@ export { TransferPartnersCard } from './TransferPartnersCard';
 export type { TransferPartnersCardProps } from './TransferPartnersCard';
 export { AskAboutVerdictModule } from './AskAboutVerdictModule';
 export type { VerdictContext, AskAboutVerdictModuleProps } from './AskAboutVerdictModule';
+export { FeedbackButton, InlineFeedbackLink } from './FeedbackButton';
+export type { FeedbackButtonProps, InlineFeedbackLinkProps } from './FeedbackButton';
 
 // ============================================
 // GLASS PANEL - Container with blur/noise

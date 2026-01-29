@@ -22,6 +22,7 @@ import {
   type PortalMilesBasis,
   type DefaultOpenTab,
   DEFAULT_USER_PREFS,
+  DEFAULT_MILE_VALUATION_CPP,
   getAssumptionLabels,
 } from '../../storage/userPrefs';
 import { POINTSYEAH_TIPS } from '../../engine/pointsyeah';
@@ -108,6 +109,18 @@ const styles = {
     flex: 1,
     overflowY: 'auto' as const,
     padding: '16px 20px',
+    position: 'relative' as const,
+  },
+  // P1 fix: scroll indicator gradient at bottom
+  scrollIndicator: {
+    position: 'absolute' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '40px',
+    background: 'linear-gradient(to top, rgba(18,18,18,0.98), transparent)',
+    pointerEvents: 'none' as const,
+    zIndex: 5,
   },
   section: {
     marginBottom: '24px',
@@ -355,29 +368,212 @@ const styles = {
     backgroundColor: 'rgba(255,100,100,0.1)',
     color: 'rgba(255,150,150,0.9)',
   },
+  // Custom confirm modal styles
+  confirmOverlay: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    zIndex: 120,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+  },
+  confirmModal: {
+    maxWidth: '300px',
+    backgroundColor: 'rgba(25,25,25,0.98)',
+    borderRadius: '16px',
+    padding: '20px',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  confirmTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: 'white',
+    marginBottom: '8px',
+  },
+  confirmDesc: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.6)',
+    lineHeight: 1.5,
+    marginBottom: '20px',
+  },
+  confirmButtons: {
+    display: 'flex',
+    gap: '10px',
+  },
+  confirmCancel: {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid rgba(255,255,255,0.1)',
+    backgroundColor: 'transparent',
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: '13px',
+    fontWeight: 500,
+    cursor: 'pointer',
+  },
+  confirmDanger: {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    color: '#fca5a5',
+    fontSize: '13px',
+    fontWeight: 500,
+    cursor: 'pointer',
+  },
+  // Firefox-compatible slider styles (applied via className)
+  sliderFirefox: `
+    appearance: none;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+  `,
 };
+
+// Slider CSS for Firefox compatibility - inject into head
+const sliderStyles = `
+  .vx-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.15);
+    cursor: pointer;
+    margin-top: 12px;
+    margin-bottom: 8px;
+  }
+  .vx-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    border: none;
+  }
+  .vx-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    border: none;
+  }
+  .vx-slider::-moz-range-track {
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    height: 6px;
+  }
+  .vx-slider:focus {
+    outline: none;
+  }
+  .vx-slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  }
+  .vx-slider:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  }
+`;
+
+// Inject slider styles once
+if (typeof document !== 'undefined') {
+  const existingStyle = document.getElementById('vx-slider-styles');
+  if (!existingStyle) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'vx-slider-styles';
+    styleEl.textContent = sliderStyles;
+    document.head.appendChild(styleEl);
+  }
+}
 
 // ============================================
 // SUB-COMPONENTS
 // ============================================
 
+// P1 fix: Accessible toggle with role="switch" and aria-checked
 const Toggle: React.FC<{
   checked: boolean;
   onChange: (checked: boolean) => void;
-}> = ({ checked, onChange }) => (
-  <div
-    style={{ ...styles.toggle, ...(checked ? styles.toggleActive : {}) }}
+  label?: string;
+}> = ({ checked, onChange, label }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    style={{
+      ...styles.toggle,
+      ...(checked ? styles.toggleActive : {}),
+      border: 'none',
+      outline: 'none',
+    }}
     onClick={() => onChange(!checked)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onChange(!checked);
+      }
+    }}
   >
     <div style={{ ...styles.toggleKnob, transform: checked ? 'translateX(20px)' : 'translateX(0)' }} />
-  </div>
+  </button>
 );
 
+// P1 fix: Changed "Assumed" to "Default" for clarity
 const Badge: React.FC<{ isDefault: boolean }> = ({ isDefault }) => (
   <span style={{ ...styles.badge, ...(isDefault ? styles.badgeDefault : styles.badgeCustom) }}>
-    {isDefault ? 'Assumed' : 'Custom'}
+    {isDefault ? 'Default' : 'Custom'}
   </span>
 );
+
+// Custom confirmation modal (P0 fix: replace browser confirm())
+const ConfirmResetModal: React.FC<{
+  isOpen: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ isOpen, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={styles.confirmOverlay}
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        style={styles.confirmModal}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={styles.confirmTitle}>Reset all settings?</h3>
+        <p style={styles.confirmDesc}>
+          This will restore all settings to their default values. Your credit remaining will be set to $300, and all customizations will be cleared.
+        </p>
+        <div style={styles.confirmButtons}>
+          <button onClick={onCancel} style={styles.confirmCancel}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} style={styles.confirmDanger}>
+            Reset
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
 
 const PointsYeahTipsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
   <motion.div
@@ -434,6 +630,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showTips, setShowTips] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   // Load prefs on open
   useEffect(() => {
@@ -480,16 +677,23 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
     }
   }, [prefs]);
   
-  // Reset to defaults
-  const handleReset = async () => {
-    if (confirm('Reset all settings to defaults?')) {
-      try {
-        await resetUserPrefs();
-        await loadPrefs();
-      } catch (error) {
-        console.error('[Settings] Failed to reset:', error);
-      }
+  // Reset to defaults (P0 fix: use custom modal instead of browser confirm())
+  const handleResetClick = () => {
+    setShowResetConfirm(true);
+  };
+  
+  const handleResetConfirm = async () => {
+    setShowResetConfirm(false);
+    try {
+      await resetUserPrefs();
+      await loadPrefs();
+    } catch (error) {
+      console.error('[Settings] Failed to reset:', error);
     }
+  };
+  
+  const handleResetCancel = () => {
+    setShowResetConfirm(false);
   };
   
   // Get assumption labels for UI
@@ -522,7 +726,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
             </div>
             <div style={styles.headerActions}>
               <button
-                onClick={handleReset}
+                onClick={handleResetClick}
                 style={styles.headerButton}
                 onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'}
                 onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
@@ -548,8 +752,9 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
             </div>
           </header>
           
-          {/* Content */}
-          <div style={styles.content}>
+          {/* Content - P1 fix: wrapped in container for scroll indicator */}
+          <div style={{ position: 'relative' as const, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' as const }}>
+            <div style={styles.content}>
             {isLoading ? (
               <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
                 Loading...
@@ -636,7 +841,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                       step="10"
                       value={prefs.creditRemaining}
                       onChange={(e) => updatePref('creditRemaining', parseInt(e.target.value))}
-                      style={styles.slider}
+                      className="vx-slider"
                     />
                     <div style={styles.sliderLabels}>
                       <span>$0 (fully used)</span>
@@ -669,12 +874,13 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                       <div>
                         <div style={styles.settingLabel}>Factor in my miles balance</div>
                         <div style={styles.settingDesc}>
-                          Track your Capital One miles balance to see if you have enough for Travel Eraser redemptions (minimum 5,000 miles required). We'll also show when you might need to earn more miles for your trip.
-                        </div>
+                                                  Track your Capital One miles balance to see how much you can cover with Travel Eraser (no minimum required - redeem any amount at 1¢/mile). We'll also show when miles can help reduce your trip cost.
+                                                </div>
                       </div>
                       <Toggle
                         checked={prefs.milesBalance !== undefined}
                         onChange={(on) => updatePref('milesBalance', on ? 0 : undefined)}
+                        label="Factor in my miles balance"
                       />
                     </div>
                     {prefs.milesBalance !== undefined && (
@@ -711,10 +917,12 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                       </div>
                       <Toggle
                         checked={prefs.customMileValuation ?? false}
+                        label="Use custom mile valuation"
                         onChange={async (on) => {
                           // When turning off, reset to conservative value in same update
+                          // P0 fix: use DEFAULT_MILE_VALUATION_CPP instead of hardcoded value
                           if (!on) {
-                            const updated = { ...prefs, customMileValuation: false, mileValuationCpp: 0.015 };
+                            const updated = { ...prefs, customMileValuation: false, mileValuationCpp: DEFAULT_MILE_VALUATION_CPP };
                             setLocalPrefs(updated);
                             setHasChanges(true);
                             await setUserPrefs(updated);
@@ -765,7 +973,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                           step="0.1"
                           value={prefs.mileValuationCpp * 100}
                           onChange={(e) => updatePref('mileValuationCpp', parseFloat(e.target.value) / 100)}
-                          style={styles.slider}
+                          className="vx-slider"
                         />
                         <div style={styles.sliderLabels}>
                           <span>0.5¢ (pessimistic)</span>
@@ -812,6 +1020,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                       <Toggle
                         checked={prefs.enableAwardSearch}
                         onChange={(on) => updatePref('enableAwardSearch', on)}
+                        label="Show award options in Max Value"
                       />
                     </div>
                   </div>
@@ -830,6 +1039,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                           <Toggle
                             checked={prefs.autoPrefillPointsYeah}
                             onChange={(on) => updatePref('autoPrefillPointsYeah', on)}
+                            label="Auto-open with flight details"
                           />
                         </div>
                       </div>
@@ -858,9 +1068,11 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                 
                 {/* Advanced Section */}
                 <div style={styles.section}>
-                  <div
-                    style={styles.advancedToggle}
+                  {/* P2 fix #11: Added Show/Hide text for better affordance */}
+                  <button
+                    style={{ ...styles.advancedToggle, border: 'none', width: '100%', cursor: 'pointer' }}
                     onClick={() => setShowAdvanced(!showAdvanced)}
+                    aria-expanded={showAdvanced}
                   >
                     <div>
                       <span style={styles.advancedLabel}>Advanced (optional)</span>
@@ -869,11 +1081,20 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                       </div>
                     </div>
                     <span style={{
-                      color: 'rgba(255,255,255,0.4)',
-                      transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.2s',
-                    }}>▼</span>
-                  </div>
+                      color: 'rgba(255,255,255,0.5)',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}>
+                      {showAdvanced ? 'Hide' : 'Show'}
+                      <span style={{
+                        transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s',
+                        display: 'inline-block',
+                      }}>▼</span>
+                    </span>
+                  </button>
                   
                   {showAdvanced && (
                     <motion.div
@@ -892,6 +1113,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                           <Toggle
                             checked={prefs.showConfidenceLabels}
                             onChange={(on) => updatePref('showConfidenceLabels', on)}
+                            label="Show confidence labels"
                           />
                         </div>
                       </div>
@@ -908,6 +1130,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                           <Toggle
                             checked={prefs.showWhatCouldChange}
                             onChange={(on) => updatePref('showWhatCouldChange', on)}
+                            label="Show what could change the answer"
                           />
                         </div>
                       </div>
@@ -924,6 +1147,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                           <Toggle
                             checked={prefs.assumeDirectIsAirline}
                             onChange={(on) => updatePref('assumeDirectIsAirline', on)}
+                            label="Assume direct is airline checkout"
                           />
                         </div>
                       </div>
@@ -969,6 +1193,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                       </div>
                       
                       {/* Price Premium Threshold */}
+                      {/* P2 fix #12: Changed min from 0% to 2% - 0-1% could be rounding errors */}
                       <div style={styles.settingRow}>
                         <div style={styles.settingLabel}>
                           Price premium threshold
@@ -982,16 +1207,16 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                         </div>
                         <input
                           type="range"
-                          min="0"
+                          min="2"
                           max="25"
                           step="1"
-                          value={prefs.pricePremiumThreshold * 100}
+                          value={Math.max(2, prefs.pricePremiumThreshold * 100)}
                           onChange={(e) => updatePref('pricePremiumThreshold', parseFloat(e.target.value) / 100)}
-                          style={styles.slider}
+                          className="vx-slider"
                         />
                         <div style={styles.sliderLabels}>
-                          <span>0% (flag any difference)</span>
-                          <span>25% (more lenient)</span>
+                          <span>2% (strict)</span>
+                          <span>25% (lenient)</span>
                         </div>
                       </div>
                     </motion.div>
@@ -999,6 +1224,9 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                 </div>
               </>
             )}
+            </div>
+            {/* P1 fix: Scroll indicator gradient */}
+            <div style={styles.scrollIndicator} />
           </div>
           
           {/* Footer */}
@@ -1016,6 +1244,15 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
       {/* Tips Modal */}
       <AnimatePresence>
         {showTips && <PointsYeahTipsModal onClose={() => setShowTips(false)} />}
+      </AnimatePresence>
+      
+      {/* Reset Confirmation Modal (P0 fix) */}
+      <AnimatePresence>
+        <ConfirmResetModal
+          isOpen={showResetConfirm}
+          onConfirm={handleResetConfirm}
+          onCancel={handleResetCancel}
+        />
       </AnimatePresence>
     </AnimatePresence>
   );

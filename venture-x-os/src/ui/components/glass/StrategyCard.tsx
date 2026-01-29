@@ -552,9 +552,6 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
               {verdict.directDetails.sellerType === 'ota' && (
                 <span className="text-amber-400 text-[9px]">(OTA)</span>
               )}
-              {verdict.directDetails.sellerType === 'unknown' && (
-                <span className="text-white/30 text-[9px]">(?)</span>
-              )}
             </div>
             <div className="text-xl font-bold text-white">
               ${verdict.directDetails.outOfPocket.toLocaleString()}
@@ -564,11 +561,6 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
             <div className="text-xs text-indigo-300 mt-1">
               +{verdict.directDetails.milesEarned.toLocaleString()} mi (2x)
             </div>
-            {verdict.directDetails.isOTA === 'unknown' && (
-              <div className="text-[9px] text-amber-400/70 mt-0.5">
-                ⚠️ verify: airline or OTA?
-              </div>
-            )}
           </div>
         </div>
 

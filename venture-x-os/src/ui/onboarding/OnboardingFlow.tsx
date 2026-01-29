@@ -12,7 +12,7 @@
  * 4. PointsYeah opt-in
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboarding } from './useOnboarding';
 import {
@@ -25,8 +25,66 @@ import {
 } from '../components/glass';
 import { cn } from '../../lib/utils';
 
+// Slider CSS for Firefox compatibility - inject into head
+const sliderStyles = `
+  .vx-onboarding-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.15);
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+  .vx-onboarding-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    border: none;
+  }
+  .vx-onboarding-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    border: none;
+  }
+  .vx-onboarding-slider::-moz-range-track {
+    background: rgba(255,255,255,0.15);
+    border-radius: 9999px;
+    height: 6px;
+  }
+  .vx-onboarding-slider:focus {
+    outline: none;
+  }
+  .vx-onboarding-slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  }
+  .vx-onboarding-slider:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  }
+`;
+
+// Inject slider styles once
+if (typeof document !== 'undefined') {
+  const existingStyle = document.getElementById('vx-onboarding-slider-styles');
+  if (!existingStyle) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'vx-onboarding-slider-styles';
+    styleEl.textContent = sliderStyles;
+    document.head.appendChild(styleEl);
+  }
+}
+
 // ============================================
 // ANIMATED LOGO (Matching main app)
+// P2 fix #1: Stop animation after 2 cycles
 // ============================================
 
 const AnimatedLogo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
@@ -46,17 +104,39 @@ const AnimatedLogo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) 
       whileTap={{ scale: 0.95 }}
     >
       <span className="text-white font-bold text-xl relative z-10">VX</span>
+      {/* P2 fix: Animation stops after 2 cycles instead of running forever */}
       <motion.div
         className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20"
         animate={{ x: ['0%', '100%', '0%'] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+        transition={{ duration: 3, repeat: 2, ease: 'linear' }}
       />
     </motion.div>
   );
 };
 
 // ============================================
+// P2 fix #6: SVG Clock Icon (replaces timer emoji)
+// ============================================
+
+const ClockIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    className={cn('w-4 h-4', className)}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+// ============================================
 // PROGRESS BAR COMPONENT (Glass style)
+// P2 fix #2: Increased thickness from 1px to 4px (h-1.5)
 // ============================================
 
 const ProgressBar: React.FC<{ currentStep: number; totalSteps: number }> = ({ currentStep, totalSteps }) => (
@@ -66,7 +146,7 @@ const ProgressBar: React.FC<{ currentStep: number; totalSteps: number }> = ({ cu
         <div
           key={i}
           className={cn(
-            'flex-1 h-1 rounded-full transition-all duration-300',
+            'flex-1 h-1.5 rounded-full transition-all duration-300',
             i + 1 < currentStep
               ? 'bg-indigo-500/60'
               : i + 1 === currentStep
@@ -84,6 +164,8 @@ const ProgressBar: React.FC<{ currentStep: number; totalSteps: number }> = ({ cu
 
 // ============================================
 // CHOICE CARD COMPONENT (Glass style)
+// P2 fix #3: Removed redundant checkmark - border highlight is enough
+// P2 fix #5: Added keyboard navigation support
 // ============================================
 
 interface ChoiceCardProps {
@@ -103,12 +185,20 @@ const ChoiceCard: React.FC<ChoiceCardProps> = ({
 }) => (
   <motion.button
     onClick={onClick}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick();
+      }
+    }}
     whileHover={{ scale: 1.01 }}
     whileTap={{ scale: 0.99 }}
+    aria-pressed={isActive}
     className={cn(
       'w-full p-4 rounded-xl text-left transition-all duration-200',
       'backdrop-blur-md border',
       'flex items-center gap-3',
+      'focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
       isActive
         ? 'bg-indigo-500/15 border-indigo-500/40'
         : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.12]'
@@ -124,22 +214,13 @@ const ChoiceCard: React.FC<ChoiceCardProps> = ({
       </div>
       <div className="text-xs text-white/50 leading-relaxed">{description}</div>
     </div>
-    {isActive && (
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0"
-      >
-        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-        </svg>
-      </motion.div>
-    )}
+    {/* P2 fix #3: Removed redundant checkmark icon - border highlight is sufficient visual indicator */}
   </motion.button>
 );
 
 // ============================================
 // CHIP SELECTOR COMPONENT
+// P2 fix #5: Added keyboard navigation
 // ============================================
 
 interface ChipSelectorProps {
@@ -149,14 +230,22 @@ interface ChipSelectorProps {
 }
 
 const ChipSelector: React.FC<ChipSelectorProps> = ({ options, selectedValue, onSelect }) => (
-  <div className="flex flex-wrap gap-2">
+  <div className="flex flex-wrap gap-2" role="group" aria-label="Quick amount selection">
     {options.map((opt) => (
       <button
         key={opt.value}
         onClick={() => onSelect(opt.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect(opt.value);
+          }
+        }}
+        aria-pressed={selectedValue === opt.value}
         className={cn(
           'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200',
           'border backdrop-blur-sm',
+          'focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
           selectedValue === opt.value
             ? 'bg-indigo-500/20 border-indigo-500/40 text-white'
             : 'bg-white/[0.04] border-white/[0.08] text-white/60 hover:bg-white/[0.08] hover:text-white/80'
@@ -170,19 +259,35 @@ const ChipSelector: React.FC<ChipSelectorProps> = ({ options, selectedValue, onS
 
 // ============================================
 // TOGGLE SWITCH COMPONENT
+// P2 fix #4: Standardized to green/red colors (matches SmartSettings)
+// P2 fix #5: Added keyboard navigation and accessibility
 // ============================================
 
 interface ToggleSwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  label?: string;
 }
 
-const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange }) => (
+const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, label }) => (
   <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
     onClick={() => onChange(!checked)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onChange(!checked);
+      }
+    }}
     className={cn(
       'relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0',
-      checked ? 'bg-indigo-500' : 'bg-white/20'
+      'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black',
+      checked
+        ? 'bg-green-500/60 focus:ring-green-500/50'
+        : 'bg-red-500/40 focus:ring-red-500/50'
     )}
   >
     <motion.div
@@ -245,10 +350,11 @@ const WelcomeStep: React.FC<StepProps & { onStart: () => void }> = ({ onStart, o
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
+        {/* P2 fix #6: Replaced timer emoji with SVG clock icon */}
         <GlassCard variant="default" className="p-4 max-w-[260px]">
           <div className="flex items-center gap-2 text-sm text-white/60">
-            <span>⏱️</span>
-            <span>60-second setup. You can change this anytime.</span>
+            <ClockIcon className="text-white/50 flex-shrink-0" />
+            <span>Quick setup. You can change this anytime.</span>
           </div>
         </GlassCard>
       </motion.div>
@@ -263,9 +369,15 @@ const WelcomeStep: React.FC<StepProps & { onStart: () => void }> = ({ onStart, o
       <GlassButton variant="primary" className="w-full py-3.5" onClick={onStart}>
         Let's set it up →
       </GlassButton>
-      <GlassButton variant="ghost" className="w-full" onClick={onSkip}>
-        Skip for now
-      </GlassButton>
+      {/* P2 fix #7: Added consequence text for skip action */}
+      <div className="space-y-1">
+        <GlassButton variant="ghost" className="w-full" onClick={onSkip}>
+          Skip for now
+        </GlassButton>
+        <p className="text-[10px] text-white/40 text-center">
+          You'll use default settings until you configure later
+        </p>
+      </div>
     </motion.div>
   </motion.div>
 );
@@ -286,6 +398,14 @@ const CreditStep: React.FC<StepProps & {
     { value: 100, label: '$100' },
     { value: 50, label: '$50' },
   ];
+  
+  // P1 fix: Inline validation
+  const isInvalidAmount = creditRemaining > 300 || creditRemaining < 0;
+  const validationError = creditRemaining > 300
+    ? 'Maximum credit is $300'
+    : creditRemaining < 0
+      ? 'Amount cannot be negative'
+      : null;
   
   return (
     <motion.div
@@ -316,8 +436,9 @@ const CreditStep: React.FC<StepProps & {
           isActive={creditChoice === 'some'}
           onClick={() => onChoiceSelect('some')}
         />
+        {/* P2 fix #8: Changed emoji from ✅ to ⚡ - checkmark was misleading */}
         <ChoiceCard
-          emoji="✅"
+          emoji="⚡"
           label="$0 (used it)"
           description="Already maximized this year"
           isActive={creditChoice === 'none'}
@@ -337,9 +458,10 @@ const CreditStep: React.FC<StepProps & {
             <label className="block text-xs font-medium text-white/50 mb-3">
               How much remaining?
             </label>
+            {/* P2 fix #9: ChipSelector now syncs with input - selected when values match */}
             <ChipSelector
               options={quickChips}
-              selectedValue={creditRemaining}
+              selectedValue={quickChips.find(c => c.value === creditRemaining)?.value}
               onSelect={(v) => onAmountChange(v as number)}
             />
             <div className="mt-3">
@@ -352,11 +474,20 @@ const CreditStep: React.FC<StepProps & {
                 placeholder="Enter amount"
                 className={cn(
                   'w-full px-4 py-3 text-sm rounded-xl',
-                  'bg-white/[0.04] border border-white/[0.08]',
+                  'bg-white/[0.04] border',
                   'text-white placeholder:text-white/30',
-                  'focus:outline-none focus:bg-white/[0.06] focus:border-indigo-500/40'
+                  'focus:outline-none focus:bg-white/[0.06]',
+                  isInvalidAmount
+                    ? 'border-red-500/50 focus:border-red-500/60'
+                    : 'border-white/[0.08] focus:border-indigo-500/40'
                 )}
               />
+              {/* P1 fix: Inline validation error message */}
+              {validationError && (
+                <p className="mt-2 text-xs text-red-400/90">
+                  ⚠️ {validationError}
+                </p>
+              )}
             </div>
           </motion.div>
         )}
@@ -492,6 +623,7 @@ const MilesStep: React.FC<StepProps & {
         <ToggleSwitch
           checked={wantsMilesFactored}
           onChange={onWantsChange}
+          label="Factor in miles balance"
         />
       </div>
       
@@ -537,6 +669,7 @@ const MilesStep: React.FC<StepProps & {
         <ToggleSwitch
           checked={!useConservativeValuation}
           onChange={(checked) => onValuationTypeChange(!checked)}
+          label="Use custom mile valuation"
         />
       </div>
       
@@ -561,12 +694,7 @@ const MilesStep: React.FC<StepProps & {
               step="0.1"
               value={mileValuationCpp * 100}
               onChange={(e) => onValuationChange(parseFloat(e.target.value) / 100)}
-              className={cn(
-                'w-full h-1.5 rounded-full appearance-none cursor-pointer mb-2',
-                'bg-white/15',
-                '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4',
-                '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500'
-              )}
+              className="vx-onboarding-slider"
             />
             <div className="flex justify-between text-[10px] text-white/30">
               <span>0.5¢</span>
@@ -579,7 +707,8 @@ const MilesStep: React.FC<StepProps & {
       <GlassCard variant="default" className="mt-4 p-3">
         <div className="flex items-start gap-2 text-xs text-white/50">
           <span>💡</span>
-          <span>This only affects "net" math. Cash price is always shown.</span>
+          {/* P1 fix: Rephrase "net math" to plain English */}
+          <span>This affects value comparisons only. Cash prices are always shown.</span>
         </div>
       </GlassCard>
     </div>
@@ -783,7 +912,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onOp
   
   if (state.isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center relative overflow-hidden">
+      <div className="h-full min-h-0 bg-black text-white flex items-center justify-center relative overflow-hidden">
         <AuroraBackground />
         <div className="text-center relative z-10">
           <motion.div
@@ -800,9 +929,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onOp
   // Show completion screen if finished
   if (state.isCompleted && state.currentStep === 4) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
+      <div className="h-full min-h-0 bg-black text-white flex flex-col relative overflow-hidden">
         <AuroraBackground />
-        <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/15 via-transparent to-purple-950/10 pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-indigo-950/15 via-transparent to-transparent pointer-events-none" />
         <CompleteStep
           creditRemaining={state.creditRemaining}
           defaultMode={state.defaultMode}
@@ -816,10 +945,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onOp
   }
   
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
-      {/* Background */}
+    <div className="h-full min-h-0 bg-black text-white flex flex-col relative overflow-hidden">
+      {/* Background - gradient only covers top half to avoid blocking buttons */}
       <AuroraBackground />
-      <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/15 via-transparent to-purple-950/10 pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-indigo-950/15 via-transparent to-transparent pointer-events-none" />
       
       {/* Progress bar (hidden on welcome) */}
       {state.currentStep > 0 && (
@@ -888,9 +1017,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onOp
       </AnimatePresence>
       
       {/* Back button footer (steps 2-4) */}
+      {/* P2 fix #10: Increased back button visibility with custom styling */}
       {state.currentStep > 1 && state.currentStep <= 4 && !state.isCompleted && (
         <footer className="px-5 py-4 border-t border-white/[0.04] flex-shrink-0">
-          <GlassButton variant="ghost" onClick={actions.prevStep}>
+          <GlassButton
+            variant="ghost"
+            onClick={actions.prevStep}
+            className="text-white/60 hover:text-white/80"
+          >
             ← Back
           </GlassButton>
         </footer>

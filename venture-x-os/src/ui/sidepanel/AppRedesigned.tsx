@@ -77,6 +77,7 @@ import {
 } from '../../knowledge/vectorStore/supabase';
 import { isSupabaseConfigured } from '../../config/supabase';
 import { simpleCompare } from '../../engine';
+import { calculateDoubleDipRecommendation, type DoubleDipRecommendation } from '../../engine/transferPartners';
 
 // ============================================
 // TYPES
@@ -535,21 +536,30 @@ const PortalCaptureCard: React.FC<{
         <span className="font-semibold text-white">Portal Itinerary Captured</span>
       </div>
 
-      {/* Route Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl font-bold text-white">{capture.origin || '???'}</span>
-          <div className="w-8 h-[2px] bg-white/20 rounded-full relative">
-            <Plane className="w-3 h-3 text-white/40 absolute -top-1 left-1/2 -translate-x-1/2" />
+      {/* Route Header - Only show if we have valid airport codes */}
+      {capture.origin && capture.destination ? (
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl font-bold text-white">{capture.origin}</span>
+            <div className="w-8 h-[2px] bg-white/20 rounded-full relative">
+              <Plane className="w-3 h-3 text-white/40 absolute -top-1 left-1/2 -translate-x-1/2" />
+            </div>
+            <span className="text-2xl font-bold text-white">{capture.destination}</span>
           </div>
-          <span className="text-2xl font-bold text-white">{capture.destination || '???'}</span>
+          {capture.cabin && (
+            <GlassBadge variant="accent" size="md">
+              {capture.cabin}
+            </GlassBadge>
+          )}
         </div>
-        {capture.cabin && (
-          <GlassBadge variant="accent" size="md">
-            {capture.cabin}
-          </GlassBadge>
-        )}
-      </div>
+      ) : (
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
+          <div className="flex items-center gap-2 text-sm text-amber-300">
+            <Info className="w-4 h-4 flex-shrink-0" />
+            <span>Navigate to the review/checkout page to capture flight details</span>
+          </div>
+        </div>
+      )}
 
       {/* Detailed Flight Info OR Basic Badges */}
       {hasDetailedInfo ? (
@@ -1194,12 +1204,15 @@ const TRANSFER_PARTNERS = [
 
 // ============================================
 // VERDICT SECTION (Full Featured with PointsYeah - from AppPremium.tsx)
+// Now includes Portal + Eraser double-dip strategy display
 // ============================================
 
 const VerdictSection: React.FC<{
   portalPriceUSD: number;
   directPriceUSD: number;
   creditRemaining?: number;
+  milesBalance?: number; // User's current miles balance for double-dip calculation
+  mileValueCpp?: number; // User's mile valuation in cpp (e.g., 0.018 = 1.8¢)
   itinerary?: {
     origin?: string;
     destination?: string;
@@ -1216,12 +1229,15 @@ const VerdictSection: React.FC<{
   sellerName?: string;
   hasFxConversion?: boolean;
   fxCurrency?: string;
-}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency }) => {
+  // Callback to open settings (for "Tap to change" on assumptions)
+  onOpenSettings?: () => void;
+}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 50000, mileValueCpp: userMileValueCpp = 0.018, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency, onOpenSettings }) => {
   // Use controlled mode if provided, otherwise local state
   const [localTabMode, setLocalTabMode] = useState<UITabMode>('cheapest');
   const tabMode = controlledTabMode ?? localTabMode;
   const setTabMode = onTabModeChange ?? setLocalTabMode;
   const [applyTravelCredit, setApplyTravelCredit] = useState(true);
+  const [showDoubleDipStrategy, setShowDoubleDipStrategy] = useState(true);
   
   // Mile value sensitivity control - default 1.8, user can adjust
   const [mileValueCpp, setMileValueCpp] = useState(0.018); // 1.8¢/mi
@@ -1256,6 +1272,15 @@ const VerdictSection: React.FC<{
   const engineObjective = tabMode === 'cheapest' ? 'cheapest_cash'
     : tabMode === 'easiest' ? 'easiest'
     : 'max_value';
+  
+  // Calculate the double-dip recommendation (Portal + Eraser strategy)
+  const doubleDipRec = calculateDoubleDipRecommendation(
+    portalPriceUSD,
+    directPriceUSD,
+    creditRemaining,
+    milesBalance,
+    mileValueCpp
+  );
   
   const comparison = simpleCompare({
     portalPriceUSD,
@@ -1648,9 +1673,41 @@ const VerdictSection: React.FC<{
     max: (portalPriceUSD - creditRemaining) - (portalMilesRange.min * mileValueCpp),
   } : undefined;
   
+  // Build itinerary summary string for display (e.g., "DXB → LAX • May 12–20")
+  const buildItinerarySummary = (): string | undefined => {
+    if (!itinerary?.origin || !itinerary?.destination) return undefined;
+    
+    const route = `${itinerary.origin} → ${itinerary.destination}`;
+    
+    const formatDate = (dateStr?: string): string | undefined => {
+      if (!dateStr) return undefined;
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      } catch {
+        return dateStr;
+      }
+    };
+    
+    const departFormatted = formatDate(itinerary.departDate);
+    const returnFormatted = formatDate(itinerary.returnDate);
+    
+    if (departFormatted && returnFormatted) {
+      // Round trip: "May 12–20"
+      return `${route} • ${departFormatted}–${returnFormatted}`;
+    } else if (departFormatted) {
+      // One way: "May 12"
+      return `${route} • ${departFormatted}`;
+    }
+    
+    return route;
+  };
+
   const progressiveVerdict: VerdictDataProgressive = {
     // Override recommendation to 'tie' if it's a close call
     recommendation: isCloseCallWithFx ? 'tie' : (isAward ? 'portal' : comparison.recommendation as 'portal' | 'direct' | 'tie'),
+    // Itinerary summary for display (e.g., "DXB → LAX • May 12–20")
+    itinerarySummary: buildItinerarySummary(),
     winner: {
       label: isCloseCallWithFx ? 'Essentially a Tie' : winnerLabel,
       payToday: winnerPayToday,
@@ -1692,7 +1749,9 @@ const VerdictSection: React.FC<{
       fullBreakdown: {
         portalSticker: portalPriceUSD,
         portalOutOfPocket: portalOOP,
-        portalMilesEarned: comparison.portalDetails.milesEarnedRange
+        // FIX: Only show range format if min !== max (prevents "6,330–6,330" strikethrough bug)
+        portalMilesEarned: comparison.portalDetails.milesEarnedRange &&
+          comparison.portalDetails.milesEarnedRange.min !== comparison.portalDetails.milesEarnedRange.max
           ? `${comparison.portalDetails.milesEarnedRange.min.toLocaleString()}–${comparison.portalDetails.milesEarnedRange.max.toLocaleString()}`
           : `+${comparison.portalDetails.milesEarned.toLocaleString()}`,
         directSticker: directPriceUSD,
@@ -1826,6 +1885,114 @@ const VerdictSection: React.FC<{
         )}
       </div>
 
+      {/* ============================================
+          DOUBLE-DIP STRATEGY CARD
+          Shows the optimal "Portal + Travel Eraser" approach
+          Now ALWAYS shows for flights (educational), even if user can't execute yet
+          ============================================ */}
+      {showDoubleDipStrategy && bookingType === 'flight' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative rounded-2xl overflow-hidden"
+        >
+          <div className="relative bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-cyan-500/10 backdrop-blur-xl rounded-2xl border border-emerald-500/30 p-4">
+            {/* Close button */}
+            <button
+              onClick={() => setShowDoubleDipStrategy(false)}
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/20 hover:text-white/80 transition-colors"
+            >
+              ✕
+            </button>
+            
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                <span className="text-lg">🎯</span>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Maximum Value Strategy</h3>
+                <p className="text-[10px] text-emerald-300/80">Portal + Travel Eraser "Double-Dip"</p>
+              </div>
+            </div>
+            
+            {/* Strategy Steps */}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[10px] text-emerald-300 font-bold flex-shrink-0 mt-0.5">1</div>
+                <div className="text-xs text-white/80">
+                  <strong className="text-white">Book via Capital One Travel Portal</strong>
+                  <div className="text-white/50 mt-0.5">Pay ${doubleDipRec.breakdown.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} today → Earn <span className="text-emerald-300 font-semibold">{doubleDipRec.breakdown.milesEarned.toLocaleString()}</span> miles at 5x rate</div>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[10px] text-emerald-300 font-bold flex-shrink-0 mt-0.5">2</div>
+                <div className="text-xs text-white/80">
+                  <strong className="text-white">Use Travel Eraser within 90 days</strong>
+                  <div className="text-white/50 mt-0.5">Redeem miles at 1¢/mile — <span className="text-cyan-300 font-medium">no minimum, partial OK!</span></div>
+                  <div className="text-white/40 mt-0.5 text-[10px]">Cover any amount: $1 to ${doubleDipRec.breakdown.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })} — you choose</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Cost Breakdown */}
+            <div className="p-3 rounded-xl bg-black/20 border border-white/10 mb-3">
+              <div className="text-[10px] text-white/50 uppercase tracking-wider mb-2">Final Cost Breakdown</div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-white/60">Pay today (portal)</span>
+                  <span className="text-white/90">${doubleDipRec.breakdown.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-white/60">Miles earned (5x × ${doubleDipRec.breakdown.payToday.toFixed(0)})</span>
+                  <span className="text-emerald-300">+{doubleDipRec.breakdown.milesEarned.toLocaleString()} mi</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-white/60">Miles value (@{(mileValueCpp * 100).toFixed(1)}¢)</span>
+                  <span className="text-emerald-300">−${doubleDipRec.breakdown.milesValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+                {doubleDipRec.breakdown.eraseLater > 0 && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-white/60">Travel Eraser (@1¢/mi)</span>
+                    <span className="text-cyan-300">−${doubleDipRec.breakdown.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-white/10 mt-2">
+                  <span className="text-white font-semibold">Effective Cost</span>
+                  <span className="text-xl font-bold text-emerald-400">
+                    ${Math.max(0, doubleDipRec.breakdown.effectiveCost).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Savings highlight */}
+            <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-xs text-emerald-300">
+                vs Direct (${directPriceUSD.toFixed(0)}):
+              </span>
+              <span className="text-sm font-bold text-emerald-400">
+                Save ${(directPriceUSD - Math.max(0, doubleDipRec.breakdown.effectiveCost)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            
+            {/* Fine print */}
+            <div className="mt-3 text-[9px] text-white/40 leading-relaxed space-y-1.5">
+              <div>
+                💡 <strong className="text-white/50">Why this works:</strong> You earn miles on the cash purchase AND get to redeem them. Travel Eraser applies to any travel purchase made in the last 90 days.
+              </div>
+              <div className="flex items-start gap-1.5 p-1.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                <span className="text-[10px]">✨</span>
+                <span className="text-cyan-300/80">
+                  <strong>No minimum!</strong> Cover $0.78 or $780 — Capital One lets you choose exactly how much to erase. Partial redemptions OK.
+                </span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Pay Today display for Max Value mode - UX FIX NEW-7 */}
       {tabMode === 'max_value' && (
         <motion.div
@@ -1889,8 +2056,8 @@ const VerdictSection: React.FC<{
                     <Sparkles className="w-5 h-5 text-violet-400" />
                   </div>
                   <div>
-                    <h3 className="text-base font-semibold text-white">Before I show your verdict...</h3>
-                    <p className="text-sm text-white/60">Want to check transfer partner awards?</p>
+                    <h3 className="text-base font-semibold text-white">Want to explore other options?</h3>
+                    <p className="text-sm text-white/60">Transfer partner awards might beat both prices</p>
                   </div>
                 </div>
 
@@ -2219,6 +2386,10 @@ const VerdictSection: React.FC<{
             verdict={progressiveVerdict}
             tabMode={tabMode}
             onContinue={() => console.log('Continue to booking')}
+            onAssumptionEdit={(label) => {
+              // Open settings when user taps "Tap to change" on Mile value or Travel credit
+              onOpenSettings?.();
+            }}
           />
         </>
       )}
@@ -2237,9 +2408,9 @@ const VerdictSection: React.FC<{
             </div>
             <button
               onClick={() => setMaxValuePhase('ask')}
-              className="px-3 py-1 rounded-lg bg-violet-500/20 border border-violet-500/30 text-xs text-violet-300 hover:bg-violet-500/30 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/30 text-xs text-teal-300 hover:bg-teal-500/20 transition-colors"
             >
-              Search PointsYeah
+              Check Awards
             </button>
           </div>
         </motion.div>
@@ -2374,6 +2545,7 @@ const CompareTabContent: React.FC<{
   onAskQuestion?: (question: string, context: VerdictContext) => void;
   tabMode?: UITabMode;
   onTabModeChange?: (mode: UITabMode) => void;
+  onOpenSettings?: () => void;
 }> = ({
   currentStep,
   portalCapture,
@@ -2396,6 +2568,7 @@ const CompareTabContent: React.FC<{
   onAskQuestion,
   tabMode,
   onTabModeChange,
+  onOpenSettings,
 }) => {
   // Determine what state we're in for better UX - now booking-type aware
   const isStay = bookingType === 'stay';
@@ -2436,16 +2609,103 @@ const CompareTabContent: React.FC<{
     return enabled;
   };
 
-  // Handle step click navigation
+  // Handle step click navigation - with confirmation when navigating back
+  const [showNavConfirm, setShowNavConfirm] = useState<{ targetStep: FlowStep; isReset: boolean } | null>(null);
+  
   const handleStepClick = (step: number) => {
     const enabledSteps = getEnabledSteps();
-    if (enabledSteps.includes(step) && onStepChange) {
+    if (!enabledSteps.includes(step) || !onStepChange) return;
+    
+    // If navigating backwards (to an earlier step) and we have captured data, show confirmation
+    const hasData = isStay ? !!stayCapture : !!portalCapture;
+    const isGoingBack = step < currentStep;
+    
+    if (isGoingBack && hasData) {
+      // Step 1 = Start new booking (reset)
+      // Step 2 = Just review current portal capture
+      setShowNavConfirm({
+        targetStep: step as FlowStep,
+        isReset: step === 1,
+      });
+    } else {
+      // Going forward or no data - just navigate
       onStepChange(step as FlowStep);
     }
+  };
+  
+  const handleNavConfirm = (action: 'view' | 'new') => {
+    if (!showNavConfirm || !onStepChange) return;
+    
+    if (action === 'new') {
+      // User wants to start a new comparison - reset everything
+      onReset();
+    } else {
+      // User wants to view current booking at that step
+      onStepChange(showNavConfirm.targetStep);
+    }
+    setShowNavConfirm(null);
   };
 
   return (
     <div className="flex-1 overflow-y-auto p-4 pb-6 bg-gradient-to-b from-transparent via-indigo-950/5 to-purple-950/10">
+      {/* Step Navigation Confirmation Popup */}
+      <AnimatePresence>
+        {showNavConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowNavConfirm(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xs bg-[#1a1a2e] rounded-2xl border border-white/10 p-5 shadow-2xl"
+            >
+              <div className="text-center mb-4">
+                <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mx-auto mb-3">
+                  <Info className="w-6 h-6 text-indigo-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  {showNavConfirm.isReset ? 'Start New Comparison?' : 'View Current Booking'}
+                </h3>
+                <p className="text-sm text-white/60">
+                  {showNavConfirm.isReset
+                    ? 'You have a booking in progress. Would you like to view it or start fresh?'
+                    : 'Navigate back to view your captured booking details?'}
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <GlassButton
+                  variant="primary"
+                  className="w-full"
+                  onClick={() => handleNavConfirm('view')}
+                >
+                  👁️ View Current Booking
+                </GlassButton>
+                <GlassButton
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => handleNavConfirm('new')}
+                >
+                  🔄 Start New Comparison
+                </GlassButton>
+                <button
+                  onClick={() => setShowNavConfirm(null)}
+                  className="w-full py-2 text-xs text-white/40 hover:text-white/60 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       {/* Progress Rail - Clickable - Uses "Other Site" instead of "Direct" per UX critique */}
       <div className="mb-6">
         <GlassProgressRail
@@ -2654,21 +2914,30 @@ const CompareTabContent: React.FC<{
               <span className="font-semibold text-white">Portal Flight Details</span>
             </div>
 
-            {/* Route Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-bold text-white">{portalCapture.origin || '???'}</span>
-                <div className="w-8 h-[2px] bg-white/20 rounded-full relative">
-                  <Plane className="w-3 h-3 text-white/40 absolute -top-1 left-1/2 -translate-x-1/2" />
+            {/* Route Header - Only show if we have valid airport codes */}
+            {portalCapture.origin && portalCapture.destination ? (
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold text-white">{portalCapture.origin}</span>
+                  <div className="w-8 h-[2px] bg-white/20 rounded-full relative">
+                    <Plane className="w-3 h-3 text-white/40 absolute -top-1 left-1/2 -translate-x-1/2" />
+                  </div>
+                  <span className="text-2xl font-bold text-white">{portalCapture.destination}</span>
                 </div>
-                <span className="text-2xl font-bold text-white">{portalCapture.destination || '???'}</span>
+                {portalCapture.cabin && (
+                  <GlassBadge variant="accent" size="md">
+                    {portalCapture.cabin}
+                  </GlassBadge>
+                )}
               </div>
-              {portalCapture.cabin && (
-                <GlassBadge variant="accent" size="md">
-                  {portalCapture.cabin}
-                </GlassBadge>
-              )}
-            </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
+                <div className="flex items-center gap-2 text-sm text-amber-300">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  <span>Flight route not captured — select a flight on the portal to capture details</span>
+                </div>
+              </div>
+            )}
 
             {/* Detailed Flight Info */}
             {portalCapture.outbound?.airlines && portalCapture.outbound.airlines.length > 0 && (
@@ -2800,6 +3069,8 @@ const CompareTabContent: React.FC<{
             // FX conversion detection
             hasFxConversion={directCapture.currency !== 'USD'}
             fxCurrency={directCapture.currency !== 'USD' ? directCapture.currency : undefined}
+            // Allow "Tap to change" on assumptions to open Settings
+            onOpenSettings={onOpenSettings}
           />
           
           {/* Ask About This Verdict Module - with spacing from verdict card */}
@@ -2807,7 +3078,9 @@ const CompareTabContent: React.FC<{
             <div className="mt-5">
               <AskAboutVerdictModule
                 context={{
-                  route: `${portalCapture.origin || '???'} → ${portalCapture.destination || '???'}`,
+                  route: portalCapture.origin && portalCapture.destination
+                    ? `${portalCapture.origin} → ${portalCapture.destination}`
+                    : 'Your Flight',
                   portalPrice: portalCapture.priceUSD,
                   directPrice: directCapture.priceUSD,
                   winner: (portalCapture.priceUSD - creditRemaining) <= directCapture.priceUSD ? 'portal' : 'direct',
@@ -2825,11 +3098,15 @@ const CompareTabContent: React.FC<{
             </div>
           )}
           
-          <div className="mt-6">
-            <GlassButton variant="ghost" className="w-full" onClick={onReset}>
+          {/* Compare Another Flight - Made more prominent per UX review */}
+          <div className="mt-8 pt-6 border-t border-white/[0.08]">
+            <GlassButton variant="secondary" className="w-full py-3" onClick={onReset}>
               <RefreshCw className="w-4 h-4" />
               Compare Another Flight
             </GlassButton>
+            <p className="text-[10px] text-white/40 text-center mt-2">
+              Start a new comparison
+            </p>
           </div>
         </>
       )}
@@ -2866,6 +3143,8 @@ const CompareTabContent: React.FC<{
             tabMode={tabMode}
             onTabModeChange={onTabModeChange}
             bookingType={stayCapture.stayType === 'vacation_rental' ? 'vacation_rental' : 'hotel'}
+            // Allow "Tap to change" on assumptions to open Settings
+            onOpenSettings={onOpenSettings}
           />
           
           {/* Ask About This Verdict Module for stays */}
@@ -2899,11 +3178,15 @@ const CompareTabContent: React.FC<{
             </div>
           )}
           
-          <div className="mt-6">
-            <GlassButton variant="ghost" className="w-full" onClick={onReset}>
+          {/* Compare Another Stay - Made more prominent per UX review */}
+          <div className="mt-8 pt-6 border-t border-white/[0.08]">
+            <GlassButton variant="secondary" className="w-full py-3" onClick={onReset}>
               <RefreshCw className="w-4 h-4" />
               Compare Another Stay
             </GlassButton>
+            <p className="text-[10px] text-white/40 text-center mt-2">
+              Start a new comparison
+            </p>
           </div>
         </>
       )}
@@ -2940,6 +3223,12 @@ export function SidePanelApp() {
   const [stayCapture, setStayCapture] = useState<StayCapture | null>(null);
   const [directStayCapture, setDirectStayCapture] = useState<DirectStayCapture | null>(null);
   
+  // Step navigation confirmation popup state
+  const [showStepNavConfirm, setShowStepNavConfirm] = useState<{
+    targetStep: FlowStep;
+    message: string;
+  } | null>(null);
+  
   // UI state
   const [showSettings, setShowSettings] = useState(false);
   const [showPasteDetails, setShowPasteDetails] = useState(false);
@@ -2948,22 +3237,41 @@ export function SidePanelApp() {
   const [userPrefs, setUserPrefs] = useState<UserPrefs | null>(null);
 
   // Derive context status - now supports both flights and stays
+  // IMPORTANT: Don't show "???" in badges - show helpful status instead
   const contextStatus: BookingContextStatus = (() => {
     // Stays context
     if (stayCapture) {
-      return {
-        type: 'captured' as const,
-        route: `${stayCapture.propertyName || 'Hotel'} • ${stayCapture.location || ''}`,
-        site: 'Capital One Travel (Stays)',
-      };
+      // Only show as captured if we have meaningful data
+      const hasValidData = stayCapture.propertyName || stayCapture.location;
+      if (hasValidData) {
+        return {
+          type: 'captured' as const,
+          route: `${stayCapture.propertyName || 'Hotel'} • ${stayCapture.location || ''}`,
+          site: 'Capital One Travel (Stays)',
+        };
+      } else {
+        return {
+          type: 'detected' as const,
+          site: 'Capital One Travel (Stays)',
+        };
+      }
     }
     // Flights context
     if (portalCapture) {
-      return {
-        type: 'captured' as const,
-        route: `${portalCapture.origin || '???'} → ${portalCapture.destination || '???'}`,
-        site: detectedSite === 'capital-one-portal' ? 'Capital One Travel' : 'Google Flights',
-      };
+      // Only show route if we have BOTH origin AND destination (not "???")
+      const hasValidRoute = portalCapture.origin && portalCapture.destination;
+      if (hasValidRoute) {
+        return {
+          type: 'captured' as const,
+          route: `${portalCapture.origin} → ${portalCapture.destination}`,
+          site: detectedSite === 'capital-one-portal' ? 'Capital One Travel' : 'Google Flights',
+        };
+      } else {
+        return {
+          type: 'detected' as const,
+          site: detectedSite === 'capital-one-portal' ? 'Capital One Travel' : 'Google Flights',
+        };
+      }
     }
     // Detected but not captured
     if (detectedSite !== 'unknown') {
@@ -3897,36 +4205,62 @@ export function SidePanelApp() {
         setMessages(prev => [...prev, {
           id: thinkingId,
           role: 'assistant',
-          content: '💭 Thinking...',
+          content: '💭 Searching knowledge base...',
           timestamp: Date.now(),
         }]);
         
+        // Step 1: Search knowledge base for relevant info (RAG)
+        let ragContext: string | undefined;
+        let citations: CitationSource[] = [];
+        
+        try {
+          const searchResponse = await searchKnowledge(userInput, 3, 0.4);
+          if (searchResponse.success && searchResponse.results && searchResponse.results.length > 0) {
+            const ragResult = buildRAGContext(searchResponse.results);
+            ragContext = ragResult.context;
+            citations = ragResult.sources;
+            console.log('[Chat] RAG search found', citations.length, 'sources');
+          }
+        } catch (searchErr) {
+          console.warn('[Chat] RAG search failed:', searchErr);
+        }
+        
+        // Update thinking message to show progress
+        setMessages(prev => prev.map(m =>
+          m.id === thinkingId
+            ? { ...m, content: '💭 Generating response...' }
+            : m
+        ));
+        
+        // Step 2: Send to LLM with RAG context
         const result = await sendChatViaSupabase(userInput, {
           portalPrice: portalCapture?.priceUSD,
           directPrice: directCapture?.priceUSD,
-        });
+        }, ragContext);
         
         // Check if response needs context
-        const needsContext = userInput.toLowerCase().includes('compare') || 
+        const needsContext = userInput.toLowerCase().includes('compare') ||
                            userInput.toLowerCase().includes('price') ||
                            userInput.toLowerCase().includes('this flight');
         
+        // Step 3: Attach citations to the response
         setMessages(prev => prev.map(m =>
-          m.id === thinkingId 
-            ? { 
-                ...m, 
+          m.id === thinkingId
+            ? {
+                ...m,
                 content: result.response || 'I can help you with Capital One Venture X questions!',
                 isContextPrompt: needsContext && contextStatus.type === 'none',
-              } 
+                citations: citations.length > 0 ? citations : undefined,
+              }
             : m
         ));
       } else {
         // Fallback response
         setTimeout(() => {
-          const needsContext = userInput.toLowerCase().includes('compare') || 
+          const needsContext = userInput.toLowerCase().includes('compare') ||
                              userInput.toLowerCase().includes('price');
           addMessage(
-            'assistant', 
+            'assistant',
             getSimpleResponse(userInput),
             needsContext && contextStatus.type === 'none'
           );
@@ -4359,6 +4693,7 @@ export function SidePanelApp() {
                 onAskQuestion={handleAskAboutVerdict}
                 tabMode={verdictTabMode}
                 onTabModeChange={setVerdictTabMode}
+                onOpenSettings={() => setShowSettings(true)}
               />
             </motion.div>
           )}

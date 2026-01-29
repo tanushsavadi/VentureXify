@@ -48,6 +48,9 @@ export type RankingMode = 'cheapest' | 'max_value' | 'easiest';
 export interface VerdictDataProgressive {
   recommendation: 'portal' | 'direct' | 'tie';
   
+  // Itinerary summary (e.g., "DXB → LAX • May 12–20")
+  itinerarySummary?: string;
+  
   // Hero numbers (Level 0)
   winner: {
     label: string;
@@ -556,44 +559,52 @@ const DetailsModal: React.FC<{
               title="Key assumptions"
               icon={<Sparkles className="w-4 h-4 text-violet-400" />}
             >
-              <div className="space-y-3">
-                {/* Assumption rows - right-aligned values, muted labels */}
+              <div className="space-y-2">
+                {/* Assumption rows - improved visual affordance for editable items */}
                 {assumptions.map((assumption, i) => (
                   <button
                     key={i}
                     onClick={() => assumption.editable && onAssumptionEdit?.(assumption.label)}
+                    disabled={!assumption.editable}
                     className={cn(
-                      'w-full flex items-center justify-between py-2 px-3 rounded-lg transition-all',
+                      'w-full flex items-center justify-between py-2.5 px-3 rounded-xl transition-all',
                       assumption.editable
-                        ? 'bg-white/[0.03] hover:bg-white/[0.06] cursor-pointer group'
-                        : 'bg-transparent cursor-default'
+                        ? 'bg-indigo-500/10 hover:bg-indigo-500/15 border border-indigo-500/20 hover:border-indigo-500/30 cursor-pointer group'
+                        : 'bg-white/[0.02] border border-transparent cursor-default'
                     )}
                   >
-                    <span className="text-xs text-white/50">
-                      {assumption.label === 'Mile value' ? (
-                        <InfoTooltip
-                          term={assumption.label}
-                          definition="How much each Capital One mile is worth in cents. Default 1.8¢ is based on average travel portal value."
-                        />
-                      ) : assumption.label === 'Travel credit' ? (
-                        <InfoTooltip
-                          term={assumption.label}
-                          definition="Annual $300 travel credit for Venture X cardholders. Only applies to portal bookings."
-                        />
-                      ) : (
-                        assumption.label
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="text-xs text-white/50">
+                        {assumption.label === 'Mile value' ? (
+                          <InfoTooltip
+                            term={assumption.label}
+                            definition="How much each Capital One mile is worth in cents. Default 1.8¢ is based on average travel portal value."
+                          />
+                        ) : assumption.label === 'Travel credit' ? (
+                          <InfoTooltip
+                            term={assumption.label}
+                            definition="Annual $300 travel credit for Venture X cardholders. Only applies to portal bookings."
+                          />
+                        ) : (
+                          assumption.label
+                        )}
+                      </span>
+                      {assumption.editable && (
+                        <span className="text-[9px] text-indigo-400/60 group-hover:text-indigo-400/80 transition-colors">
+                          Tap to change
+                        </span>
                       )}
-                    </span>
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         'text-sm font-semibold text-right',
-                        assumption.editable ? 'text-indigo-300' : 'text-white/80'
+                        assumption.editable ? 'text-indigo-300 group-hover:text-indigo-200' : 'text-white/70'
                       )}>
                         {assumption.value}
                       </span>
                       {assumption.editable && (
-                        <span className="text-indigo-400/50 group-hover:text-indigo-400 transition-colors">
-                          ✎
+                        <span className="w-6 h-6 rounded-md bg-indigo-500/20 group-hover:bg-indigo-500/30 flex items-center justify-center transition-colors">
+                          <span className="text-indigo-300 text-xs">✎</span>
                         </span>
                       )}
                     </div>
@@ -675,9 +686,26 @@ const DetailsModal: React.FC<{
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] text-white/40">Miles earned</span>
                         <span className="text-xs font-semibold text-indigo-300 text-right">
-                          +{fullBreakdown.portalMilesEarned}
+                          {fullBreakdown.portalMilesEarned.toString().includes('–')
+                            ? fullBreakdown.portalMilesEarned
+                            : `+${fullBreakdown.portalMilesEarned}`
+                          }
                         </span>
                       </div>
+                      {/* Show miles calculation breakdown when range exists */}
+                      {fullBreakdown.portalMilesEarned.toString().includes('–') && (
+                        <div className="text-[9px] text-white/30 mt-1 space-y-0.5">
+                          <div>
+                            5x on ${fullBreakdown.portalSticker.toLocaleString()} sticker
+                            {fullBreakdown.creditApplied > 0 && (
+                              <> or ${(fullBreakdown.portalSticker - fullBreakdown.creditApplied).toLocaleString()} after credit</>
+                            )}
+                          </div>
+                          <div className="text-amber-400/60">
+                            ℹ️ Conservative estimate used for recommendation
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -817,7 +845,8 @@ const DetailsModal: React.FC<{
 };
 
 // ============================================
-// FRICTION BADGE WITH TOOLTIP
+// BOOKING STEPS BADGE WITH TOOLTIP
+// (Renamed from "friction" for clarity)
 // ============================================
 
 const FrictionBadge: React.FC<{
@@ -826,13 +855,26 @@ const FrictionBadge: React.FC<{
 }> = ({ level, tooltip }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   
+  // User-friendly labels instead of "friction"
   const config = {
-    low: { color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', label: 'LOW' },
-    medium: { color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', label: 'MEDIUM' },
-    high: { color: 'bg-red-500/20 text-red-400 border-red-500/30', label: 'HIGH' },
+    low: {
+      color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+      label: 'Simple',
+      icon: '✓'
+    },
+    medium: {
+      color: 'bg-white/10 text-white/60 border-white/20',
+      label: 'Standard',
+      icon: '○'
+    },
+    high: {
+      color: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+      label: 'Multi-step',
+      icon: '⚠'
+    },
   };
   
-  const { color, label } = config[level];
+  const { color, label, icon } = config[level];
   
   return (
     <div className="relative">
@@ -841,13 +883,13 @@ const FrictionBadge: React.FC<{
         onMouseLeave={() => setShowTooltip(false)}
         onClick={() => setShowTooltip(!showTooltip)}
         className={cn(
-          'inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider rounded-full border cursor-help',
+          'inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium rounded-full border cursor-help transition-colors hover:bg-white/5',
           color
         )}
       >
-        {label}
-        <span className="text-[8px] opacity-60">friction</span>
-        <Info className="w-2.5 h-2.5 opacity-60" />
+        <span className="text-[9px]">{icon}</span>
+        {label} booking
+        <Info className="w-2.5 h-2.5 opacity-50" />
       </button>
       
       <AnimatePresence>
@@ -856,8 +898,9 @@ const FrictionBadge: React.FC<{
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
-            className="absolute top-full right-0 mt-2 w-52 p-2.5 rounded-lg bg-black/95 border border-white/20 text-[11px] text-white/80 z-20 shadow-xl"
+            className="absolute top-full right-0 mt-2 w-56 p-3 rounded-lg bg-black/95 border border-white/20 text-[11px] text-white/80 z-20 shadow-xl"
           >
+            <div className="font-medium text-white/90 mb-1">What this means</div>
             {tooltip}
           </motion.div>
         )}
@@ -1058,6 +1101,15 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
             {/* Close-call banner (show when prices are within threshold) */}
             {verdict.isCloseCall && (
               <CloseCallBanner reason={verdict.closeCallReason} />
+            )}
+            
+            {/* Itinerary summary (e.g., "DXB → LAX • May 12–20") */}
+            {verdict.itinerarySummary && (
+              <div className="mb-3 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-center">
+                <span className="text-xs text-white/60 font-medium">
+                  {verdict.itinerarySummary}
+                </span>
+              </div>
             )}
             
             {/* Recommended badge + Friction badge row */}

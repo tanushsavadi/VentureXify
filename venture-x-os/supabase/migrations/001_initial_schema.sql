@@ -127,16 +127,19 @@ $$;
 -- 8. Enable Row Level Security (optional - for multi-user setup later)
 ALTER TABLE knowledge_embeddings ENABLE ROW LEVEL SECURITY;
 
--- 9. Create policy to allow anonymous read access
+-- 9. Create policy to allow anonymous read access (drop first if exists for idempotency)
+DROP POLICY IF EXISTS "Allow anonymous read access" ON knowledge_embeddings;
 CREATE POLICY "Allow anonymous read access" ON knowledge_embeddings
   FOR SELECT
   USING (true);
 
 -- 10. Create policy to allow authenticated insert/update (via Edge Functions)
+DROP POLICY IF EXISTS "Allow authenticated insert" ON knowledge_embeddings;
 CREATE POLICY "Allow authenticated insert" ON knowledge_embeddings
   FOR INSERT
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow authenticated update" ON knowledge_embeddings;
 CREATE POLICY "Allow authenticated update" ON knowledge_embeddings
   FOR UPDATE
   USING (true);

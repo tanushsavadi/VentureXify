@@ -15,8 +15,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const HF_EMBEDDING_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
-const HF_INFERENCE_URL = `https://api-inference.huggingface.co/pipeline/feature-extraction/${HF_EMBEDDING_MODEL}`
+// Using BAAI/bge-small-en-v1.5 - better quality embeddings, 384 dimensions
+const HF_EMBEDDING_MODEL = 'BAAI/bge-small-en-v1.5'
+// HuggingFace router (api-inference is deprecated)
+const HF_INFERENCE_URL = `https://router.huggingface.co/hf-inference/models/${HF_EMBEDDING_MODEL}`
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

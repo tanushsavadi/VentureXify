@@ -37,6 +37,7 @@ import {
   GlassDivider,
   AuroraBackground,
   AskAboutVerdictModule,
+  BookingSuccessState,
   type VerdictContext,
 } from '../components/glass';
 import { FxRateDisplay, FxIndicator } from '../components/glass/FxRateDisplay';
@@ -84,7 +85,7 @@ import { calculateDoubleDipRecommendation, type DoubleDipRecommendation } from '
 // ============================================
 
 type FlowStep = 1 | 2 | 3;
-type DetectedSite = 'capital-one-portal' | 'capital-one-stays' | 'google-flights' | 'google-hotels' | 'other' | 'unknown';
+type DetectedSite = 'capital-one-portal' | 'capital-one-stays' | 'capital-one-unsupported' | 'google-flights' | 'google-hotels' | 'other' | 'unknown';
 type BookingType = 'flight' | 'stay';
 type UITabMode = 'cheapest' | 'max_value' | 'easiest';
 
@@ -200,6 +201,95 @@ const EXCHANGE_RATES_TO_USD: Record<string, number> = {
 
 function convertToUSD(amount: number, currency: string): number {
   return amount * (EXCHANGE_RATES_TO_USD[currency.toUpperCase()] || 1.0);
+}
+
+// Format cabin class name in title case (e.g., "economy" → "Economy")
+function formatCabinClass(cabin?: string): string {
+  if (!cabin) return 'Economy';
+  return cabin.charAt(0).toUpperCase() + cabin.slice(1).toLowerCase();
+}
+
+// Format date consistently with year (e.g., "May 12, 2025")
+function formatDateWithYear(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch { return dateStr; }
+}
+
+// Format date range (e.g., "May 12–20, 2025")
+function formatDateRange(startDate?: string, endDate?: string): string {
+  if (!startDate) return '';
+  try {
+    const start = new Date(startDate);
+    const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+    const startDay = start.getDate();
+    const startYear = start.getFullYear();
+    
+    if (!endDate) {
+      return `${startMonth} ${startDay}, ${startYear}`;
+    }
+    
+    const end = new Date(endDate);
+    const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+    const endDay = end.getDate();
+    const endYear = end.getFullYear();
+    
+    // Same month and year: "May 12–20, 2025"
+    if (startMonth === endMonth && startYear === endYear) {
+      return `${startMonth} ${startDay}–${endDay}, ${startYear}`;
+    }
+    // Same year, different months: "May 12 – Jun 5, 2025"
+    if (startYear === endYear) {
+      return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${startYear}`;
+    }
+    // Different years: "Dec 28, 2025 – Jan 3, 2026"
+    return `${startMonth} ${startDay}, ${startYear} – ${endMonth} ${endDay}, ${endYear}`;
+  } catch { return startDate; }
+}
+
+// Format duration consistently (e.g., "4 hr 30 min" instead of "4h 30m")
+function formatDuration(duration?: string): string {
+  if (!duration) return '';
+  // Convert various formats to consistent "X hr Y min" format
+  return duration
+    .replace(/(\d+)h\s*/gi, '$1 hr ')
+    .replace(/(\d+)m(?:in)?\s*/gi, '$1 min')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Format time consistently (e.g., "10:15 AM" with space before AM/PM)
+function formatTimeConsistent(time?: string): string {
+  if (!time) return '--:--';
+  // Match time patterns and standardize
+  const match = time.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)?/i);
+  if (!match) return time;
+  
+  let hour = parseInt(match[1], 10);
+  const min = match[2];
+  let ampm = match[3]?.toUpperCase() || '';
+  
+  // If no AM/PM provided, determine from hour
+  if (!ampm) {
+    ampm = hour >= 12 ? 'PM' : 'AM';
+  }
+  
+  // Convert to 12-hour format if needed
+  if (hour === 0) {
+    hour = 12;
+    ampm = 'AM';
+  } else if (hour > 12) {
+    hour = hour - 12;
+  } else if (hour === 12 && !match[3]) {
+    ampm = 'PM';
+  }
+  
+  return `${hour}:${min} ${ampm}`;
 }
 
 // ============================================
@@ -459,17 +549,6 @@ const ChatComposer: React.FC<{
 // ============================================
 
 const FlightLegDisplay: React.FC<{ leg: FlightLeg; label: string; date?: string }> = ({ leg, label, date }) => {
-  const formatTime = (time?: string) => {
-    if (!time) return '--:--';
-    const match = time.match(/(\d{1,2}):(\d{2})/);
-    if (!match) return time;
-    let hour = parseInt(match[1], 10);
-    const min = match[2];
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    hour = hour % 12 || 12;
-    return `${hour}:${min} ${ampm}`;
-  };
-
   return (
     <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
       <div className="flex justify-between items-center mb-2">
@@ -482,15 +561,15 @@ const FlightLegDisplay: React.FC<{ leg: FlightLeg; label: string; date?: string 
         </div>
       )}
       <div className="flex items-center gap-3">
-        <span className="text-base font-bold text-white">{formatTime(leg.departureTime)}</span>
+        <span className="text-base font-bold text-white">{formatTimeConsistent(leg.departureTime)}</span>
         <div className="flex-1 relative h-[2px] bg-white/[0.10] rounded-full">
           {leg.duration && (
             <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] text-white/40">
-              {leg.duration}
+              {formatDuration(leg.duration)}
             </span>
           )}
         </div>
-        <span className="text-base font-bold text-white">{formatTime(leg.arrivalTime)}</span>
+        <span className="text-base font-bold text-white">{formatTimeConsistent(leg.arrivalTime)}</span>
       </div>
       <div className="flex gap-2 mt-2">
         {typeof leg.stops === 'number' && (
@@ -517,12 +596,6 @@ const PortalCaptureCard: React.FC<{
   onConfirm: () => void;
   onRecapture: () => void;
 }> = ({ capture, onConfirm, onRecapture }) => {
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '';
-    try {
-      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } catch { return dateStr; }
-  };
 
   // Check if we have detailed flight info
   const hasDetailedInfo = capture.outbound?.airlines && capture.outbound.airlines.length > 0;
@@ -548,7 +621,7 @@ const PortalCaptureCard: React.FC<{
           </div>
           {capture.cabin && (
             <GlassBadge variant="accent" size="md">
-              {capture.cabin}
+              {formatCabinClass(capture.cabin)}
             </GlassBadge>
           )}
         </div>
@@ -569,7 +642,7 @@ const PortalCaptureCard: React.FC<{
             <FlightLegDisplay
               leg={capture.outbound}
               label="Outbound"
-              date={formatDate(capture.departDate)}
+              date={formatDateWithYear(capture.departDate)}
             />
           )}
           {/* Return Flight */}
@@ -577,7 +650,7 @@ const PortalCaptureCard: React.FC<{
             <FlightLegDisplay
               leg={capture.returnFlight}
               label="Return"
-              date={formatDate(capture.returnDate)}
+              date={formatDateWithYear(capture.returnDate)}
             />
           )}
         </div>
@@ -586,7 +659,7 @@ const PortalCaptureCard: React.FC<{
           {capture.departDate && (
             <GlassBadge variant="default" size="md">
               <Calendar className="w-3 h-3" />
-              {formatDate(capture.departDate)}{capture.returnDate ? ` - ${formatDate(capture.returnDate)}` : ''}
+              {formatDateRange(capture.departDate, capture.returnDate)}
             </GlassBadge>
           )}
           {capture.airline && (
@@ -735,14 +808,15 @@ const StayPortalCaptureCard: React.FC<{
 
       {/* Pricing - Full Breakdown */}
       <div className="space-y-2 mb-4">
+        {/* P1 FIX: Standardized price precision - no decimals for cleaner display */}
         {/* Portal Price (sticker price / subtotal before credit) */}
         <div className="flex justify-between items-center">
           <span className="text-white/50 text-sm">Portal Price</span>
           <div className="text-right">
-            <span className="text-2xl font-bold text-white">${capture.priceUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span className="text-2xl font-bold text-white">${capture.priceUSD.toLocaleString()}</span>
             {capture.currency !== 'USD' && (
               <div className="text-xs text-white/40">
-                ({capture.currency} {capture.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                ({capture.currency} {capture.price.toLocaleString()})
               </div>
             )}
           </div>
@@ -751,14 +825,14 @@ const StayPortalCaptureCard: React.FC<{
         {capture.perNight && (
           <div className="flex justify-between items-center text-sm">
             <span className="text-white/40">Per night</span>
-            <span className="text-white/60">${capture.perNight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span className="text-white/60">${capture.perNight.toLocaleString()}</span>
           </div>
         )}
         
         {capture.taxesFees && (
           <div className="flex justify-between items-center text-sm">
             <span className="text-white/40">Taxes & fees (included)</span>
-            <span className="text-white/60">${capture.taxesFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span className="text-white/60">${capture.taxesFees.toLocaleString()}</span>
           </div>
         )}
         
@@ -766,7 +840,7 @@ const StayPortalCaptureCard: React.FC<{
         {capture.portalCreditApplied && capture.portalCreditApplied > 0 && (
           <div className="flex justify-between items-center text-sm text-emerald-400">
             <span>Travel credit applied</span>
-            <span>-${capture.portalCreditApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span>-${capture.portalCreditApplied.toLocaleString()}</span>
           </div>
         )}
         
@@ -774,7 +848,7 @@ const StayPortalCaptureCard: React.FC<{
         {capture.creditAlreadyApplied && capture.amountDueAfterCredit && (
           <div className="flex justify-between items-center pt-2 border-t border-white/[0.06]">
             <span className="text-white/80 text-sm font-medium">Pay today</span>
-            <span className="text-lg font-bold text-white">${capture.amountDueAfterCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span className="text-lg font-bold text-white">${capture.amountDueAfterCredit.toLocaleString()}</span>
           </div>
         )}
         
@@ -1231,7 +1305,9 @@ const VerdictSection: React.FC<{
   fxCurrency?: string;
   // Callback to open settings (for "Tap to change" on assumptions)
   onOpenSettings?: () => void;
-}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 50000, mileValueCpp: userMileValueCpp = 0.018, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency, onOpenSettings }) => {
+  // P2-21: Callback when user clicks "Continue to Portal/Direct" - triggers success celebration
+  onVerdictContinue?: (recommendation: 'portal' | 'direct', savings?: number) => void;
+}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 50000, mileValueCpp: userMileValueCpp = 0.015, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency, onOpenSettings, onVerdictContinue }) => {
   // Use controlled mode if provided, otherwise local state
   const [localTabMode, setLocalTabMode] = useState<UITabMode>('cheapest');
   const tabMode = controlledTabMode ?? localTabMode;
@@ -1239,8 +1315,8 @@ const VerdictSection: React.FC<{
   const [applyTravelCredit, setApplyTravelCredit] = useState(true);
   const [showDoubleDipStrategy, setShowDoubleDipStrategy] = useState(true);
   
-  // Mile value sensitivity control - default 1.8, user can adjust
-  const [mileValueCpp, setMileValueCpp] = useState(0.018); // 1.8¢/mi
+  // Mile value sensitivity control - initialize from user preference prop (default 1.5¢ conservative)
+  const [mileValueCpp, setMileValueCpp] = useState(userMileValueCpp);
   const MILE_VALUE_PRESETS = [
     { value: 0.010, label: '1.0¢' },
     { value: 0.015, label: '1.5¢' },
@@ -1286,7 +1362,7 @@ const VerdictSection: React.FC<{
     portalPriceUSD,
     directPriceUSD,
     creditRemaining,
-    mileValuationCpp: 0.018, // 1.8¢/mi default
+    mileValuationCpp: mileValueCpp, // Use dynamic user preference (default 1.5¢/mi conservative)
     objective: engineObjective,
     // CRITICAL: Pass booking type for correct earn rate (10x hotels, 5x flights/rentals)
     bookingType: bookingType === 'vacation_rental' ? 'vacation_rental'
@@ -1339,7 +1415,7 @@ const VerdictSection: React.FC<{
       label: 'Max Value',
       emoji: '📈',
       description: 'Lowest effective cost after valuing points earned/spent',
-      tooltip: 'Best value after subtracting the estimated worth of miles you\'ll earn (at 1.8¢/mi). Higher upfront cost can be worth it if you\'ll earn significantly more miles. Adjust mile value in Settings.',
+      tooltip: 'Best value after subtracting the estimated worth of miles you\'ll earn (at your mile valuation, default 1.5¢). Higher upfront cost can be worth it if you\'ll earn significantly more miles. Adjust mile value in Settings.',
     },
     {
       mode: 'easiest' as UITabMode,
@@ -1349,12 +1425,12 @@ const VerdictSection: React.FC<{
       // Context-aware tooltip based on booking type (hotels vs flights)
       tooltip: bookingType === 'hotel' || bookingType === 'vacation_rental'
         ? 'Prioritizes convenience: easier changes/cancellations, direct hotel support, keeping hotel loyalty status & elite nights. Direct booking usually wins unless portal is significantly cheaper.'
-        : 'Prioritizes convenience: easier changes/cancellations, direct airline support for disruptions (IRROPS), keeping loyalty status. Direct booking usually wins unless portal is significantly cheaper.',
+        : 'Prioritizes convenience: easier changes/cancellations, direct airline support for delays & cancellations, keeping loyalty status. Direct booking usually wins unless portal is significantly cheaper.',
     },
   ];
 
-  // Calculate effective costs for Max Value mode
-  const MILES_VALUE_CPP = 0.018; // 1.8¢/mi
+  // Calculate effective costs for Max Value mode - use user's preference or 1.5¢ default
+  const MILES_VALUE_CPP = mileValueCpp || 0.015; // Use user preference or 1.5¢/mi conservative default
   const portalEffectiveCost = (portalPriceUSD - creditRemaining) - (comparison.portalDetails.milesEarned * MILES_VALUE_CPP);
   const directEffectiveCost = directPriceUSD - (comparison.directDetails.milesEarned * MILES_VALUE_CPP);
 
@@ -1531,7 +1607,7 @@ const VerdictSection: React.FC<{
             : 'Portal manages the booking end-to-end, single point of contact'
           : isStayBooking
             ? 'Direct: easier modifications, special requests, hotel loyalty/elite nights'
-            : 'Direct: changes handled by airline, easier for disruptions (IRROPS)',
+            : 'Direct: changes handled by airline, easier during delays & cancellations',
       });
       
       // Secondary bullet: Acknowledge price difference if significant (but frame it correctly)
@@ -1621,7 +1697,7 @@ const VerdictSection: React.FC<{
       level: 'low',
       tooltip: isStayBooking
         ? 'Direct hotel booking. Easier modifications, special requests, upgrades. Earn hotel loyalty/elite nights.'
-        : 'Direct booking. Changes handled by airline, easiest for disruptions (IRROPS).',
+        : 'Direct booking. Changes handled by airline, easiest during delays & cancellations.',
     };
   };
 
@@ -1645,7 +1721,7 @@ const VerdictSection: React.FC<{
             : 'Portal change policies apply'
           : isStayBooking
             ? 'Direct: easier for modifications, special requests'
-            : 'Direct: easier for changes/disruptions (IRROPS)',
+            : 'Direct: easier for changes during delays & cancellations',
       };
     }
     if (Math.abs(milesDiff) > 100) {
@@ -1703,11 +1779,23 @@ const VerdictSection: React.FC<{
     return route;
   };
 
+  // Build double-dip strategy info for portal recommendations on flights
+  const doubleDipStrategyForVerdict = bookingType === 'flight' && comparison.recommendation === 'portal' ? {
+    payToday: doubleDipRec.breakdown.payToday,
+    milesEarned: doubleDipRec.breakdown.milesEarned,
+    milesValue: doubleDipRec.breakdown.milesValue,
+    eraseLater: doubleDipRec.breakdown.eraseLater,
+    savingsVsDirect: Math.max(0, directPriceUSD - doubleDipRec.breakdown.payToday),
+    mileValueCpp: mileValueCpp,
+  } : undefined;
+
   const progressiveVerdict: VerdictDataProgressive = {
     // Override recommendation to 'tie' if it's a close call
     recommendation: isCloseCallWithFx ? 'tie' : (isAward ? 'portal' : comparison.recommendation as 'portal' | 'direct' | 'tie'),
     // Itinerary summary for display (e.g., "DXB → LAX • May 12–20")
     itinerarySummary: buildItinerarySummary(),
+    // Double-dip strategy for portal flight bookings (consolidated into verdict card)
+    doubleDipStrategy: tabMode !== 'easiest' ? doubleDipStrategyForVerdict : undefined,
     winner: {
       label: isCloseCallWithFx ? 'Essentially a Tie' : winnerLabel,
       payToday: winnerPayToday,
@@ -1736,7 +1824,7 @@ const VerdictSection: React.FC<{
     whyBullets,
     auditTrail: {
       assumptions: [
-        { label: 'Mile value', value: '1.8¢/mi', editable: true },
+        { label: 'Mile value', value: `${(mileValueCpp * 100).toFixed(1)}¢/mi`, editable: true },
         {
           label: 'Portal multiplier',
           value: bookingType === 'hotel' ? '10x' : bookingType === 'vacation_rental' ? '5x' : '5x',
@@ -1866,6 +1954,7 @@ const VerdictSection: React.FC<{
           </button>
         </div>
         {/* P1-4: Credit verification messaging */}
+        {/* P0 #7 FIX: Changed amber/orange (error-like) to informational blue/gray styling */}
         {applyTravelCredit && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -1874,9 +1963,9 @@ const VerdictSection: React.FC<{
             className="mt-2 pt-2 border-t border-white/[0.06]"
           >
             <div className="flex items-start gap-2 text-[10px]">
-              <Info className="w-3 h-3 text-amber-400/70 flex-shrink-0 mt-0.5" />
+              <Info className="w-3 h-3 text-blue-400/70 flex-shrink-0 mt-0.5" />
               <div className="text-white/50">
-                <span className="text-amber-400/80">Assumes you have ${initialCreditRemaining} credit available and unused.</span>
+                <span className="text-blue-300/80">Assumes you have ${initialCreditRemaining} credit available and unused.</span>
                 {' '}The credit applies only to Capital One Travel portal bookings.
                 Toggle off to compare prices without credit.
               </div>
@@ -1890,7 +1979,10 @@ const VerdictSection: React.FC<{
           Shows the optimal "Portal + Travel Eraser" approach
           Now ALWAYS shows for flights (educational), even if user can't execute yet
           ============================================ */}
-      {showDoubleDipStrategy && bookingType === 'flight' && (
+      {/* P1 FIX: Hide double-dip strategy on "Easiest" tab - it's not simple/easy */}
+      {/* P1 FIX: Hide standalone double-dip card when verdict is showing (it's now integrated into verdict card accordion) */}
+      {/* Only show during max_value pre-verdict flow (ask/searching/input phases) */}
+      {showDoubleDipStrategy && bookingType === 'flight' && tabMode !== 'easiest' && showMaxValueFlow && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1936,9 +2028,9 @@ const VerdictSection: React.FC<{
               </div>
             </div>
             
-            {/* Cost Breakdown */}
+            {/* Cost Breakdown - FIXED: Show Miles Value vs Travel Eraser as ALTERNATIVE options, not additive */}
             <div className="p-3 rounded-xl bg-black/20 border border-white/10 mb-3">
-              <div className="text-[10px] text-white/50 uppercase tracking-wider mb-2">Final Cost Breakdown</div>
+              <div className="text-[10px] text-white/50 uppercase tracking-wider mb-2">Cost Breakdown</div>
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-white/60">Pay today (portal)</span>
@@ -1948,34 +2040,53 @@ const VerdictSection: React.FC<{
                   <span className="text-white/60">Miles earned (5x × ${doubleDipRec.breakdown.payToday.toFixed(0)})</span>
                   <span className="text-emerald-300">+{doubleDipRec.breakdown.milesEarned.toLocaleString()} mi</span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-white/60">Miles value (@{(mileValueCpp * 100).toFixed(1)}¢)</span>
-                  <span className="text-emerald-300">−${doubleDipRec.breakdown.milesValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                </div>
-                {doubleDipRec.breakdown.eraseLater > 0 && (
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-white/60">Travel Eraser (@1¢/mi)</span>
-                    <span className="text-cyan-300">−${doubleDipRec.breakdown.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                
+                {/* FIXED: Show alternatives clearly - user can EITHER keep miles OR use Travel Eraser */}
+                <div className="mt-3 pt-2 border-t border-white/10">
+                  <div className="text-[10px] text-white/50 uppercase tracking-wider mb-2">Then Choose One:</div>
+                  
+                  {/* Option A: Keep miles for transfer partners */}
+                  {/* P0 FIX: Only show concrete dollar value if user actually found an award via PointsYeah */}
+                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 mb-2">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[10px]">🅰️</span>
+                      <span className="text-xs text-emerald-300 font-medium">Keep Miles for Transfers</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/50">Earned miles</span>
+                      <span className="text-emerald-300 font-medium">+{doubleDipRec.breakdown.milesEarned.toLocaleString()} mi</span>
+                    </div>
+                    <div className="text-[9px] text-white/40 mt-1">Check PointsYeah to find actual award value for your route</div>
                   </div>
-                )}
-                <div className="flex justify-between items-center text-sm pt-2 border-t border-white/10 mt-2">
-                  <span className="text-white font-semibold">Effective Cost</span>
+                  
+                  {/* Option B: Use Travel Eraser */}
+                  {doubleDipRec.breakdown.eraseLater > 0 && (
+                    <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px]">🅱️</span>
+                        <span className="text-xs text-cyan-300 font-medium">Use Travel Eraser</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-white/50">Erase up to (@1¢/mi)</span>
+                        <span className="text-cyan-300 font-medium">−${doubleDipRec.breakdown.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                      </div>
+                      <div className="text-[9px] text-white/40 mt-1">Apply within 90 days to reduce out-of-pocket</div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Actual cash savings vs direct - this is the REAL comparison */}
+                <div className="flex justify-between items-center text-sm pt-3 border-t border-white/10 mt-3">
+                  <span className="text-white font-semibold">Cash Savings vs Direct</span>
                   <span className="text-xl font-bold text-emerald-400">
-                    ${Math.max(0, doubleDipRec.breakdown.effectiveCost).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    ${Math.max(0, directPriceUSD - doubleDipRec.breakdown.payToday).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </span>
                 </div>
               </div>
             </div>
             
-            {/* Savings highlight */}
-            <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <span className="text-xs text-emerald-300">
-                vs Direct (${directPriceUSD.toFixed(0)}):
-              </span>
-              <span className="text-sm font-bold text-emerald-400">
-                Save ${(directPriceUSD - Math.max(0, doubleDipRec.breakdown.effectiveCost)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </span>
-            </div>
+            {/* P0 #2 FIX: Removed misleading "Save $877" highlight that used effectiveCost.
+                The correct "Cash Savings vs Direct: $312" is already shown above. */}
             
             {/* Fine print */}
             <div className="mt-3 text-[9px] text-white/40 leading-relaxed space-y-1.5">
@@ -2068,21 +2179,23 @@ const VerdictSection: React.FC<{
                   </p>
                 </div>
 
+                {/* P1 FIX: "Show verdict" is the primary action (why user is here),
+                    "Check awards" is secondary (exploratory, leaves the app) */}
                 <div className="flex gap-2">
                   <GlassButton
                     variant="primary"
                     className="flex-1"
-                    onClick={handleSearchPointsYeah}
+                    onClick={() => setMaxValuePhase('verdict')}
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    Yes, check awards
+                    Show Verdict
                   </GlassButton>
                   <GlassButton
                     variant="secondary"
                     className="flex-1"
-                    onClick={() => setMaxValuePhase('verdict')}
+                    onClick={handleSearchPointsYeah}
                   >
-                    No, show verdict
+                    <ExternalLink className="w-4 h-4" />
+                    Check Awards
                   </GlassButton>
                 </div>
               </div>
@@ -2385,7 +2498,14 @@ const VerdictSection: React.FC<{
           <ProgressiveVerdictCard
             verdict={progressiveVerdict}
             tabMode={tabMode}
-            onContinue={() => console.log('Continue to booking')}
+            onContinue={() => {
+              // P2-21: Trigger success celebration instead of just logging
+              const rec = progressiveVerdict.recommendation === 'tie'
+                ? (portalOOP <= directOOP ? 'portal' : 'direct')
+                : (progressiveVerdict.recommendation as 'portal' | 'direct');
+              const savings = outOfPocketDiff > 5 ? outOfPocketDiff : undefined;
+              onVerdictContinue?.(rec, savings);
+            }}
             onAssumptionEdit={(label) => {
               // Open settings when user taps "Tap to change" on Mile value or Travel credit
               onOpenSettings?.();
@@ -2431,6 +2551,10 @@ const ChatTabContent: React.FC<{
   onStarterPrompt: (prompt: StarterPrompt) => void;
   contextStatus: BookingContextStatus;
   onSwitchToCompare: () => void;
+  // P0 #4 FIX: Add props for showing booking CTA when verdict is available
+  hasVerdict?: boolean;
+  verdictWinner?: 'portal' | 'direct';
+  onBookNow?: () => void;
 }> = ({
   messages,
   inputValue,
@@ -2439,6 +2563,9 @@ const ChatTabContent: React.FC<{
   onStarterPrompt,
   contextStatus,
   onSwitchToCompare,
+  hasVerdict = false,
+  verdictWinner,
+  onBookNow,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -2506,6 +2633,40 @@ const ChatTabContent: React.FC<{
         <div ref={messagesEndRef} />
       </div>
 
+      {/* P0 #4 FIX: Booking CTA Banner - Show when verdict is available */}
+      {hasVerdict && onBookNow && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-gradient-to-r from-emerald-500/10 to-indigo-500/10"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
+                <Check className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-white truncate">
+                  Verdict: Book {verdictWinner === 'portal' ? 'Portal' : 'Direct'}
+                </div>
+                <div className="text-[10px] text-white/50">
+                  Tap to complete your booking
+                </div>
+              </div>
+            </div>
+            <GlassButton
+              variant="primary"
+              size="sm"
+              onClick={onBookNow}
+              className="flex-shrink-0"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Book Now
+            </GlassButton>
+          </div>
+        </motion.div>
+      )}
+
       {/* Composer - Minimal border */}
       <div className="p-4 border-t border-[rgba(255,255,255,0.04)] bg-black/95 backdrop-blur-lg">
         <ChatComposer
@@ -2530,6 +2691,7 @@ const CompareTabContent: React.FC<{
   stayCapture: StayCapture | null;
   directStayCapture: DirectStayCapture | null;
   bookingType: BookingType;
+  detectedSite: DetectedSite;  // P1 FIX: Added for dynamic site detection in progress rail
   contextStatus: BookingContextStatus;
   creditRemaining: number;
   onConfirmPortal: () => void;
@@ -2546,6 +2708,9 @@ const CompareTabContent: React.FC<{
   tabMode?: UITabMode;
   onTabModeChange?: (mode: UITabMode) => void;
   onOpenSettings?: () => void;
+  mileValuationCpp?: number;  // User's mile valuation preference (default 0.015 = 1.5¢)
+  // P2-21: Callback when user clicks "Continue to Portal/Direct" - triggers success celebration
+  onVerdictContinue?: (recommendation: 'portal' | 'direct', savings?: number) => void;
 }> = ({
   currentStep,
   portalCapture,
@@ -2553,6 +2718,7 @@ const CompareTabContent: React.FC<{
   stayCapture,
   directStayCapture,
   bookingType,
+  detectedSite,  // P1 FIX: Destructure detectedSite for dynamic progress rail labels
   contextStatus,
   creditRemaining,
   onConfirmPortal,
@@ -2569,9 +2735,12 @@ const CompareTabContent: React.FC<{
   tabMode,
   onTabModeChange,
   onOpenSettings,
+  mileValuationCpp,
+  onVerdictContinue,
 }) => {
   // Determine what state we're in for better UX - now booking-type aware
   const isStay = bookingType === 'stay';
+  const isUnsupportedPage = detectedSite === 'capital-one-unsupported';
   
   // For stays
   const showWaitingForStayCapture = isStay && !stayCapture && (contextStatus.type === 'detected');
@@ -2582,7 +2751,7 @@ const CompareTabContent: React.FC<{
   
   // For flights
   const showWaitingForCapture = !isStay && !portalCapture && (contextStatus.type === 'detected');
-  const showNoBooking = (!isStay ? !portalCapture : !stayCapture) && contextStatus.type === 'none';
+  const showNoBooking = (!isStay ? !portalCapture : !stayCapture) && contextStatus.type === 'none' && !isUnsupportedPage;
   const showPortalCapture = !isStay && portalCapture && currentStep === 1;
   const showDirectCapture = !isStay && directCapture && portalCapture && currentStep === 2;
   const showWaitingForDirect = !isStay && portalCapture && !directCapture && currentStep === 2;
@@ -2706,13 +2875,19 @@ const CompareTabContent: React.FC<{
         )}
       </AnimatePresence>
       
-      {/* Progress Rail - Clickable - Uses "Other Site" instead of "Direct" per UX critique */}
+      {/* Progress Rail - Clickable - P1 FIX: Dynamic site detection instead of hardcoded "Other Site" */}
       <div className="mb-6">
         <GlassProgressRail
           currentStep={currentStep}
           steps={[
             { label: 'Portal' },
-            { label: 'Other Site' },
+            { label: (() => {
+              // Dynamic label based on detected site
+              if (bookingType === 'stay') {
+                return detectedSite === 'google-hotels' ? 'Google Hotels' : 'Direct Site';
+              }
+              return detectedSite === 'google-flights' ? 'Google Flights' : 'Direct Site';
+            })() },
             { label: 'Verdict' },
           ]}
           onStepClick={handleStepClick}
@@ -2776,8 +2951,62 @@ const CompareTabContent: React.FC<{
         </motion.div>
       )}
 
+      {/* Unsupported Capital One Travel page (cars, packages, activities, premium-stays) */}
+      {isUnsupportedPage && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-8"
+        >
+          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 flex items-center justify-center">
+            <span className="text-4xl">👀</span>
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">Coming Soon!</h3>
+          <p className="text-sm text-white/50 mb-6 max-w-[280px] mx-auto leading-relaxed">
+            Cars, Packages, Activities, and Premium Stays aren't supported yet — but we're working on it!
+          </p>
+          
+          <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] mx-4 mb-6">
+            <p className="text-xs text-white/60 mb-3">Currently supported:</p>
+            <div className="flex justify-center gap-3 flex-wrap">
+              <span className="text-xs text-emerald-400 font-medium">✈️ Flights</span>
+              <span className="text-white/20">•</span>
+              <span className="text-xs text-emerald-400 font-medium">🏨 Hotels & Stays</span>
+            </div>
+          </div>
+          
+          <div className="flex flex-col gap-3 max-w-[260px] mx-auto">
+            <GlassButton
+              variant="primary"
+              className="w-full gap-2"
+              onClick={() => {
+                if (typeof chrome !== 'undefined' && chrome.tabs) {
+                  chrome.tabs.create({ url: 'https://travel.capitalone.com/flights' });
+                }
+              }}
+            >
+              <Plane className="w-4 h-4" />
+              <span>Search Flights</span>
+            </GlassButton>
+            <GlassButton
+              variant="secondary"
+              className="w-full gap-2"
+              onClick={() => {
+                if (typeof chrome !== 'undefined' && chrome.tabs) {
+                  chrome.tabs.create({ url: 'https://travel.capitalone.com/stays' });
+                }
+              }}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Search Hotels</span>
+            </GlassButton>
+          </div>
+        </motion.div>
+      )}
+
       {/* Waiting for portal capture - handles BOTH flights and stays */}
-      {(showWaitingForCapture || showWaitingForStayCapture) && (
+      {/* IMPORTANT: Don't show this when on unsupported page (Coming Soon takes precedence) */}
+      {(showWaitingForCapture || showWaitingForStayCapture) && !isUnsupportedPage && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2886,24 +3115,41 @@ const CompareTabContent: React.FC<{
       )}
 
       {/* Waiting for direct capture - ENHANCED with full flight details */}
+      {/* P0 #5 FIX: Context-aware instructions - detect if already on Google Flights */}
       {showWaitingForDirect && portalCapture && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="py-4"
         >
-          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 flex items-center justify-center relative">
-            <CreditCard className="w-10 h-10 text-blue-400/70" />
-            <motion.div
-              className="absolute inset-0 rounded-2xl border-2 border-blue-400/30"
-              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2 text-center">Find the Direct Price</h3>
-          <p className="text-sm text-white/50 mb-6 max-w-[280px] mx-auto leading-relaxed text-center">
-            Open Google Flights or the airline website to find the direct booking price for this flight:
-          </p>
+          {/* P0 #5 FIX: Detect if user is already on Google Flights */}
+          {(() => {
+            // Type-safe access: only check site if contextStatus has it (type !== 'none')
+            // Note: when detectedSite === 'google-flights' in parent, contextStatus.site will be 'Google Flights'
+            const siteLabel = contextStatus.type !== 'none' ? contextStatus.site : '';
+            const isOnGoogleFlights = siteLabel?.toLowerCase().includes('google flights') ||
+                                       siteLabel?.toLowerCase().includes('google') && siteLabel?.toLowerCase().includes('flight');
+            return (
+              <>
+                <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 flex items-center justify-center relative">
+                  <CreditCard className="w-10 h-10 text-blue-400/70" />
+                  <motion.div
+                    className="absolute inset-0 rounded-2xl border-2 border-blue-400/30"
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2 text-center">
+                  {isOnGoogleFlights ? 'Select the Same Flight' : 'Find the Direct Price'}
+                </h3>
+                <p className="text-sm text-white/50 mb-6 max-w-[280px] mx-auto leading-relaxed text-center">
+                  {isOnGoogleFlights
+                    ? 'Select the matching flight on this page to capture the direct price:'
+                    : 'Open Google Flights or the airline website to find the direct booking price for this flight:'}
+                </p>
+              </>
+            );
+          })()}
           
           {/* Portal Flight Details Card - FULL INFO */}
           <GlassCard variant="elevated" className="mb-4">
@@ -2926,7 +3172,7 @@ const CompareTabContent: React.FC<{
                 </div>
                 {portalCapture.cabin && (
                   <GlassBadge variant="accent" size="md">
-                    {portalCapture.cabin}
+                    {formatCabinClass(portalCapture.cabin)}
                   </GlassBadge>
                 )}
               </div>
@@ -2996,7 +3242,7 @@ const CompareTabContent: React.FC<{
               • Same airline{portalCapture.outbound?.airlines && portalCapture.outbound.airlines.length > 1 && 's'}: {portalCapture.outbound?.airlines?.join(' + ') || portalCapture.airline || 'Check airline'}
               <br />• Same dates: {portalCapture.departDate ? new Date(portalCapture.departDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Check dates'}
               {portalCapture.returnDate && ` - ${new Date(portalCapture.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-              <br />• Same cabin: {portalCapture.cabin || 'Economy'}
+              <br />• Same cabin: {formatCabinClass(portalCapture.cabin)}
             </div>
             {/* IMPORTANT: Same times - highlighted to draw attention */}
             {(portalCapture.outbound?.departureTime || portalCapture.outbound?.arrivalTime) && (
@@ -3053,6 +3299,7 @@ const CompareTabContent: React.FC<{
             portalPriceUSD={portalCapture.priceUSD}
             directPriceUSD={directCapture.priceUSD}
             creditRemaining={creditRemaining}
+            mileValueCpp={mileValuationCpp}  // Pass user's mile valuation preference
             itinerary={{
               origin: portalCapture.origin,
               destination: portalCapture.destination,
@@ -3071,6 +3318,8 @@ const CompareTabContent: React.FC<{
             fxCurrency={directCapture.currency !== 'USD' ? directCapture.currency : undefined}
             // Allow "Tap to change" on assumptions to open Settings
             onOpenSettings={onOpenSettings}
+            // P2-21: Wire up success celebration callback
+            onVerdictContinue={onVerdictContinue}
           />
           
           {/* Ask About This Verdict Module - with spacing from verdict card */}
@@ -3139,12 +3388,15 @@ const CompareTabContent: React.FC<{
             // CRITICAL: If credit was already applied by portal, pass 0 to avoid double-dipping!
             // The portal price already reflects what user will pay after credit.
             creditRemaining={stayCapture.creditAlreadyApplied ? 0 : creditRemaining}
+            mileValueCpp={mileValuationCpp}  // Pass user's mile valuation preference
             itinerary={undefined} // No flight itinerary for stays
             tabMode={tabMode}
             onTabModeChange={onTabModeChange}
             bookingType={stayCapture.stayType === 'vacation_rental' ? 'vacation_rental' : 'hotel'}
             // Allow "Tap to change" on assumptions to open Settings
             onOpenSettings={onOpenSettings}
+            // P2-21: Wire up success celebration callback
+            onVerdictContinue={onVerdictContinue}
           />
           
           {/* Ask About This Verdict Module for stays */}
@@ -3235,6 +3487,11 @@ export function SidePanelApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [userPrefs, setUserPrefs] = useState<UserPrefs | null>(null);
+  
+  // P2-21: Success state celebration after user confirms verdict
+  const [showBookingSuccess, setShowBookingSuccess] = useState(false);
+  const [successRecommendation, setSuccessRecommendation] = useState<'portal' | 'direct'>('portal');
+  const [successSavings, setSuccessSavings] = useState<number | undefined>(undefined);
 
   // Derive context status - now supports both flights and stays
   // IMPORTANT: Don't show "???" in badges - show helpful status instead
@@ -3278,6 +3535,7 @@ export function SidePanelApp() {
       const siteLabels: Record<DetectedSite, string> = {
         'capital-one-portal': 'Capital One Travel (Flights)',
         'capital-one-stays': 'Capital One Travel (Stays)',
+        'capital-one-unsupported': 'Capital One Travel',
         'google-flights': 'Google Flights',
         'google-hotels': 'Google Hotels',
         'other': 'Travel Site',
@@ -4108,15 +4366,24 @@ export function SidePanelApp() {
         let newBookingType: BookingType = 'flight';
         let newStep: FlowStep = 1;
         
-        // Capital One Travel - Stays detection (check first, more specific)
+        // Capital One Travel - UNSUPPORTED pages (cars, packages, activities, premium-stays)
+        // Check these FIRST before other Capital One detection
         if ((url.includes('capitalone.com') || url.includes('travel.capitalone.com')) &&
+            (url.includes('/cars') || url.includes('/packages') || url.includes('/activities') || url.includes('/premium-stays'))) {
+          console.log('[SidePanelApp] Detected Capital One Travel (UNSUPPORTED - cars/packages/activities/premium-stays)');
+          newDetectedSite = 'capital-one-unsupported';
+          newBookingType = 'flight'; // Default, doesn't matter for unsupported
+        }
+        // Capital One Travel - Stays detection (check first, more specific)
+        else if ((url.includes('capitalone.com') || url.includes('travel.capitalone.com')) &&
             (url.includes('/stays/') || url.includes('/hotels/') || url.includes('lodgings'))) {
           console.log('[SidePanelApp] Detected Capital One Travel (Stays)');
           newDetectedSite = 'capital-one-stays';
           newBookingType = 'stay';
         }
         // Capital One Travel - Flights
-        else if (url.includes('capitalone.com/travel') || url.includes('travel.capitalone.com') || url.includes('capitalone.com/flights')) {
+        else if ((url.includes('capitalone.com/travel') || url.includes('travel.capitalone.com') || url.includes('capitalone.com/flights')) &&
+                 !url.includes('/cars') && !url.includes('/packages') && !url.includes('/activities') && !url.includes('/premium-stays')) {
           console.log('[SidePanelApp] Detected Capital One portal (Flights)');
           newDetectedSite = 'capital-one-portal';
           newBookingType = 'flight';
@@ -4538,6 +4805,15 @@ export function SidePanelApp() {
     setCurrentStep(1);
     setDetectedSite('unknown');
     setBookingType('flight');
+    // Reset success state
+    setShowBookingSuccess(false);
+  };
+
+  // P2-21: Handle "Continue to Portal/Direct" from verdict card - show success celebration
+  const handleVerdictContinue = (recommendation: 'portal' | 'direct', savings?: number) => {
+    setSuccessRecommendation(recommendation);
+    setSuccessSavings(savings);
+    setShowBookingSuccess(true);
   };
 
   const handlePasteDetails = (details: ManualBookingDetails) => {
@@ -4631,6 +4907,32 @@ export function SidePanelApp() {
         defaultCreditRemaining={userPrefs?.creditRemaining || 300}
       />
 
+      {/* P2-21: Success State Celebration Modal */}
+      <AnimatePresence>
+        {showBookingSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl"
+          >
+            <BookingSuccessState
+              recommendation={successRecommendation}
+              savings={successSavings}
+              onNewComparison={() => {
+                setShowBookingSuccess(false);
+                handleReset();
+              }}
+              onSwitchToChat={() => {
+                setShowBookingSuccess(false);
+                setActiveTab('chat');
+              }}
+              onDismiss={() => setShowBookingSuccess(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-40 px-4 py-3 border-b border-[rgba(255,255,255,0.04)] bg-black/95 backdrop-blur-xl">
         <div className="flex items-center gap-3">
@@ -4661,6 +4963,48 @@ export function SidePanelApp() {
                 onStarterPrompt={handleStarterPrompt}
                 contextStatus={contextStatus}
                 onSwitchToCompare={() => setActiveTab('compare')}
+                // P0 #4 FIX: Pass verdict info to show booking CTA
+                hasVerdict={!!(portalCapture && directCapture && currentStep === 3) || !!(stayCapture && directStayCapture && currentStep === 3)}
+                verdictWinner={
+                  (portalCapture && directCapture)
+                    ? ((portalCapture.priceUSD - (userPrefs?.creditRemaining || 300)) <= directCapture.priceUSD ? 'portal' : 'direct')
+                    : (stayCapture && directStayCapture)
+                      ? (stayCapture.priceUSD <= directStayCapture.priceUSD ? 'portal' : 'direct')
+                      : undefined
+                }
+                onBookNow={() => {
+                  // P0 #4 FIX: Open the winning booking site
+                  const isPortalWinner = (portalCapture && directCapture)
+                    ? ((portalCapture.priceUSD - (userPrefs?.creditRemaining || 300)) <= directCapture.priceUSD)
+                    : (stayCapture && directStayCapture)
+                      ? (stayCapture.priceUSD <= directStayCapture.priceUSD)
+                      : true;
+                  
+                  if (isPortalWinner) {
+                    // Open Capital One Travel portal
+                    if (typeof chrome !== 'undefined' && chrome.tabs) {
+                      chrome.tabs.create({ url: 'https://travel.capitalone.com' });
+                    } else {
+                      window.open('https://travel.capitalone.com', '_blank');
+                    }
+                  } else {
+                    // Open Google Flights/Hotels for direct booking
+                    const isStay = !!(stayCapture && directStayCapture);
+                    if (isStay) {
+                      if (typeof chrome !== 'undefined' && chrome.tabs) {
+                        chrome.tabs.create({ url: 'https://www.google.com/travel/hotels' });
+                      } else {
+                        window.open('https://www.google.com/travel/hotels', '_blank');
+                      }
+                    } else {
+                      if (typeof chrome !== 'undefined' && chrome.tabs) {
+                        chrome.tabs.create({ url: 'https://www.google.com/travel/flights' });
+                      } else {
+                        window.open('https://www.google.com/travel/flights', '_blank');
+                      }
+                    }
+                  }
+                }}
               />
             </motion.div>
           ) : (
@@ -4678,6 +5022,7 @@ export function SidePanelApp() {
                 stayCapture={stayCapture}
                 directStayCapture={directStayCapture}
                 bookingType={bookingType}
+                detectedSite={detectedSite}  // P1 FIX: Pass detectedSite for dynamic progress rail labels
                 contextStatus={contextStatus}
                 creditRemaining={userPrefs?.creditRemaining || 300}
                 onConfirmPortal={handleConfirmPortal}
@@ -4694,6 +5039,9 @@ export function SidePanelApp() {
                 tabMode={verdictTabMode}
                 onTabModeChange={setVerdictTabMode}
                 onOpenSettings={() => setShowSettings(true)}
+                mileValuationCpp={userPrefs?.mileValuationCpp}  // Pass user's mile valuation preference
+                // P2-21: Wire up success celebration callback
+                onVerdictContinue={handleVerdictContinue}
               />
             </motion.div>
           )}

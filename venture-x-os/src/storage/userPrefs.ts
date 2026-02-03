@@ -71,8 +71,20 @@ export interface UserPrefs {
 // DEFAULTS
 // ============================================
 
-/** Single source of truth for default mile valuation - 1.5¢ conservative */
-export const DEFAULT_MILE_VALUATION_CPP = 0.015;
+/**
+ * Single source of truth for default mile valuation - 1.0¢ conservative
+ *
+ * Using 1.0¢ (Travel Eraser floor) as default because:
+ * 1. It's the GUARANTEED minimum value (Eraser always gives 1¢/mile)
+ * 2. It doesn't "juice" portal to look artificially better
+ * 3. Users who get more value can adjust upward in settings
+ *
+ * References:
+ * - Travel Eraser: 1.0¢ floor (guaranteed)
+ * - Frequent Miler RRV: 1.45¢ (typical)
+ * - The Points Guy: ~1.85¢ (optimistic)
+ */
+export const DEFAULT_MILE_VALUATION_CPP = 0.01;
 
 export const DEFAULT_USER_PREFS: UserPrefs = {
   // Onboarding

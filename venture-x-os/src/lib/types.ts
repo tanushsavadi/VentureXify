@@ -315,7 +315,7 @@ export const VENTURE_X_CONSTANTS = {
   
   // Eraser
   ERASER_WINDOW_DAYS: 90,
-  ERASER_MIN_REDEMPTION: 5000,            // 5,000 miles minimum
+  ERASER_MIN_REDEMPTION: 0,               // NO MINIMUM - Capital One allows any amount
   ERASER_CPM: 1.0,                        // 1 cent per mile for eraser
   ERASER_MILES_PER_DOLLAR: 100,           // 100 miles = $1
   

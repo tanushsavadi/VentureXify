@@ -247,7 +247,7 @@ export const VENTURE_X_CONSTANTS = {
   // Rate: 1 cent per mile = $0.01 per mile = 100 miles per $1
   ERASER_CPP: 0.01,                // 1 cent per mile
   ERASER_MILES_PER_DOLLAR: 100,    // 100 miles = $1 (e.g., $809 needs 80,900 miles)
-  ERASER_MIN_MILES: 5000,          // Minimum 5,000 miles ($50)
+  ERASER_MIN_MILES: 0,             // NO MINIMUM - Capital One allows any amount
   ERASER_WINDOW_DAYS: 90,          // 90 days to erase
   
   // ============================================
@@ -266,7 +266,17 @@ export const VENTURE_X_CONSTANTS = {
   // Valuation benchmarks (existing, but contextualized)
   TRANSFER_CPP_TARGET: 0.018,      // 1.8¢/mile is a good transfer value
   TRANSFER_CPP_EXCELLENT: 0.025,   // 2.5¢/mile is excellent
-  DEFAULT_MILE_VALUE_CPP: 0.018,   // Default valuation for miles (1.8¢)
+  
+  // DEFAULT_MILE_VALUE_CPP: Conservative baseline for calculations
+  // Using 1.0¢ (Travel Eraser floor) as default because:
+  // 1. It's the GUARANTEED minimum value (Eraser always gives 1¢/mile)
+  // 2. It doesn't "juice" portal to look artificially better
+  // 3. Users who get more value can adjust upward in settings
+  // References:
+  // - Travel Eraser: 1.0¢ floor (guaranteed)
+  // - Frequent Miler RRV: 1.45¢ (typical)
+  // - The Points Guy: ~1.85¢ (optimistic)
+  DEFAULT_MILE_VALUE_CPP: 0.01,    // Default valuation for miles (1.0¢ conservative/floor)
   
   // Award value tiers for UI display
   AWARD_VALUE_TIERS: {

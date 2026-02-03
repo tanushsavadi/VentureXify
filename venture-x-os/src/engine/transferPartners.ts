@@ -674,6 +674,9 @@ export function calculateDoubleDipRecommendation(
   // Can erase up to the out-of-pocket amount (no need to erase more than paid)
   const portalEraseAmount = Math.min(portalOutOfPocket, portalMaxEraseAtOneCent);
   const portalMilesUsedForErase = Math.round(portalEraseAmount * 100);
+  // CRITICAL FIX: Track miles remaining AFTER erasing to avoid double-counting
+  const portalMilesKeptAfterErase = Math.max(0, portalTotalMilesAfterBooking - portalMilesUsedForErase);
+  const portalKeptMilesValue = portalMilesKeptAfterErase * mileValueCpp;
   
   // Direct route
   const directMilesEarned = Math.round(directPrice * 2); // 2x on direct
@@ -684,18 +687,26 @@ export function calculateDoubleDipRecommendation(
   const directMaxEraseAtOneCent = directTotalMilesAfterBooking / 100;
   const directEraseAmount = Math.min(directPrice, directMaxEraseAtOneCent);
   const directMilesUsedForErase = Math.round(directEraseAmount * 100);
+  // CRITICAL FIX: Track miles remaining AFTER erasing to avoid double-counting
+  const directMilesKeptAfterErase = Math.max(0, directTotalMilesAfterBooking - directMilesUsedForErase);
+  const directKeptMilesValue = directMilesKeptAfterErase * mileValueCpp;
   
   // Calculate effective costs for each strategy
-  // Portal + Erase: Pay cash, earn 5x, erase later
-  const portalThenEraseEffective = portalOutOfPocket - portalMilesValue - portalEraseAmount;
+  // CRITICAL FIX: Miles value and Travel Eraser are MUTUALLY EXCLUSIVE
+  // You can either KEEP miles (value them at cpp) OR USE them for eraser (get 1¢/mile)
+  // You cannot do BOTH with the same miles!
   
-  // Direct + Erase: Pay cash, earn 2x, erase later
-  const directThenEraseEffective = directPrice - directMilesValue - directEraseAmount;
+  // Portal + Erase: Pay cash, earn 5x, erase later using total miles
+  // Effective = cash paid - cash recovered - value of REMAINING miles after erase
+  const portalThenEraseEffective = portalOutOfPocket - portalEraseAmount - portalKeptMilesValue;
   
-  // Portal pay cash (no erase): Just pay and earn
+  // Direct + Erase: Pay cash, earn 2x, erase later using total miles
+  const directThenEraseEffective = directPrice - directEraseAmount - directKeptMilesValue;
+  
+  // Portal pay cash (no erase): Just pay and keep ALL miles
   const portalPayCashEffective = portalOutOfPocket - portalMilesValue;
   
-  // Direct pay cash (no erase): Just pay and earn
+  // Direct pay cash (no erase): Just pay and keep ALL miles
   const directPayCashEffective = directPrice - directMilesValue;
   
   // Since Travel Eraser has NO MINIMUM, we can always erase SOME amount

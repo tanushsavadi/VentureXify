@@ -324,8 +324,10 @@ function calculateDirectEraser(input: StrategyInput): StrategyResult {
   const maxMilesToUse = Math.floor(directPrice / C.ERASER_CPP);
   const milesToUse = Math.min(maxMilesToUse, milesBalance);
   
-  // Can't use less than minimum
-  if (milesToUse < C.ERASER_MIN_MILES && milesToUse < maxMilesToUse) {
+  // NOTE: Travel Eraser has NO minimum redemption requirement.
+  // Capital One allows any amount from $0.01 up at 1¢/mile.
+  // User just needs some miles to use the eraser at all.
+  if (milesToUse === 0) {
     return {
       id: 'DIRECT_ERASER',
       name: 'Direct + Travel Eraser',
@@ -338,7 +340,9 @@ function calculateDirectEraser(input: StrategyInput): StrategyResult {
       cons: [],
       score: 0,
       available: false,
-      unavailableReason: `Need at least ${C.ERASER_MIN_MILES.toLocaleString()} miles (have ${milesBalance.toLocaleString()})`,
+      unavailableReason: milesBalance === 0
+        ? 'No miles available to erase with'
+        : 'Booking fully covered or no miles needed',
     };
   }
   
@@ -503,23 +507,9 @@ function calculateHybridAwardEraser(input: StrategyInput, awardOption?: AwardOpt
     };
   }
   
-  // If taxes are too low to erase, this strategy doesn't make sense
-  if (milesForEraser < C.ERASER_MIN_MILES) {
-    return {
-      id: 'HYBRID_AWARD_ERASER',
-      name: 'Award + Erase Taxes',
-      description: 'Book award, erase taxes with miles',
-      netCashCost: taxesAndFees,
-      milesEarned: 0,
-      milesSpent: milesForAward,
-      cppRealized: 0,
-      pros: [],
-      cons: [],
-      score: 0,
-      available: false,
-      unavailableReason: `Taxes too low to erase (min ${C.ERASER_MIN_MILES.toLocaleString()} miles = $${(C.ERASER_MIN_MILES * C.ERASER_CPP).toFixed(0)})`,
-    };
-  }
+  // NOTE: Travel Eraser has NO minimum redemption amount.
+  // Even tiny tax amounts can be erased.
+  // Previously checked for minimum here, but Capital One allows any amount from $0.01 up.
   
   return {
     id: 'HYBRID_AWARD_ERASER',
@@ -967,10 +957,10 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
   // ----------------------------
   // Eraser strategy (fixed comparison)
   // Eraser should be compared on the SAME basis (net cost), and include opp cost of miles spent.
-  // Also: enforce min redemption.
+  // NOTE: Travel Eraser has NO minimum redemption requirement - any amount works.
   // ----------------------------
   const milesBalance = clamp0(input.milesBalance ?? 0);
-  const eraserAvailable = milesBalance >= C.ERASER_MIN_MILES;
+  const eraserAvailable = milesBalance > 0; // Just need some miles
 
   type EraserCandidate = {
     label: 'direct' | 'portal';
@@ -985,8 +975,9 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     const milesNeeded = Math.floor(baseOutOfPocket / C.ERASER_CPP);
     const milesToSpend = Math.min(milesNeeded, milesBalance);
 
-    // Enforce min redemption threshold
-    if (milesToSpend < C.ERASER_MIN_MILES) return null;
+    // NOTE: Travel Eraser has NO minimum redemption requirement.
+    // Just need some miles to spend (milesToSpend > 0)
+    if (milesToSpend === 0) return null;
 
     const cashSaved = milesToSpend * C.ERASER_CPP;
     const outOfPocket = clamp0(baseOutOfPocket - cashSaved);
@@ -1140,8 +1131,9 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     explanation.push(
       `Eraser net-cost includes opportunity cost at ${(mileValueCpp * 100).toFixed(1)}¢/mile`
     );
-  } else if (milesBalance > 0 && milesBalance < C.ERASER_MIN_MILES) {
-    explanation.push(`Eraser unavailable: need at least ${C.ERASER_MIN_MILES.toLocaleString()} miles`);
+  } else if (milesBalance === 0) {
+    // NOTE: Travel Eraser has NO minimum - just need some miles
+    explanation.push(`Eraser unavailable: no miles in balance`);
   }
 
   // Assumptions / warnings
@@ -1317,6 +1309,7 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
   // ----------------------------
   // Build "could flip if" conditions
   // Only show conditions that are actually relevant to the current situation
+  // More specific scenarios per UX audit feedback
   // ----------------------------
   const couldFlipIf: string[] = [];
   
@@ -1336,13 +1329,44 @@ export function simpleCompare(inputRaw: SimpleCompareInput): SimpleCompareOutput
     }
   }
   
-  // Removed unknown seller type warnings - no longer cluttering the UI
+  // Specific mile value scenarios (per UX audit: add concrete thresholds)
+  // Show what happens at common mile valuations
+  const currentMileValueCents = mileValueCpp * 100;
+  
+  // Only add scenarios that are actually different from current valuation
+  if (recommendation === 'portal' && Math.abs(currentMileValueCents - 1.0) > 0.1) {
+    // Calculate what would happen at 1.0¢/mile (Travel Eraser floor)
+    const portalNetAt1cpp = portalOutOfPocket - (portalMilesEarnedMin * 0.01);
+    const directNetAt1cpp = directOutOfPocket - (directMilesEarned * 0.01);
+    if (directNetAt1cpp < portalNetAt1cpp) {
+      couldFlipIf.push(`If miles worth only 1.0¢ (Eraser floor) → Direct wins by ${fmtUSD(portalNetAt1cpp - directNetAt1cpp)}`);
+    }
+  }
+  
+  if (recommendation === 'direct' && Math.abs(currentMileValueCents - 2.0) > 0.1) {
+    // Calculate what would happen at 2.0¢/mile (strong transfer value)
+    const portalNetAt2cpp = portalOutOfPocket - (portalMilesEarnedMin * 0.02);
+    const directNetAt2cpp = directOutOfPocket - (directMilesEarned * 0.02);
+    if (portalNetAt2cpp < directNetAt2cpp) {
+      couldFlipIf.push(`If miles worth 2.0¢ (strong transfer) → Portal wins by ${fmtUSD(directNetAt2cpp - portalNetAt2cpp)}`);
+    }
+  }
+  
+  // Price change scenario: what if portal price drops?
+  if (recommendation === 'direct' && portalSticker > directSticker) {
+    const priceDiff = portalSticker - directSticker;
+    const dropNeeded = Math.ceil(priceDiff / 10) * 10; // Round up to nearest $10
+    if (dropNeeded > 0 && dropNeeded <= 200) {
+      couldFlipIf.push(`If portal price drops ${fmtUSD(dropNeeded)}+ → Portal likely wins`);
+    }
+  }
   
   if (recommendation !== 'eraser' && eraserBest) {
     couldFlipIf.push(`If you want guaranteed redemption → Eraser gives ${fmtUSD(eraserBest.cashSaved)} back at 1¢/mile`);
   }
   
-  if (mileValueCpp !== C.DEFAULT_MILE_VALUE_CPP) {
+  // Only show generic valuation warning if using non-default AND no specific scenario shown
+  if (mileValueCpp !== C.DEFAULT_MILE_VALUE_CPP && couldFlipIf.length < 2) {
     couldFlipIf.push(`At different mile valuations, winner may change`);
   }
   
@@ -1894,15 +1918,17 @@ export function simpleStayCompare(input: StayCompareInput): StayCompareOutput {
   const directNet = directOutOfPocket - directMilesValue;
   
   // Eraser strategy
+  // NOTE: Travel Eraser has NO minimum redemption requirement.
+  // Capital One allows any amount from $0.01 up at 1¢/mile.
   const milesBalance = clamp0(input.milesBalance ?? 0);
-  const eraserAvailable = milesBalance >= C.ERASER_MIN_MILES;
+  const eraserAvailable = milesBalance > 0; // Just need some miles
   
   let eraserDetails: StayCompareOutput['eraserDetails'] | undefined;
   if (eraserAvailable) {
     const milesNeeded = Math.floor(directOutOfPocket / C.ERASER_CPP);
     const milesToSpend = Math.min(milesNeeded, milesBalance);
     
-    if (milesToSpend >= C.ERASER_MIN_MILES) {
+    if (milesToSpend > 0) {
       const cashSaved = milesToSpend * C.ERASER_CPP;
       const eraserOutOfPocket = clamp0(directOutOfPocket - cashSaved);
       const earnedValue = directMilesEarned * mileValueCpp;
@@ -1992,7 +2018,7 @@ export function simpleStayCompare(input: StayCompareInput): StayCompareOutput {
     editable: false,
   });
   
-  // Could flip if
+  // Could flip if - with specific sensitivity scenarios per UX audit
   const couldFlipIf: string[] = [];
   
   if (recommendation === 'portal' && creditRemainingKnown && creditRemaining > 0) {
@@ -2005,6 +2031,36 @@ export function simpleStayCompare(input: StayCompareInput): StayCompareOutput {
   
   if (recommendation === 'direct' && portalCreditApplied > 0) {
     couldFlipIf.push(`If you prioritize miles over hotel loyalty → Portal wins (+${fmtMiles(milesDiff)} more miles)`);
+  }
+  
+  // Specific mile value scenarios for stays
+  const currentMileValueCents = mileValueCpp * 100;
+  
+  // What if miles are worth less (1.0¢)?
+  if (recommendation === 'portal' && Math.abs(currentMileValueCents - 1.0) > 0.1) {
+    const portalNetAt1cpp = portalOutOfPocket - (portalMilesEarned * 0.01);
+    const directNetAt1cpp = directOutOfPocket - (directMilesEarned * 0.01);
+    if (directNetAt1cpp < portalNetAt1cpp) {
+      couldFlipIf.push(`If miles worth only 1.0¢ (Eraser floor) → Direct wins by ${fmtUSD(portalNetAt1cpp - directNetAt1cpp)}`);
+    }
+  }
+  
+  // What if miles are worth more (2.0¢)?
+  if (recommendation === 'direct' && Math.abs(currentMileValueCents - 2.0) > 0.1) {
+    const portalNetAt2cpp = portalOutOfPocket - (portalMilesEarned * 0.02);
+    const directNetAt2cpp = directOutOfPocket - (directMilesEarned * 0.02);
+    if (portalNetAt2cpp < directNetAt2cpp) {
+      couldFlipIf.push(`If miles worth 2.0¢ (strong transfer) → Portal wins by ${fmtUSD(directNetAt2cpp - portalNetAt2cpp)}`);
+    }
+  }
+  
+  // Price change scenario
+  if (recommendation === 'direct' && portalSticker > directSticker) {
+    const priceDiff = portalSticker - directSticker;
+    const dropNeeded = Math.ceil(priceDiff / 10) * 10; // Round up to nearest $10
+    if (dropNeeded > 0 && dropNeeded <= 200) {
+      couldFlipIf.push(`If portal price drops ${fmtUSD(dropNeeded)}+ → Portal likely wins`);
+    }
   }
   
   if (recommendation !== 'eraser' && eraserDetails) {

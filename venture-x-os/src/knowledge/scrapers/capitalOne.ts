@@ -303,40 +303,71 @@ WHEN TO USE PORTAL VS DIRECT:
   {
     id: 'capitalone-static-transfer-partners',
     source: 'capitalone',
-    title: 'Capital One Transfer Partners - Complete List',
+    title: 'Capital One Transfer Partners - Complete List (Official)',
     content: `
 Capital One Miles Transfer Partners
+Source: https://www.capitalone.com/learn-grow/money-management/venture-miles-transfer-partnerships/
+Last Updated: January 2026
 
-TRANSFER RATIO: 1:1 (1,000 Capital One miles = 1,000 partner miles)
-TRANSFER TIME: Usually instant, some may take up to 2 business days
+TRANSFER REQUIREMENTS:
+- Minimum transfer: 1,000 Capital One miles
+- Name on Capital One account must match name on loyalty program
+- Transfers are final and cannot be reversed
 
-AIRLINE PARTNERS:
-1. Turkish Miles&Smiles (Star Alliance) - Great for business/first class awards
-2. Emirates Skywards - Emirates flights worldwide
-3. British Airways Executive Club (Avios) - Distance-based pricing, good for short flights
-4. Air France-KLM Flying Blue (SkyTeam) - Monthly Promo Rewards
-5. Singapore Airlines KrisFlyer (Star Alliance) - Premium cabin awards
-6. Avianca LifeMiles (Star Alliance) - Often cheapest awards, no fuel surcharges
-7. TAP Air Portugal Miles&Go (Star Alliance) - Good for Europe
-8. Finnair Plus (oneworld) - Europe and Asia routes
-9. Etihad Guest - Middle East and beyond
-10. Qantas Frequent Flyer (oneworld) - Australia and Pacific
-11. Air Canada Aeroplan (Star Alliance) - North America
+CONVERSION RATIOS EXPLAINED:
+- 1:1 ratio: 1,000 C1 miles = 1,000 partner miles
+- 1:2 ratio: 1,000 C1 miles = 2,000 partner miles
+- 2:1.5 ratio: 1,000 C1 miles = 750 partner miles
+- 5:3 ratio: 1,000 C1 miles = 600 partner miles
+- 2:1 ratio: 1,000 C1 miles = 500 partner miles
+
+AIRLINE PARTNERS (1:1 RATIO):
+- Aeromexico Rewards
+- Air Canada Aeroplan® (Star Alliance) - North America
+- Avianca LifeMiles (Star Alliance) - Often cheapest, no fuel surcharges
+- British Airways Avios (oneworld) - Distance-based pricing
+- Cathay Pacific Asia Miles (oneworld)
+- Etihad Guest - Middle East and beyond
+- Finnair Plus (oneworld) - Europe and Asia
+- Flying Blue (Air France-KLM, SkyTeam) - Monthly Promo Rewards
+- Qantas Frequent Flyer (oneworld) - Australia/Pacific
+- Qatar Airways Privilege Club (oneworld)
+- Singapore Airlines KrisFlyer (Star Alliance) - Premium cabins
+- TAP Miles&Go (Star Alliance) - Europe
+- Turkish Airlines Miles&Smiles (Star Alliance) - SWEET SPOT for business class
+- Virgin Red
+
+AIRLINE PARTNERS (OTHER RATIOS):
+- Emirates Skywards: 2:1.5 ratio (1,000 C1 miles = 750 Emirates miles)
+- EVA Air: 2:1.5 ratio (1,000 C1 miles = 750 EVA miles)
+- Japan Airlines Mileage Bank: 2:1.5 ratio (1,000 C1 miles = 750 JAL miles)
+- JetBlue TrueBlue: 5:3 ratio (1,000 C1 miles = 600 JetBlue points)
 
 HOTEL PARTNERS:
-1. Choice Privileges - Budget/midscale hotels
-2. Accor Live Limitless - Global luxury brands
-3. Wyndham Rewards - Global hotel chain
+- Choice Privileges: 1:1 ratio (US accounts only)
+- Wyndham Rewards: 1:1 ratio
+- I Prefer Hotel Rewards: 1:2 ratio (BEST - 1,000 C1 miles = 2,000 points!)
+- Accor Live Limitless: 2:1 ratio (1,000 C1 miles = 500 Accor points)
 
 TRANSFER TIPS:
 - Watch for transfer bonuses (typically 20-30% extra)
-- Turkish and Emirates transfers are usually instant
-- Never transfer speculatively - find award availability first
-- Sweet spot: Turkish for Star Alliance business class to Europe
+- Most transfers are instant; some may take up to 2 business days
+- NEVER transfer speculatively - find award availability first
+- Sweet spots:
+  * Turkish for Star Alliance business class to Europe (low fuel surcharges)
+  * Avianca LifeMiles for no-fuel-surcharge awards
+  * British Airways Avios for short-haul domestic flights
+  * I Prefer for 2x hotel value
+
+HOW TO TRANSFER:
+1. Sign in to Capital One account online or mobile app
+2. Navigate to rewards section
+3. Select "Transfer miles" and choose partner
+4. Transfers are FINAL - cannot be reversed
     `.trim(),
-    url: 'https://www.capitalone.com/credit-cards/venture-x/',
+    url: 'https://www.capitalone.com/learn-grow/money-management/venture-miles-transfer-partnerships/',
     scrapedAt: new Date().toISOString(),
-    createdAt: '2024-01-01',
+    createdAt: '2026-01-29',
     metadata: {
       type: 'official-static',
       domain: 'capitalone.com',

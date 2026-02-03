@@ -65,7 +65,7 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     id: 'eraser-minimum',
     category: 'travel-eraser',
     title: 'Eraser Minimum',
-    content: 'Minimum redemption is 5,000 miles ($50). Can partially erase purchases.',
+    content: 'Travel Eraser has NO MINIMUM — you can redeem any amount from $0.01 up at 1¢/mile. Partial redemptions are allowed.',
     lastUpdated: '2024-01-01',
     source: 'Capital One'
   },

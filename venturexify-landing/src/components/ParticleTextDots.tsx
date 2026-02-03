@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,8 @@ interface ParticleTextDotsProps {
   text: string;
   variant?: Variant;
   className?: string;
+  /** External mouse position relative to viewport (for background usage where pointer-events are disabled) */
+  externalMouse?: { x: number; y: number; active: boolean } | null;
 }
 
 type Particle = {
@@ -33,6 +35,7 @@ export function ParticleTextDots({
   text,
   variant = "dark",
   className,
+  externalMouse,
 }: ParticleTextDotsProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -42,6 +45,20 @@ export function ParticleTextDots({
     y: 0,
     active: false,
   });
+
+  // Sync external mouse position when provided (for background usage)
+  React.useEffect(() => {
+    if (externalMouse) {
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        // Convert viewport coordinates to local coordinates
+        mouseRef.current.x = externalMouse.x - rect.left;
+        mouseRef.current.y = externalMouse.y - rect.top;
+        mouseRef.current.active = externalMouse.active;
+      }
+    }
+  }, [externalMouse?.x, externalMouse?.y, externalMouse?.active]);
 
   React.useEffect(() => {
     const container = containerRef.current;

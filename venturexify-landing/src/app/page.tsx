@@ -2,15 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Star, ChevronDown, ArrowRight, MessageSquare } from 'lucide-react';
+import { Sparkles, Star, ChevronDown, ArrowRight, MessageSquare, Rocket, Users, Shield, Zap } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Features from '@/components/Features';
 import HowItWorks from '@/components/HowItWorks';
 import Privacy from '@/components/Privacy';
 import Footer from '@/components/Footer';
 import GlassCard from '@/components/GlassCard';
-import WaitlistForm, { InlineWaitlistForm } from '@/components/WaitlistForm';
-import { ParticleTextDots } from '@/components/ParticleTextDots';
+import { InlineWaitlistForm } from '@/components/WaitlistForm';
 import { TiltCard } from '@/components/TiltCard';
 import { getWaitlistCount } from '@/lib/supabase';
 
@@ -32,27 +31,8 @@ export default function Home() {
     <main className="min-h-screen bg-background overflow-x-hidden">
       <Navigation />
 
-      {/* Particle Text Hero - Interactive Opening */}
-      <section className="relative pt-24 pb-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <ParticleTextDots 
-            text="MAXIMIZE" 
-            variant="dark"
-            className="mb-4"
-          />
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.6 }}
-            className="text-center text-white/50 text-sm sm:text-base"
-          >
-            Hover over the text to interact • Powered by AI
-          </motion.p>
-        </div>
-      </section>
-
       {/* Main Hero Section */}
-      <section className="relative min-h-[80vh] flex items-center">
+      <section className="relative min-h-screen flex items-center pt-20">
         {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-radial from-amber-500/10 via-transparent to-transparent opacity-50" />
         
@@ -101,9 +81,9 @@ export default function Home() {
 
               {/* Headline */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                Your{' '}
+                Maximize your{' '}
                 <span className="gradient-text">Venture X</span>{' '}
-                rewards copilot
+                rewards
               </h1>
 
               {/* Subheadline */}
@@ -269,24 +249,94 @@ export default function Home() {
       {/* Privacy Section */}
       <Privacy />
 
-      {/* Final CTA Section */}
-      <section className="py-24 md:py-32 relative">
-        <div className="absolute inset-0 bg-gradient-radial from-amber-500/10 via-transparent to-transparent opacity-50" />
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+      {/* Premium Final CTA Section */}
+      <section className="py-32 md:py-40 relative overflow-hidden">
+        {/* Background effects */}
+        <div className="absolute inset-0">
+          {/* Gradient orbs */}
+          <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-amber-500/20 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-violet-500/15 rounded-full blur-[100px]" />
+          
+          {/* Grid pattern */}
+          <div 
+            className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
+              backgroundSize: '50px 50px'
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              Ready to maximize your{' '}
-              <span className="gradient-text">Venture X</span>?
-            </h2>
-            <p className="text-white/60 text-lg mb-10">
-              Join {waitlistCount}+ Venture X cardholders already on the waitlist.
-            </p>
-            <WaitlistForm showExtendedForm className="max-w-xl mx-auto" />
+            {/* Premium CTA Card */}
+            <div className="relative">
+              {/* Animated gradient border */}
+              <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-amber-500/50 via-orange-500/50 to-amber-500/50 opacity-75 blur-sm animate-pulse" />
+              
+              {/* Card content */}
+              <div className="relative rounded-3xl bg-[#0D0D0F]/90 backdrop-blur-xl border border-white/10 p-8 md:p-12">
+                {/* Top badge */}
+                <div className="flex justify-center mb-8">
+                  <motion.div 
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30"
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    whileInView={{ scale: 1, opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <Rocket className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm text-amber-400 font-medium">Launching Soon</span>
+                  </motion.div>
+                </div>
+
+                {/* Headline */}
+                <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-center mb-4">
+                  Ready to{' '}
+                  <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent">
+                    maximize
+                  </span>
+                  {' '}your
+                  <br />
+                  <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent">
+                    Venture X
+                  </span>
+                  ?
+                </h2>
+
+                {/* Subtitle */}
+                <p className="text-white/50 text-lg md:text-xl text-center mb-10 max-w-2xl mx-auto">
+                  Be among the first to experience the smarter way to use your points. 
+                  Early access members get exclusive features.
+                </p>
+
+                {/* Email form */}
+                <div className="max-w-lg mx-auto mb-8">
+                  <PremiumEmailForm />
+                </div>
+
+                {/* Trust indicators */}
+                <div className="flex flex-wrap justify-center gap-6 md:gap-10 text-sm text-white/40">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-amber-400/60" />
+                    <span>{waitlistCount}+ on waitlist</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-emerald-400/60" />
+                    <span>100% Privacy First</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-violet-400/60" />
+                    <span>AI-Powered</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -294,5 +344,94 @@ export default function Home() {
       {/* Footer */}
       <Footer />
     </main>
+  );
+}
+
+// Premium Email Form Component
+function PremiumEmailForm() {
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    
+    setIsSubmitting(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    setIsSuccess(true);
+    setIsSubmitting(false);
+  };
+
+  if (isSuccess) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center py-6"
+      >
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+          <motion.svg
+            className="w-8 h-8 text-emerald-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </motion.svg>
+        </div>
+        <h3 className="text-xl font-semibold text-white mb-2">You&apos;re on the list!</h3>
+        <p className="text-white/50">We&apos;ll notify you when beta access is ready.</p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="relative">
+      {/* Glow effect */}
+      <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-amber-500/30 to-orange-500/30 blur opacity-50" />
+      
+      <div className="relative flex flex-col sm:flex-row gap-3">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          className="flex-1 px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all"
+          required
+        />
+        <motion.button
+          type="submit"
+          disabled={isSubmitting}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-semibold hover:from-amber-400 hover:to-orange-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[160px]"
+        >
+          {isSubmitting ? (
+            <motion.div
+              className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+            />
+          ) : (
+            <>
+              <span>Get Early Access</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </motion.button>
+      </div>
+    </form>
   );
 }

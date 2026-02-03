@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ExternalLink } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 const navLinks = [
   { name: 'Features', href: '#features' },
   { name: 'How it Works', href: '#how-it-works' },
-  { name: 'r/VentureX', href: 'https://reddit.com/r/venturex', external: true },
 ];
 
 export default function Navigation() {
@@ -55,15 +54,10 @@ export default function Navigation() {
                 <motion.a
                   key={link.name}
                   href={link.href}
-                  target={link.external ? '_blank' : undefined}
-                  rel={link.external ? 'noopener noreferrer' : undefined}
-                  className="text-sm text-white/60 hover:text-white transition-colors flex items-center gap-1 group"
+                  className="text-sm text-white/60 hover:text-white transition-colors"
                   whileHover={{ y: -2 }}
                 >
                   {link.name}
-                  {link.external && (
-                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
                 </motion.a>
               ))}
             </div>
@@ -71,7 +65,7 @@ export default function Navigation() {
             {/* CTA Button */}
             <div className="hidden md:block">
               <motion.a
-                href="#waitlist"
+                href="#cta"
                 className="btn-primary text-sm px-5 py-2.5 rounded-full inline-block"
                 whileHover={{ scale: 1.05, boxShadow: '0 8px 30px rgba(245, 158, 11, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
@@ -108,18 +102,15 @@ export default function Navigation() {
                   <motion.a
                     key={link.name}
                     href={link.href}
-                    target={link.external ? '_blank' : undefined}
-                    rel={link.external ? 'noopener noreferrer' : undefined}
-                    className="text-white/60 hover:text-white transition-colors flex items-center gap-2 py-2"
+                    className="text-white/60 hover:text-white transition-colors py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                     whileHover={{ x: 4 }}
                   >
                     {link.name}
-                    {link.external && <ExternalLink className="w-4 h-4" />}
                   </motion.a>
                 ))}
                 <motion.a
-                  href="#waitlist"
+                  href="#cta"
                   className="btn-primary text-center py-3 rounded-xl mt-2"
                   onClick={() => setIsMobileMenuOpen(false)}
                   whileTap={{ scale: 0.95 }}

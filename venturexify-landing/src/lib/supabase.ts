@@ -7,6 +7,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface WaitlistEntry {
   id?: string;
+  user_id?: string;
   email: string;
   first_name?: string;
   reddit_username?: string;
@@ -14,7 +15,12 @@ export interface WaitlistEntry {
   feature_interests?: string[];
   queue_position?: number;
   status?: 'waitlisted' | 'invited' | 'activated' | 'active';
+  invited_at?: string;
+  activated_at?: string;
+  referred_by?: string;
+  referral_count?: number;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface JoinWaitlistResult {
@@ -75,6 +81,9 @@ export async function joinWaitlist(data: {
   }
 }
 
+// Base offset for social proof display (early-stage waitlist)
+const WAITLIST_BASE_OFFSET = 500;
+
 export async function getWaitlistCount(): Promise<number> {
   try {
     const { count, error } = await supabase
@@ -83,12 +92,31 @@ export async function getWaitlistCount(): Promise<number> {
 
     if (error) {
       console.error('Waitlist count error:', error);
-      return 500; // Fallback number for display
+      return WAITLIST_BASE_OFFSET; // Fallback number for display
+    }
+
+    // Return real count + base offset for social proof
+    return (count || 0) + WAITLIST_BASE_OFFSET;
+  } catch {
+    return WAITLIST_BASE_OFFSET;
+  }
+}
+
+// Get raw waitlist count without offset (for admin use)
+export async function getRawWaitlistCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('waitlist')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      console.error('Waitlist count error:', error);
+      return 0;
     }
 
     return count || 0;
   } catch {
-    return 500;
+    return 0;
   }
 }
 

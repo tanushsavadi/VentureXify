@@ -1,30 +1,37 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Download, Globe, Zap } from 'lucide-react';
+import { Download, Search, Brain, Sparkles } from 'lucide-react';
 import GlassCard from './GlassCard';
 
 const steps = [
   {
     number: '01',
     icon: Download,
-    title: 'Install Extension',
-    description: 'Add VentureXify to Chrome in one click. No account required to start.',
+    title: 'Install & Set Your Prefs',
+    description: 'Add to Chrome, set your miles valuation (default 1.7¢/mile), and whether you care about status earning. That\'s it.',
     color: 'from-amber-400 to-orange-500',
   },
   {
     number: '02',
-    icon: Globe,
-    title: 'Browse Travel Sites',
-    description: 'Shop normally on your favorite travel sites. We work in the background.',
+    icon: Search,
+    title: 'Browse Google Flights, Hotels, etc.',
+    description: 'VentureXify auto-detects prices on supported sites including Google Flights, Delta, United, Marriott, Hilton, and more.',
     color: 'from-violet-400 to-purple-500',
   },
   {
     number: '03',
-    icon: Zap,
-    title: 'Get Recommendations',
-    description: 'See instant value calculations and smart booking recommendations.',
+    icon: Brain,
+    title: 'Open Side Panel',
+    description: 'Click the extension to see Portal vs Direct comparison, transfer partner suggestions, and AI explanations in the side panel.',
     color: 'from-emerald-400 to-green-500',
+  },
+  {
+    number: '04',
+    icon: Sparkles,
+    title: 'Ask the AI Anything',
+    description: 'Not sure? Ask questions like "Should I transfer to Turkish?" or "How does double-dip eraser work?" - get instant answers.',
+    color: 'from-amber-400 to-orange-500',
   },
 ];
 
@@ -52,9 +59,9 @@ export default function HowItWorks() {
         </motion.div>
 
         {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
           {/* Connection line */}
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/20 via-violet-500/20 to-emerald-500/20 -translate-y-1/2" />
+          <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/20 via-violet-500/20 via-emerald-500/20 to-amber-500/20 -translate-y-1/2" />
 
           {steps.map((step, index) => (
             <motion.div
@@ -62,9 +69,9 @@ export default function HowItWorks() {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.2 }}
+              transition={{ duration: 0.5, delay: index * 0.15 }}
             >
-              <GlassCard className="p-8 text-center relative" hover>
+              <GlassCard className="p-6 text-center relative h-full" hover>
                 {/* Step number */}
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className={`text-xs font-bold px-3 py-1 rounded-full bg-gradient-to-r ${step.color} text-black`}>
@@ -75,13 +82,14 @@ export default function HowItWorks() {
                 {/* Icon */}
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 10 }}
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center mx-auto mb-6`}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center mx-auto mb-5`}
                 >
-                  <step.icon className="w-8 h-8 text-black" />
+                  <step.icon className="w-7 h-7 text-black" />
                 </motion.div>
 
                 {/* Content */}
-                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
+                <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
                 <p className="text-white/60 text-sm leading-relaxed">
                   {step.description}
                 </p>

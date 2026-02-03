@@ -286,10 +286,18 @@ export default function Home() {
       {/* Privacy Section */}
       <Privacy />
 
+      {/* Seamless Transition Gradient */}
+      <div className="relative h-32 md:h-48 -mt-16 md:-mt-24 z-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-500/5 to-amber-500/10" />
+      </div>
+
       {/* Premium Final CTA Section */}
-      <section className="py-32 md:py-40 relative overflow-hidden">
+      <section className="py-24 md:py-32 -mt-16 md:-mt-24 relative overflow-hidden">
+        {/* Continuous background gradient from top */}
+        <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-transparent pointer-events-none" />
+        
         {/* Interactive Particle Background */}
-        <div className="absolute inset-0 opacity-30">
+        <div className="absolute inset-0 opacity-20">
           <ParticleTextDots
             text="VX"
             variant="dark"
@@ -299,13 +307,14 @@ export default function Home() {
         
         {/* Background effects */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Gradient orbs */}
-          <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-amber-500/20 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-violet-500/15 rounded-full blur-[100px]" />
+          {/* Gradient orbs - positioned to blend with transition */}
+          <div className="absolute -top-32 left-1/4 w-[600px] h-[600px] bg-amber-500/15 rounded-full blur-[150px]" />
+          <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-[120px]" />
+          <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-orange-500/10 rounded-full blur-[100px]" />
           
           {/* Grid pattern */}
           <div
-            className="absolute inset-0 opacity-[0.02]"
+            className="absolute inset-0 opacity-[0.015]"
             style={{
               backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
               backgroundSize: '50px 50px'

@@ -1,9 +1,8 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Star, ChevronDown, ArrowRight, MessageSquare } from 'lucide-react';
-import Image from 'next/image';
 import Navigation from '@/components/Navigation';
 import Features from '@/components/Features';
 import HowItWorks from '@/components/HowItWorks';
@@ -11,49 +10,9 @@ import Privacy from '@/components/Privacy';
 import Footer from '@/components/Footer';
 import GlassCard from '@/components/GlassCard';
 import WaitlistForm, { InlineWaitlistForm } from '@/components/WaitlistForm';
+import { ParticleTextDots } from '@/components/ParticleTextDots';
+import { TiltCard } from '@/components/TiltCard';
 import { getWaitlistCount } from '@/lib/supabase';
-
-// Floating Credit Card Component with real Venture X card image
-function FloatingCard() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, rotateY: -15 }}
-      animate={{
-        opacity: 1,
-        y: [0, -10, 0],
-        rotateY: [-5, 5, -5]
-      }}
-      transition={{
-        opacity: { duration: 0.8 },
-        y: { duration: 4, repeat: Infinity, ease: "easeInOut" },
-        rotateY: { duration: 6, repeat: Infinity, ease: "easeInOut" }
-      }}
-      className="relative w-[340px] h-[215px] perspective-1000"
-      style={{ transformStyle: 'preserve-3d' }}
-    >
-      {/* Card shadow */}
-      <div className="absolute inset-0 rounded-2xl bg-blue-900/40 blur-2xl transform translate-y-4 scale-95" />
-      
-      {/* Real Venture X Card Image */}
-      <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl">
-        <Image
-          src="/venture-x-card.png"
-          alt="Capital One Venture X Card"
-          fill
-          className="object-cover"
-          priority
-        />
-        
-        {/* Card shine effect overlay */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent"
-          animate={{ x: ['-100%', '200%'] }}
-          transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
-        />
-      </div>
-    </motion.div>
-  );
-}
 
 // Stats section data
 const stats = [
@@ -73,8 +32,27 @@ export default function Home() {
     <main className="min-h-screen bg-background overflow-x-hidden">
       <Navigation />
 
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center pt-20">
+      {/* Particle Text Hero - Interactive Opening */}
+      <section className="relative pt-24 pb-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          <ParticleTextDots 
+            text="MAXIMIZE" 
+            variant="dark"
+            className="mb-4"
+          />
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+            className="text-center text-white/50 text-sm sm:text-base"
+          >
+            Hover over the text to interact • Powered by AI
+          </motion.p>
+        </div>
+      </section>
+
+      {/* Main Hero Section */}
+      <section className="relative min-h-[80vh] flex items-center">
         {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-radial from-amber-500/10 via-transparent to-transparent opacity-50" />
         
@@ -101,7 +79,7 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left content */}
             <motion.div
@@ -123,9 +101,9 @@ export default function Home() {
 
               {/* Headline */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                Maximize your{' '}
+                Your{' '}
                 <span className="gradient-text">Venture X</span>{' '}
-                rewards
+                rewards copilot
               </h1>
 
               {/* Subheadline */}
@@ -134,9 +112,12 @@ export default function Home() {
                 make smarter decisions on every booking.
               </p>
 
-              {/* Floating Card - Mobile only, positioned between text and form */}
-              <div className="flex justify-center lg:hidden mb-8">
-                <FloatingCard />
+              {/* 3D Tilt Card - Mobile only */}
+              <div className="flex justify-center lg:hidden mb-8" style={{ perspective: '1000px' }}>
+                <TiltCard 
+                  imageSrc="/venture-x-card.png"
+                  imageAlt="Capital One Venture X Card"
+                />
               </div>
 
               {/* Email form */}
@@ -173,16 +154,20 @@ export default function Home() {
               </div>
             </motion.div>
 
-            {/* Right content - Preview cards with floating card */}
+            {/* Right content - 3D Card with Preview cards */}
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
               className="hidden lg:flex flex-col items-center gap-6 relative z-10"
+              style={{ perspective: '1000px' }}
             >
-              {/* Floating Credit Card */}
+              {/* 3D Tilt Card */}
               <div className="mb-4">
-                <FloatingCard />
+                <TiltCard 
+                  imageSrc="/venture-x-card.png"
+                  imageAlt="Capital One Venture X Card"
+                />
               </div>
 
               {/* Preview Cards - stacked below the credit card */}

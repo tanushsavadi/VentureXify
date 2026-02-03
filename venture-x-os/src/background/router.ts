@@ -21,10 +21,7 @@ import { VENTURE_X_CONSTANTS, ConfidenceLevel } from '../lib/types';
 import {
   StayPortalCapture,
   DirectStayCapture,
-  StayComparisonResult,
   buildGoogleHotelsUrl,
-  getPortalEarnRate,
-  detectAccommodationType,
 } from '../lib/staysTypes';
 import { simpleStayCompare, StayCompareInput, StayCompareOutput } from '../engine/strategyEngine';
 
@@ -84,7 +81,7 @@ function handleMessage(
 
 async function handleMessageAsync(
   message: VXMessage & { type: string },
-  sender: chrome.runtime.MessageSender
+  _sender: chrome.runtime.MessageSender
 ): Promise<unknown> {
   const fsm = getFlowFSM();
 
@@ -430,7 +427,6 @@ async function handleMessageAsync(
         const portalCapture = data.vx_stay_portal_snapshot as StayPortalCapture | undefined;
         
         if (portalCapture?.searchContext) {
-          const { place, checkIn, checkOut, adults, rooms } = portalCapture.searchContext;
           const propertyName = portalCapture.property?.propertyName;
           
           // Build Google Hotels URL using the type from staysTypes.ts
@@ -501,7 +497,7 @@ async function handleMessageAsync(
 // ============================================
 
 async function handleTabUpdate(
-  tabId: number,
+  _tabId: number,
   changeInfo: chrome.tabs.TabChangeInfo,
   tab: chrome.tabs.Tab
 ): Promise<void> {

@@ -23,8 +23,6 @@ import {
   saveCompareSession,
   getCompareSession,
   updateSessionStatus,
-  getActiveSessionId,
-  setActiveSessionId,
   clearActiveSessionId,
   saveComparisonResult,
   getActiveSession,

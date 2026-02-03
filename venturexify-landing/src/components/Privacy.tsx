@@ -1,19 +1,19 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Shield, Eye, Code, Users, Check } from 'lucide-react';
+import { Shield, Eye, Code, Users, Check, Lock, Database } from 'lucide-react';
 import GlassCard from './GlassCard';
 
 const privacyFeatures = [
-  { icon: Eye, text: 'No data collection', description: 'Your browsing stays private' },
-  { icon: Shield, text: 'Local processing', description: 'Everything runs on your device' },
-  { icon: Code, text: 'Open source', description: 'Fully transparent codebase' },
-  { icon: Users, text: 'Community built', description: 'Built by r/VentureX members' },
+  { icon: Eye, text: 'No tracking or ads', description: 'We never sell your data or track browsing' },
+  { icon: Database, text: 'Chrome storage only', description: 'Preferences & history stay on your device' },
+  { icon: Lock, text: 'No bank login required', description: 'Works without your Capital One credentials' },
+  { icon: Code, text: 'Open source', description: 'Fully transparent codebase on GitHub' },
 ];
 
 export default function Privacy() {
   return (
-    <section className="py-24 md:py-32 relative">
+    <section id="privacy" className="py-24 md:py-32 pb-8 md:pb-12 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left content */}
@@ -31,8 +31,8 @@ export default function Privacy() {
               <span className="gradient-text-emerald">yours</span>
             </h2>
             <p className="text-white/60 text-lg mb-8">
-              We believe in privacy by design. VentureXify processes everything locally 
-              on your device. No servers, no tracking, no compromises.
+              Your preferences, history, and perks tracking are stored locally in Chrome.
+              AI features use secure Edge Functions — your browsing activity is never logged.
             </p>
 
             {/* Privacy features list */}
@@ -84,11 +84,11 @@ export default function Privacy() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white/5 rounded-xl p-4 text-center">
                   <div className="text-3xl font-bold text-emerald-400 mb-1">0</div>
-                  <div className="text-white/60 text-sm">Data Shared</div>
+                  <div className="text-white/60 text-sm">Ads or Tracking</div>
                 </div>
                 <div className="bg-white/5 rounded-xl p-4 text-center">
-                  <div className="text-3xl font-bold text-emerald-400 mb-1">100%</div>
-                  <div className="text-white/60 text-sm">Local Processing</div>
+                  <div className="text-3xl font-bold text-emerald-400 mb-1">6</div>
+                  <div className="text-white/60 text-sm">Minimal Permissions</div>
                 </div>
               </div>
 

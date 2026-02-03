@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Star, ChevronDown, ArrowRight, MessageSquare, Rocket, Users, Shield, Zap } from 'lucide-react';
 import Navigation from '@/components/Navigation';
@@ -12,14 +12,18 @@ import GlassCard from '@/components/GlassCard';
 import { InlineWaitlistForm } from '@/components/WaitlistForm';
 import { TiltCard } from '@/components/TiltCard';
 import { ParticleTextDots } from '@/components/ParticleTextDots';
+import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { getWaitlistCount } from '@/lib/supabase';
 
-// Stats section data
+// Stats section data - accurate to actual product
 const stats = [
-  { value: '2.4¢', label: 'Avg Value/Mile', suffix: '' },
-  { value: '15+', label: 'Transfer Partners', suffix: '' },
-  { value: '500+', label: 'Beta Signups', suffix: '' },
+  { value: '17', label: 'Transfer Partners', suffix: '+', sublabel: '1:1 airlines' },
+  { value: '8', label: 'Supported Sites', suffix: '+', sublabel: 'Google Flights, hotels' },
+  { value: '90', label: 'Day Eraser Window', suffix: '', sublabel: 'tracked automatically' },
 ];
+
+// Sections to track for URL hash updates
+const TRACKED_SECTIONS = ['features', 'how-it-works', 'privacy', 'cta'];
 
 export default function Home() {
   const [waitlistCount, setWaitlistCount] = useState(500);
@@ -28,9 +32,58 @@ export default function Home() {
     getWaitlistCount().then(setWaitlistCount);
   }, []);
 
+  // Scroll spy - update URL hash as sections come into view
+  useEffect(() => {
+    const observers: IntersectionObserver[] = [];
+    
+    TRACKED_SECTIONS.forEach((sectionId) => {
+      const element = document.getElementById(sectionId);
+      if (!element) return;
+      
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.3) {
+              // Update URL without triggering scroll
+              window.history.replaceState(null, '', `#${sectionId}`);
+            }
+          });
+        },
+        { threshold: 0.3, rootMargin: '-20% 0px -20% 0px' }
+      );
+      
+      observer.observe(element);
+      observers.push(observer);
+    });
+
+    // Clear hash when at top of page
+    const handleScroll = () => {
+      if (window.scrollY < 200) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      observers.forEach((observer) => observer.disconnect());
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   return (
-    <main className="min-h-screen bg-background overflow-x-hidden">
-      <Navigation />
+    <>
+      {/* Starfield Background - fixed behind all content */}
+      <StarfieldBackground
+        count={300}
+        speed={0.3}
+        starColor="#f5f5f5"
+        twinkle={true}
+        className="!bg-transparent"
+      />
+      
+      <main className="relative min-h-screen overflow-x-hidden z-10">
+        <Navigation />
 
       {/* Main Hero Section */}
       <section className="relative min-h-screen flex items-center pt-20">
@@ -231,10 +284,13 @@ export default function Home() {
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 className="text-center"
               >
-                <div className="text-4xl md:text-5xl font-bold gradient-text mb-2">
+                <div className="text-4xl md:text-5xl font-bold gradient-text mb-1">
                   {stat.value}{stat.suffix}
                 </div>
-                <div className="text-white/60">{stat.label}</div>
+                <div className="text-white/80 font-medium">{stat.label}</div>
+                {'sublabel' in stat && stat.sublabel && (
+                  <div className="text-white/40 text-sm mt-1">{stat.sublabel}</div>
+                )}
               </motion.div>
             ))}
           </div>
@@ -244,146 +300,19 @@ export default function Home() {
       {/* Features Section */}
       <Features />
 
-      {/* Interactive Particle Section */}
-      <section className="py-16 md:py-24 relative">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-8"
-          >
-            <span className="text-white/40 text-sm uppercase tracking-widest">Interactive Experience</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <ParticleTextDots
-              text="VENTURE X"
-              variant="dark"
-              className="w-full"
-            />
-          </motion.div>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-center text-white/40 text-sm mt-6"
-          >
-            Move your cursor to interact with the particles
-          </motion.p>
-        </div>
-      </section>
-
       {/* How It Works Section */}
       <HowItWorks />
 
       {/* Privacy Section */}
       <Privacy />
 
-      {/* Premium Final CTA Section */}
-      <section className="py-32 md:py-40 relative overflow-hidden">
-        {/* Interactive Particle Background */}
-        <div className="absolute inset-0 opacity-15">
-          <ParticleTextDots
-            text="VX"
-            variant="dark"
-            className="!min-h-full !rounded-none !border-0 !shadow-none !bg-transparent"
-          />
-        </div>
-        
-        {/* Background effects - large blurred orbs only, no hard gradients */}
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Large ambient orb at top center for glow */}
-          <div className="absolute -top-[200px] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-amber-500/8 rounded-full blur-[180px]" />
-          {/* Side orbs */}
-          <div className="absolute top-1/4 -left-32 w-[500px] h-[500px] bg-amber-500/6 rounded-full blur-[150px]" />
-          <div className="absolute top-1/3 -right-32 w-[400px] h-[400px] bg-violet-500/5 rounded-full blur-[130px]" />
-          <div className="absolute bottom-0 left-1/3 w-[350px] h-[350px] bg-orange-500/5 rounded-full blur-[100px]" />
-        </div>
+      {/* Premium Final CTA Section - seamless like hero */}
+      <InteractiveCTASection waitlistCount={waitlistCount} />
 
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {/* Premium CTA Card */}
-            <div className="relative">
-              {/* Animated gradient border */}
-              <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-amber-500/50 via-orange-500/50 to-amber-500/50 opacity-75 blur-sm animate-pulse" />
-              
-              {/* Card content */}
-              <div className="relative rounded-3xl bg-[#0D0D0F]/90 backdrop-blur-xl border border-white/10 p-8 md:p-12">
-                {/* Top badge */}
-                <div className="flex justify-center mb-8">
-                  <motion.div 
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30"
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    whileInView={{ scale: 1, opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <Rocket className="w-4 h-4 text-amber-400" />
-                    <span className="text-sm text-amber-400 font-medium">Launching Soon</span>
-                  </motion.div>
-                </div>
-
-                {/* Headline */}
-                <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-center mb-4">
-                  Ready to{' '}
-                  <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent">
-                    maximize
-                  </span>
-                  {' '}your
-                  <br />
-                  <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent">
-                    Venture X
-                  </span>
-                  ?
-                </h2>
-
-                {/* Subtitle */}
-                <p className="text-white/50 text-lg md:text-xl text-center mb-10 max-w-2xl mx-auto">
-                  Be among the first to experience the smarter way to use your points. 
-                  Early access members get exclusive features.
-                </p>
-
-                {/* Email form */}
-                <div className="max-w-lg mx-auto mb-8">
-                  <PremiumEmailForm />
-                </div>
-
-                {/* Trust indicators */}
-                <div className="flex flex-wrap justify-center gap-6 md:gap-10 text-sm text-white/40">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-amber-400/60" />
-                    <span>{waitlistCount}+ on waitlist</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-emerald-400/60" />
-                    <span>100% Privacy First</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-violet-400/60" />
-                    <span>AI-Powered</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <Footer />
-    </main>
+        {/* Footer */}
+        <Footer />
+      </main>
+    </>
   );
 }
 
@@ -392,18 +321,30 @@ function PremiumEmailForm() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     
     setIsSubmitting(true);
+    setError(null);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSuccess(true);
-    setIsSubmitting(false);
+    try {
+      // Dynamic import to avoid importing at component level
+      const { joinWaitlist } = await import('@/lib/supabase');
+      const result = await joinWaitlist({ email, referral_source: 'cta_section' });
+      
+      if (result.success) {
+        setIsSuccess(true);
+      } else {
+        setError(result.error || 'Something went wrong');
+      }
+    } catch {
+      setError('Failed to join waitlist. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSuccess) {
@@ -472,6 +413,113 @@ function PremiumEmailForm() {
           )}
         </motion.button>
       </div>
+      
+      {/* Error message */}
+      {error && (
+        <motion.p
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-400 text-sm mt-3 text-center"
+        >
+          {error}
+        </motion.p>
+      )}
     </form>
+  );
+}
+
+// Interactive CTA Section with mouse tracking for ParticleTextDots
+function InteractiveCTASection({ waitlistCount }: { waitlistCount: number }) {
+  const [mousePos, setMousePos] = useState<{ x: number; y: number; active: boolean } | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    setMousePos({
+      x: e.clientX,
+      y: e.clientY,
+      active: true,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setMousePos(null);
+  };
+
+  // Memoize floating particles to prevent re-render jumps
+  const floatingParticles = useMemo(() =>
+    [...Array(15)].map((_, i) => ({
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      duration: 3 + Math.random() * 2,
+      delay: Math.random() * 2,
+    })), []);
+
+  return (
+    <section
+      id="cta"
+      ref={sectionRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="pt-16 md:pt-20 pb-32 md:pb-40 relative"
+    >
+
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="text-center"
+        >
+          {/* Top badge */}
+          <motion.div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 mb-8"
+            initial={{ scale: 0.9, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+          >
+            <Rocket className="w-4 h-4 text-amber-400" />
+            <span className="text-sm text-amber-400 font-medium">Launching Soon</span>
+          </motion.div>
+
+          {/* Headline */}
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+            Ready to{' '}
+            <span className="gradient-text">maximize</span>
+            {' '}your
+            <br />
+            <span className="gradient-text">Venture X</span>?
+          </h2>
+
+          {/* Subtitle */}
+          <p className="text-white/60 text-lg md:text-xl mb-10 max-w-2xl mx-auto">
+            Be among the first to experience the smarter way to use your points.
+            Early access members get exclusive features.
+          </p>
+
+          {/* Email form */}
+          <div className="max-w-lg mx-auto mb-10">
+            <PremiumEmailForm />
+          </div>
+
+          {/* Trust indicators */}
+          <div className="flex flex-wrap justify-center gap-6 md:gap-10 text-sm text-white/50">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-amber-400/60" />
+              <span>{waitlistCount}+ on waitlist</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-emerald-400/60" />
+              <span>100% Privacy First</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-violet-400/60" />
+              <span>AI-Powered</span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </section>
   );
 }

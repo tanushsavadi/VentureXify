@@ -4,11 +4,9 @@
 // ============================================
 
 import { groqGenerate, groqGenerateTracked, GroqMessage } from './providers/groq';
-import { 
-  TaskType, 
-  getGroqOptionsForTask, 
-  shouldSuppressThinkMode,
-  ANTI_THINK_INSTRUCTION,
+import {
+  TaskType,
+  getGroqOptionsForTask,
   stripThinkBlocks,
   logModelCall,
   getModelForTask,
@@ -71,17 +69,6 @@ You must respond with ONLY valid JSON in this exact format:
   "proTip": "one actionable tip",
   "caveats": ["any warnings or considerations"]
 }`;
-
-/** Qwen-specific prompt additions */
-function getVerdictSystemPrompt(taskType: TaskType): string {
-  const base = VERDICT_SYSTEM_PROMPT_BASE;
-  
-  if (shouldSuppressThinkMode(taskType)) {
-    return base + ANTI_THINK_INSTRUCTION;
-  }
-  
-  return base;
-}
 
 /** Enhanced verdict prompt with more structure for Qwen */
 const QWEN_VERDICT_SYSTEM_PROMPT = `You are a Capital One Venture X expert assistant. Generate helpful explanations for travel booking comparisons.

@@ -4,7 +4,7 @@
 // It must NOT invent miles, prices, cpp values, etc.
 // ============================================
 
-import { SECURITY_PREAMBLE, buildSecureSystemPrompt as buildSecure } from '../../security/hardenedPrompt';
+import { SECURITY_PREAMBLE } from '../../security/hardenedPrompt';
 
 /**
  * Core rules the AI must follow:

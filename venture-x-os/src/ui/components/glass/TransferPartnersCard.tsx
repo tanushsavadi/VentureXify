@@ -714,8 +714,8 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
     const directOutOfPocket = directCashPrice;
     const awardOutOfPocket = taxes;
     
-    // Miles values at research-based valuation (default 1.8cpp)
-    const MILES_VALUE = VENTURE_X_CONSTANTS.DEFAULT_MILE_VALUE_CPP; // 0.018
+    // Miles values at research-based valuation (default 1.5cpp conservative)
+    const MILES_VALUE = VENTURE_X_CONSTANTS.DEFAULT_MILE_VALUE_CPP; // 0.015 conservative
     const portalMilesEarned = Math.round(effectivePortal * 5);
     const directMilesEarned = Math.round(directCashPrice * 2);
     

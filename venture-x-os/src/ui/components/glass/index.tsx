@@ -13,13 +13,14 @@ import { cn } from '../../../lib/utils';
 export { GlassSegmentedControl, GlassProgressRail } from './SegmentedControl';
 export { GlassStrategyCard, GlassVerdictCard } from './StrategyCard';
 export { ProgressiveVerdictCard } from './ProgressiveVerdictCard';
-export type { VerdictDataProgressive, RankingMode } from './ProgressiveVerdictCard';
+export type { VerdictDataProgressive, RankingMode, DoubleDipStrategyInfo } from './ProgressiveVerdictCard';
 export { TransferPartnersCard } from './TransferPartnersCard';
 export type { TransferPartnersCardProps } from './TransferPartnersCard';
 export { AskAboutVerdictModule } from './AskAboutVerdictModule';
 export type { VerdictContext, AskAboutVerdictModuleProps } from './AskAboutVerdictModule';
 export { FeedbackButton, InlineFeedbackLink } from './FeedbackButton';
 export type { FeedbackButtonProps, InlineFeedbackLinkProps } from './FeedbackButton';
+export { BookingSuccessState } from './BookingSuccessState';
 
 // ============================================
 // GLASS PANEL - Container with blur/noise
@@ -315,7 +316,8 @@ export const GlassBadge = forwardRef<HTMLSpanElement, GlassBadgeProps>(
       warning: 'bg-[var(--warning-soft)] text-[var(--warning)] border-[rgba(245,158,11,0.25)]',
       error: 'bg-[var(--danger-soft)] text-[var(--danger)] border-[rgba(239,68,68,0.25)]',
       accent: 'bg-[var(--accent-soft)] text-[var(--accent-muted)] border-[rgba(99,102,241,0.25)]',
-      muted: 'bg-surface-1 text-[var(--text-muted)] border-[var(--border-subtle)]',
+      // UX FIX: Improved muted badge contrast for accessibility (was --text-muted which was too low contrast)
+      muted: 'bg-surface-1 text-[var(--text-tertiary)] border-[var(--border-default)]',
     };
 
     const dotColors = {

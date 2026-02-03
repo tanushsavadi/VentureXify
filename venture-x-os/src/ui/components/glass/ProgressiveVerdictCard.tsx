@@ -45,11 +45,24 @@ import {
 
 export type RankingMode = 'cheapest' | 'max_value' | 'easiest';
 
+// Double-dip strategy info (Portal + Travel Eraser)
+export interface DoubleDipStrategyInfo {
+  payToday: number;
+  milesEarned: number;
+  milesValue: number;       // at user's cpp value
+  eraseLater: number;       // max amount that can be erased with earned miles
+  savingsVsDirect: number;  // cash savings vs direct price
+  mileValueCpp: number;     // user's mile valuation in cents
+}
+
 export interface VerdictDataProgressive {
   recommendation: 'portal' | 'direct' | 'tie';
   
   // Itinerary summary (e.g., "DXB → LAX • May 12–20")
   itinerarySummary?: string;
+  
+  // Double-dip strategy info (optional - for flights when portal is recommended)
+  doubleDipStrategy?: DoubleDipStrategyInfo;
   
   // Hero numbers (Level 0)
   winner: {
@@ -364,7 +377,10 @@ const DetailsModal: React.FC<{
   auditTrail: VerdictDataProgressive['auditTrail'];
   tabMode?: RankingMode;
   onAssumptionEdit?: (label: string) => void;
-}> = ({ isOpen, onClose, auditTrail, tabMode, onAssumptionEdit }) => {
+  // P0 #3 FIX: Add onContinue callback to provide booking CTA instead of dead-end
+  onContinue?: () => void;
+  recommendation?: 'portal' | 'direct' | 'tie';
+}> = ({ isOpen, onClose, auditTrail, tabMode, onAssumptionEdit, onContinue, recommendation }) => {
   if (!isOpen) return null;
 
   const { assumptions, couldFlipIf, fullBreakdown, notes } = auditTrail;
@@ -396,7 +412,8 @@ const DetailsModal: React.FC<{
   const directMilesSafe = rawDirectMiles > MAX_REASONABLE_MILES ? 0 : rawDirectMiles;
   
   // Calculate effective costs (after valuing miles earned)
-  const MILE_VALUE = 0.018; // 1.8¢/mi default
+  // Use user's preference if available, otherwise default 1.5¢/mi (conservative)
+  const MILE_VALUE = 0.015; // 1.5¢/mi conservative default
   const portalEffectiveRaw = fullBreakdown.portalOutOfPocket - portalMilesSafe * MILE_VALUE;
   const directEffectiveRaw = fullBreakdown.directOutOfPocket - directMilesSafe * MILE_VALUE;
   
@@ -487,7 +504,7 @@ const DetailsModal: React.FC<{
                   <span className="text-[10px] text-white/40">
                     <InfoTooltip
                       term="Effective cost"
-                      definition="Your out-of-pocket minus the value of miles you'll earn (at 1.8¢/mi default). This is NOT real savings — it's what your cost looks like IF you value those miles. You can adjust the mile value in settings."
+                      definition="Your out-of-pocket minus the value of miles you'll earn (at your mile valuation). This is NOT real savings — it's what your cost looks like IF you value those miles. You can adjust the mile value in settings."
                     />
                   </span>
                   <span className="text-sm font-semibold text-white/70">
@@ -527,7 +544,7 @@ const DetailsModal: React.FC<{
                       +{milesDiff.toLocaleString()} more miles
                     </span>
                     <span className="text-white/30 ml-1">
-                      (~${Math.round(milesDiff * MILE_VALUE).toLocaleString()} value at 1.8¢/mi)
+                      (~${Math.round(milesDiff * MILE_VALUE).toLocaleString()} value at {(MILE_VALUE * 100).toFixed(1)}¢/mi)
                     </span>
                   </div>
                 </div>
@@ -578,7 +595,7 @@ const DetailsModal: React.FC<{
                         {assumption.label === 'Mile value' ? (
                           <InfoTooltip
                             term={assumption.label}
-                            definition="How much each Capital One mile is worth in cents. Default 1.8¢ is based on average travel portal value."
+                            definition="How much each Capital One mile is worth in cents. Default 1.5¢ is a conservative estimate. Transfer partners can often achieve 1.8-2.5¢."
                           />
                         ) : assumption.label === 'Travel credit' ? (
                           <InfoTooltip
@@ -591,7 +608,7 @@ const DetailsModal: React.FC<{
                       </span>
                       {assumption.editable && (
                         <span className="text-[9px] text-indigo-400/60 group-hover:text-indigo-400/80 transition-colors">
-                          Tap to change
+                          Click to edit
                         </span>
                       )}
                     </div>
@@ -650,7 +667,7 @@ const DetailsModal: React.FC<{
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40">Sticker</span>
+                        <span className="text-[10px] text-white/40">Listed Price</span>
                         <span className="text-xs font-semibold text-white text-right">
                           ${fullBreakdown.portalSticker.toLocaleString()}
                         </span>
@@ -686,17 +703,21 @@ const DetailsModal: React.FC<{
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] text-white/40">Miles earned</span>
                         <span className="text-xs font-semibold text-indigo-300 text-right">
-                          {fullBreakdown.portalMilesEarned.toString().includes('–')
-                            ? fullBreakdown.portalMilesEarned
-                            : `+${fullBreakdown.portalMilesEarned}`
-                          }
+                          {(() => {
+                            const milesStr = fullBreakdown.portalMilesEarned.toString();
+                            // Don't add prefix if already has one (–, +) or contains range notation
+                            if (milesStr.includes('–') || milesStr.startsWith('+') || milesStr.startsWith('-')) {
+                              return milesStr;
+                            }
+                            return `+${milesStr}`;
+                          })()}
                         </span>
                       </div>
                       {/* Show miles calculation breakdown when range exists */}
                       {fullBreakdown.portalMilesEarned.toString().includes('–') && (
                         <div className="text-[9px] text-white/30 mt-1 space-y-0.5">
                           <div>
-                            5x on ${fullBreakdown.portalSticker.toLocaleString()} sticker
+                            5x on ${fullBreakdown.portalSticker.toLocaleString()} listed price
                             {fullBreakdown.creditApplied > 0 && (
                               <> or ${(fullBreakdown.portalSticker - fullBreakdown.creditApplied).toLocaleString()} after credit</>
                             )}
@@ -716,14 +737,14 @@ const DetailsModal: React.FC<{
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40">Sticker</span>
+                        <span className="text-[10px] text-white/40">Listed Price</span>
                         <span className="text-xs font-semibold text-white text-right">
                           ${fullBreakdown.directSticker.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] text-white/40">Credit</span>
-                        <span className="text-xs text-white/30 text-right">N/A</span>
+                        <span className="text-xs text-white/30 text-right">—</span>
                       </div>
                       <div className="flex justify-between items-center pt-1 border-t border-white/[0.06]">
                         <span className="text-[10px] text-white/50">Pay today</span>
@@ -800,7 +821,7 @@ const DetailsModal: React.FC<{
                 {fullBreakdown.portalPremiumPercent !== undefined && fullBreakdown.portalPremiumPercent > 0 && (
                   <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10">
                     <div className="text-xs text-amber-300/80">
-                      Portal sticker is <span className="font-semibold">{fullBreakdown.portalPremiumPercent.toFixed(0)}%</span> higher than direct (before credit)
+                      Portal listed price is <span className="font-semibold">{fullBreakdown.portalPremiumPercent.toFixed(0)}%</span> higher than direct (before credit)
                     </div>
                   </div>
                 )}
@@ -829,14 +850,33 @@ const DetailsModal: React.FC<{
             </Accordion>
             )}
 
-            {/* Close Button */}
-            <GlassButton
-              variant="secondary"
-              className="w-full"
-              onClick={onClose}
-            >
-              Got it
-            </GlassButton>
+            {/* P0 #3 FIX: Replace dead-end "Got it" with actionable CTA buttons */}
+            {/* P0 CTA-WINNER MISMATCH FIX: Use locally-calculated portalWins instead of recommendation prop */}
+            {/* This ensures the CTA always matches the "WINNER:" header displayed above */}
+            <div className="space-y-2">
+              {/* Primary CTA - Continue to booking */}
+              {onContinue && (
+                <GlassButton
+                  variant="primary"
+                  className="w-full"
+                  onClick={() => {
+                    onClose();
+                    onContinue();
+                  }}
+                >
+                  Continue to {portalWins ? 'Portal' : 'Direct Site'}
+                </GlassButton>
+              )}
+              {/* Secondary - Close modal */}
+              {/* P2-22 FIX: Changed from "Review More Details" (redundant - user is already IN details) to "Close" */}
+              <GlassButton
+                variant="secondary"
+                className="w-full"
+                onClick={onClose}
+              >
+                Close
+              </GlassButton>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -1204,12 +1244,13 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
             </GlassButton>
 
             {/* Secondary actions row: Why? + Compare others */}
+            {/* P1 FIX: Changed "Hide details" to "Show less" for better UX consistency */}
             <div className="flex items-center justify-center gap-4">
               <button
                 onClick={() => setShowWhy(!showWhy)}
                 className="flex items-center gap-1.5 py-2 text-sm text-white/60 hover:text-white/80 transition-colors"
               >
-                <span>{showWhy ? 'Hide details' : 'Why?'}</span>
+                <span>{showWhy ? 'Show less' : 'Why?'}</span>
                 <motion.div
                   animate={{ rotate: showWhy ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
@@ -1266,6 +1307,88 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
                     </div>
                   </div>
 
+                  {/* Power User Strategy: Portal + Eraser "Double-Dip" */}
+                  {verdict.doubleDipStrategy && verdict.recommendation === 'portal' && (
+                    <Accordion
+                      title="Power User Strategy"
+                      icon={<Sparkles className="w-4 h-4 text-emerald-400" />}
+                      defaultOpen={false}
+                    >
+                      <div className="space-y-4">
+                        {/* Strategy Steps */}
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs text-emerald-300 font-bold flex-shrink-0">1</div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-white">Book via Capital One Portal</div>
+                              <div className="text-xs text-white/50 mt-0.5">
+                                Pay ${verdict.doubleDipStrategy.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} → Earn <span className="text-emerald-300 font-semibold">{verdict.doubleDipStrategy.milesEarned.toLocaleString()}</span> miles at 5x
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-xs text-cyan-300 font-bold flex-shrink-0">2</div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-white">Use Travel Eraser (within 90 days)</div>
+                              <div className="text-xs text-white/50 mt-0.5">
+                                Redeem miles at 1¢/mi — <span className="text-cyan-300">no minimum, partial OK!</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Value breakdown */}
+                        <div className="p-3 rounded-lg bg-black/20 border border-white/[0.08]">
+                          <div className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Your Options</div>
+                          
+                          {/* Option A: Keep miles */}
+                          <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 mb-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-emerald-300 font-medium">🅰️ Keep Miles for Transfers</span>
+                              <span className="text-xs text-emerald-300 font-semibold">
+                                ${verdict.doubleDipStrategy.milesValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} value
+                              </span>
+                            </div>
+                            <div className="text-[9px] text-white/40 mt-1">
+                              At {(verdict.doubleDipStrategy.mileValueCpp * 100).toFixed(1)}¢/mi for premium awards
+                            </div>
+                          </div>
+                          
+                          {/* Option B: Use Eraser */}
+                          {verdict.doubleDipStrategy.eraseLater > 0 && (
+                            <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-cyan-300 font-medium">🅱️ Use Travel Eraser</span>
+                                <span className="text-xs text-cyan-300 font-semibold">
+                                  −${verdict.doubleDipStrategy.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                              </div>
+                              <div className="text-[9px] text-white/40 mt-1">
+                                Reduce out-of-pocket (1¢/mi)
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Cash savings vs direct */}
+                          {verdict.doubleDipStrategy.savingsVsDirect > 0 && (
+                            <div className="flex justify-between items-center pt-3 mt-3 border-t border-white/[0.08]">
+                              <span className="text-xs text-white/60">Cash savings vs Direct</span>
+                              <span className="text-sm font-bold text-emerald-400">
+                                ${verdict.doubleDipStrategy.savingsVsDirect.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Fine print */}
+                        <div className="text-[9px] text-white/40 leading-relaxed">
+                          💡 Earn miles on the cash purchase AND redeem later. Travel Eraser applies to any travel in last 90 days.
+                        </div>
+                      </div>
+                    </Accordion>
+                  )}
+
                   {/* Show math button */}
                   <button
                     onClick={() => setShowDetails(true)}
@@ -1299,6 +1422,7 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
       </motion.div>
 
       {/* ===== LEVEL 2: DETAILS MODAL ===== */}
+      {/* P0 #3 FIX: Pass onContinue and recommendation to DetailsModal for booking CTA */}
       <AnimatePresence>
         {showDetails && (
           <DetailsModal
@@ -1307,6 +1431,8 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
             auditTrail={verdict.auditTrail}
             tabMode={tabMode}
             onAssumptionEdit={onAssumptionEdit}
+            onContinue={onContinue}
+            recommendation={verdict.recommendation}
           />
         )}
       </AnimatePresence>

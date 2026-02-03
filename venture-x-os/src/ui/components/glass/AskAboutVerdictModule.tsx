@@ -50,6 +50,8 @@ export interface VerdictContext {
   cabin?: string;
   hotelName?: string;
   nights?: number;
+  // Mile valuation from user preferences (default 1.5¢/mi = 0.015)
+  mileValueCpp?: number;
 }
 
 export interface AskAboutVerdictModuleProps {
@@ -255,19 +257,20 @@ function generateFallbackQuestions(ctx: VerdictContext): PromptChip[] {
   // QUESTION 1: Verdict-specific "challenge" question
   // Challenge the verdict to help user understand trade-offs
   // ============================================
+  // P1 FIX: Quick question chips now use fuller, clearer text instead of vague fragments
   if (portalWins) {
     // Portal won - ask about what you might lose
     if (isStay) {
       chips.push({
         id: 'portal-tradeoff',
         text: 'Will I lose Marriott/Hilton elite night credits by booking portal?',
-        shortText: 'Lose elite nights?',
+        shortText: 'Lose elite night credits?',
       });
     } else {
       chips.push({
         id: 'portal-tradeoff',
         text: `What do I give up by booking Portal instead of direct with ${ctx.airline || 'the airline'}?`,
-        shortText: 'What do I lose?',
+        shortText: 'What do I lose booking portal?',
       });
     }
   } else if (directWins) {
@@ -275,13 +278,13 @@ function generateFallbackQuestions(ctx: VerdictContext): PromptChip[] {
     chips.push({
       id: 'direct-tradeoff',
       text: `I'm missing ${milesDiff > 0 ? milesDiff.toLocaleString() : 'extra'} portal miles — is Direct really better?`,
-      shortText: 'Why not portal?',
+      shortText: 'Why is direct better here?',
     });
   } else if (isTie) {
     chips.push({
       id: 'tie-breaker',
       text: `Both are within $${diff.toFixed(0)} — what's the tie-breaker?`,
-      shortText: 'Tie-breaker?',
+      shortText: 'What breaks the tie?',
     });
   }
   
@@ -294,57 +297,60 @@ function generateFallbackQuestions(ctx: VerdictContext): PromptChip[] {
       chips.push({
         id: 'credit-strategy',
         text: `Is now the right time to use my $${ctx.creditApplied} credit, or save it for a bigger trip?`,
-        shortText: 'Save credit?',
+        shortText: `Save my $${ctx.creditApplied} credit for later?`,
       });
     } else {
       // Direct won even with credit available!
       chips.push({
         id: 'credit-unused',
         text: `You recommend Direct even with $${ctx.creditApplied} credit available — why?`,
-        shortText: 'Why skip credit?',
+        shortText: 'Why skip my travel credit?',
       });
     }
   } else if (isStay) {
     chips.push({
       id: 'hotel-flex',
       text: `Can I cancel this ${ctx.hotelName || 'hotel'} for free if my plans change?`,
-      shortText: 'Free cancellation?',
+      shortText: 'Is this free cancellation?',
     });
   } else {
     chips.push({
       id: 'flight-flex',
       text: 'What if I need to change dates or cancel this flight?',
-      shortText: 'Change/cancel?',
+      shortText: 'Can I change or cancel?',
     });
   }
   
   // ============================================
   // QUESTION 3: Miles value / loyalty question
   // ============================================
+  // Use user's mile valuation or default 1.5¢
+  const mileValue = ctx.mileValueCpp || 0.015;
+  
   if (Math.abs(milesDiff) > 1000 && !portalWins) {
     // Significant miles difference and we're NOT recommending portal
     chips.push({
       id: 'miles-value',
-      text: `Are ${milesDiff.toLocaleString()} extra portal miles worth $${(milesDiff * 0.018).toFixed(0)}?`,
-      shortText: `${(milesDiff/1000).toFixed(0)}k miles = $${(milesDiff * 0.018).toFixed(0)}?`,
+      text: `Are ${milesDiff.toLocaleString()} extra portal miles worth $${(milesDiff * mileValue).toFixed(0)}?`,
+      shortText: `Are ${(milesDiff/1000).toFixed(0)}k extra miles worth it?`,
     });
   } else if (Math.abs(milesDiff) > 500 && portalWins) {
     chips.push({
       id: 'miles-earned',
       text: `How should I use the +${milesDiff.toLocaleString()} miles I'll earn on Portal?`,
-      shortText: 'Best miles use?',
+      shortText: 'Best use for my earned miles?',
     });
   } else if (isStay) {
     chips.push({
       id: 'hotel-status',
       text: 'Will portal booking count toward my hotel elite status?',
-      shortText: 'Elite status?',
+      shortText: 'Will I earn elite status?',
     });
   } else {
     chips.push({
       id: 'airline-miles',
       text: `Will I earn ${ctx.airline || 'airline'} miles on both options?`,
-      shortText: 'Airline miles?',
+      shortText: 'Do I earn airline miles too?',
     });
   }
   
@@ -356,25 +362,25 @@ function generateFallbackQuestions(ctx: VerdictContext): PromptChip[] {
     chips.push({
       id: 'fx-accuracy',
       text: `Is the ${ctx.fxCurrency} → USD conversion accurate? Any hidden FX fees?`,
-      shortText: 'FX accurate?',
+      shortText: 'Is the currency rate accurate?',
     });
   } else if (ctx.sellerType === 'ota' && directWins) {
     chips.push({
       id: 'ota-warning',
       text: `${ctx.sellerName || 'This'} is an OTA — is my booking still protected?`,
-      shortText: 'OTA safe?',
+      shortText: 'Is this OTA booking protected?',
     });
   } else if (ctx.isPriceClose && diff < 50) {
     chips.push({
       id: 'close-call',
       text: `With only $${diff.toFixed(0)} difference, when would ${portalWins ? 'Direct' : 'Portal'} be better?`,
-      shortText: `When ${portalWins ? 'direct' : 'portal'}?`,
+      shortText: `When would ${portalWins ? 'direct' : 'portal'} be better?`,
     });
   } else if (portalWins && ctx.effectiveCost && ctx.effectiveCost < ctx.directPrice) {
     chips.push({
       id: 'effective-cost',
-      text: `How is Portal's effective cost only $${ctx.effectiveCost.toFixed(0)} when sticker is $${ctx.portalPrice}?`,
-      shortText: 'Show the math?',
+      text: `How is Portal's effective cost only $${ctx.effectiveCost.toFixed(0)} when the listed price is $${ctx.portalPrice}?`,
+      shortText: 'Show me the math breakdown',
     });
   } else {
     // Default: specific "what about" question
@@ -383,7 +389,7 @@ function generateFallbackQuestions(ctx: VerdictContext): PromptChip[] {
       text: portalWins
         ? 'When would booking Direct be worth it instead?'
         : 'When would Portal actually be the better choice?',
-      shortText: portalWins ? 'When direct?' : 'When portal?',
+      shortText: portalWins ? 'When would direct be better?' : 'When would portal be better?',
     });
   }
   

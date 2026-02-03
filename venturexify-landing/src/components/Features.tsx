@@ -6,8 +6,10 @@ import {
   Sparkles,
   Plane,
   CreditCard,
-  Shield,
+  Trophy,
   Gift,
+  Calculator,
+  Globe,
 } from 'lucide-react';
 import GlassCard from './GlassCard';
 import { StaggerContainer, StaggerItem } from './AnimatedSection';
@@ -16,44 +18,50 @@ const features = [
   {
     icon: ArrowLeftRight,
     title: 'Portal vs Direct',
-    description: 'Instant comparison showing whether to book through Capital One Travel or directly with the provider.',
+    description: 'Intelligent comparison factoring in 5x portal earnings, travel credit, status earning, and break-even analysis. Know exactly which booking option saves you more.',
     color: 'amber',
     gradient: 'from-amber-400 to-orange-500',
+    stats: 'Supports 8+ travel sites',
   },
   {
     icon: Sparkles,
-    title: 'AI-Powered Insights',
-    description: 'Ask anything about your Venture X benefits. Get instant, accurate answers powered by AI.',
+    title: 'AI Expert Assistant',
+    description: 'Ask anything about Venture X benefits, transfer strategies, or redemption math. Powered by RAG knowledge base with real community insights from r/VentureX.',
     color: 'violet',
     gradient: 'from-violet-400 to-purple-500',
+    stats: 'Groq-powered responses',
   },
   {
     icon: Plane,
-    title: 'Transfer Partners',
-    description: 'Find optimal transfer opportunities across 15+ airline and hotel partners.',
+    title: '17+ Transfer Partners',
+    description: 'All 1:1 airline partners mapped: Turkish, Aeroplan, Emirates, Singapore, JetBlue, and more. See which partner gets you the best CPM for your route.',
     color: 'amber',
     gradient: 'from-amber-400 to-orange-500',
+    stats: 'Star Alliance • Oneworld • SkyTeam',
   },
   {
     icon: CreditCard,
-    title: 'Travel Eraser',
-    description: 'Smart tracking of eligible purchases. Know exactly when to use your points.',
+    title: 'Travel Eraser Queue',
+    description: 'Track the 90-day eraser window for all travel purchases. Import via CSV, get expiry reminders, and use the "double-dip" strategy to earn AND redeem.',
     color: 'violet',
     gradient: 'from-violet-400 to-purple-500',
+    stats: 'No minimum • 1¢/mile',
   },
   {
-    icon: Shield,
-    title: 'Price Protection',
-    description: 'Real-time monitoring for price drops on your booked travel.',
+    icon: Trophy,
+    title: 'VentureXify Score',
+    description: 'Your personal 0-100 score based on benefit utilization. Track $300 credit, lounge visits, Global Entry, and calculate your renewal ROI.',
     color: 'emerald',
     gradient: 'from-emerald-400 to-green-500',
+    stats: 'Annual fee worth it? Find out.',
   },
   {
-    icon: Gift,
-    title: 'Perks Tracker',
-    description: 'Never miss your $300 travel credit, lounge visits, or other benefits.',
+    icon: Calculator,
+    title: 'Redemption Calculator',
+    description: 'Compare Travel Eraser vs Transfer Partners vs Portal booking. Set your target CPM and get personalized recommendations based on your miles valuation.',
     color: 'amber',
     gradient: 'from-amber-400 to-orange-500',
+    stats: 'Default: 1.7¢/mile',
   },
 ];
 
@@ -94,6 +102,7 @@ export default function Features() {
                   {/* Icon */}
                   <motion.div
                     whileHover={{ scale: 1.1, rotate: 5 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                     className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4`}
                   >
                     <feature.icon className="w-6 h-6 text-black" />
@@ -101,14 +110,21 @@ export default function Features() {
 
                   {/* Content */}
                   <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                  <p className="text-white/60 text-sm leading-relaxed flex-grow">
+                  <p className="text-white/60 text-sm leading-relaxed flex-grow mb-3">
                     {feature.description}
                   </p>
+
+                  {/* Stats badge */}
+                  {'stats' in feature && feature.stats && (
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r ${feature.gradient} w-fit`}>
+                      <span className="text-xs font-semibold text-black">{feature.stats}</span>
+                    </div>
+                  )}
 
                   {/* Hover indicator */}
                   <motion.div
                     initial={{ width: 0 }}
-                    whileInView={{ width: '2rem' }}
+                    whileInView={{ width: '3rem' }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.5 + index * 0.1, duration: 0.4 }}
                     className={`h-0.5 bg-gradient-to-r ${feature.gradient} mt-4 rounded-full`}

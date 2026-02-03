@@ -8,7 +8,6 @@ const footerLinks = [
   { name: 'How it Works', href: '#how-it-works' },
   { name: 'Privacy', href: '#privacy' },
   { name: 'GitHub', href: 'https://github.com/venturexify', external: true },
-  { name: 'r/VentureX', href: 'https://reddit.com/r/venturex', external: true },
 ];
 
 export default function Footer() {
@@ -49,7 +48,7 @@ export default function Footer() {
         {/* Bottom text */}
         <div className="mt-8 pt-8 border-t border-white/5">
           <p className="text-center text-sm text-white/40 flex items-center justify-center gap-1">
-            Built with <Heart className="w-4 h-4 text-red-400" /> for r/VentureX • Not affiliated with Capital One
+            Built with <Heart className="w-4 h-4 text-red-400" /> for points nerds & credit card maximizers • Not affiliated with Capital One
           </p>
           <p className="text-center text-xs text-white/20 mt-2">
             © {new Date().getFullYear()} VentureXify. All rights reserved.

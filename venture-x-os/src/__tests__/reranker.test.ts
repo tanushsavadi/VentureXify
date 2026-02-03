@@ -5,12 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { 
-  LightweightReranker, 
-  createReranker, 
+import {
+  LightweightReranker,
+  createReranker,
   defaultReranker,
   type RerankerConfig,
-  type RerankedResult 
 } from '../knowledge/retrieval/reranker';
 import type { ChunkWithProvenance, SourceMetadata } from '../knowledge/sourceMetadata';
 
@@ -263,7 +262,7 @@ describe('LightweightReranker', () => {
         })
       );
       
-      const { results, stats } = await reranker.rerank('test query', chunks);
+      const { stats } = await reranker.rerank('test query', chunks);
       
       expect(stats.usedFallback).toBe(true);
       expect(stats.fallbackReason).toBe('timeout');
@@ -278,7 +277,7 @@ describe('LightweightReranker', () => {
         json: () => Promise.resolve('not an array'),
       });
       
-      const { results, stats } = await reranker.rerank('test query', chunks);
+      const { stats } = await reranker.rerank('test query', chunks);
       
       expect(stats.usedFallback).toBe(true);
       expect(stats.fallbackReason).toBe('invalid_response');
@@ -293,7 +292,7 @@ describe('LightweightReranker', () => {
         json: () => Promise.resolve([0.5, 0.6]), // Only 2 scores for 5 docs
       });
       
-      const { results, stats } = await reranker.rerank('test query', chunks);
+      const { stats } = await reranker.rerank('test query', chunks);
       
       expect(stats.usedFallback).toBe(true);
       expect(stats.fallbackReason).toBe('invalid_response');

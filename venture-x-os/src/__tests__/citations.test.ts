@@ -4,18 +4,16 @@
 // ============================================
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { 
-  SpanLevelGrounder, 
+import {
+  SpanLevelGrounder,
   spanLevelGrounder,
   type CitedSpan,
-  type ClaimGrounding,
   type GroundingVerificationResult,
 } from '../response/spanLevelCitation';
 import {
   CitationFormatter,
   citationFormatter,
   formatCitationWithSpan,
-  addInlineCitations,
 } from '../response/citationFormatter';
 import { ChunkWithProvenance, SourceMetadata } from '../knowledge/sourceMetadata';
 
@@ -153,12 +151,7 @@ describe('SpanLevelGrounder', () => {
       const highTrustChunks = [
         createMockChunk('1', 'Annual fee: $395', 'capitalone', 1),
       ];
-      const lowTrustChunks = [
-        createMockChunk('2', 'Annual fee: $395', 'reddit', 4),
-      ];
-      
       const highTrustResult = await grounder.verifyGrounding(response, highTrustChunks);
-      const lowTrustResult = await grounder.verifyGrounding(response, lowTrustChunks);
       
       // High trust source should give higher confidence
       expect(highTrustResult.claims[0]?.confidence).not.toBe('none');

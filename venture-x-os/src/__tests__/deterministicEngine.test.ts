@@ -72,7 +72,7 @@ describe('DeterministicEngine', () => {
       
       expect(result.success).toBe(true);
       
-      for (const [key, value] of Object.entries(result.computed)) {
+      for (const [, value] of Object.entries(result.computed)) {
         if (typeof value === 'number') {
           expect(isNaN(value)).toBe(false);
           expect(value).not.toBeUndefined();

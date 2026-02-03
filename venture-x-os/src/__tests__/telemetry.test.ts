@@ -314,7 +314,6 @@ import {
   createTelemetryService,
   defaultTelemetryService,
   useTrustTelemetry,
-  type TrustEvent,
 } from '../telemetry/trustTelemetry';
 import type { ChunkWithProvenance, SourceMetadata } from '../knowledge/sourceMetadata';
 

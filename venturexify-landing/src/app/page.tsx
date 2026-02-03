@@ -11,6 +11,7 @@ import Footer from '@/components/Footer';
 import GlassCard from '@/components/GlassCard';
 import { InlineWaitlistForm } from '@/components/WaitlistForm';
 import { TiltCard } from '@/components/TiltCard';
+import { ParticleTextDots } from '@/components/ParticleTextDots';
 import { getWaitlistCount } from '@/lib/supabase';
 
 // Stats section data
@@ -251,14 +252,23 @@ export default function Home() {
 
       {/* Premium Final CTA Section */}
       <section className="py-32 md:py-40 relative overflow-hidden">
+        {/* Interactive Particle Background */}
+        <div className="absolute inset-0 opacity-30">
+          <ParticleTextDots
+            text="VX"
+            variant="dark"
+            className="!min-h-full !rounded-none !border-0 !shadow-none !bg-transparent"
+          />
+        </div>
+        
         {/* Background effects */}
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 pointer-events-none">
           {/* Gradient orbs */}
           <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-amber-500/20 rounded-full blur-[120px] animate-pulse" />
           <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-violet-500/15 rounded-full blur-[100px]" />
           
           {/* Grid pattern */}
-          <div 
+          <div
             className="absolute inset-0 opacity-[0.02]"
             style={{
               backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',

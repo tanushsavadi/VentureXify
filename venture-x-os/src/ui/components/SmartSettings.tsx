@@ -897,7 +897,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                           style={styles.input}
                         />
                         <div style={{ ...styles.settingDesc, marginTop: '6px', fontSize: '11px' }}>
-                          💡 You need at least 5,000 miles to use Travel Eraser
+                          💡 Travel Eraser has no minimum — redeem any amount from $0.01 up at 1¢/mile
                         </div>
                       </motion.div>
                     )}
@@ -954,7 +954,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                     
                     {!prefs.customMileValuation && (
                       <div style={{ ...styles.settingDesc, marginTop: '8px', fontStyle: 'italic' }}>
-                        Currently using: <strong>1.5¢ per mile</strong> (conservative default)
+                        Currently using: <strong>1.0¢ per mile</strong> (conservative default)
                       </div>
                     )}
                     

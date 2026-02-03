@@ -426,7 +426,7 @@ export function buildStayPriceBreakdownSections(
       badge: { label: `${portalDetails.earnRate}x`, variant: 'info' },
       defaultExpanded: true,
       items: [
-        { label: 'Sticker price', value: portalDetails.price, currency },
+        { label: 'Listed price', value: portalDetails.price, currency },
         ...(portalDetails.taxesFees ? [{
           label: 'Taxes & fees',
           value: portalDetails.taxesFees,
@@ -459,7 +459,7 @@ export function buildStayPriceBreakdownSections(
       badge: { label: '2x', variant: 'neutral' },
       defaultExpanded: true,
       items: [
-        { label: 'Sticker price', value: directDetails.price, currency },
+        { label: 'Listed price', value: directDetails.price, currency },
         ...(directDetails.taxesFees ? [{
           label: 'Taxes & fees',
           value: directDetails.taxesFees,

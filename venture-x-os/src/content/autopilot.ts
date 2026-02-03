@@ -82,9 +82,10 @@ function injectToastStyles(): void {
       }
     }
     
+    /* P0 #6 FIX: Move toast to top-right to avoid overlapping booking buttons */
     .vx-toast {
       position: fixed;
-      bottom: 20px;
+      top: 20px;
       right: 20px;
       z-index: 2147483647;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

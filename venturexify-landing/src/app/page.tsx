@@ -244,6 +244,42 @@ export default function Home() {
       {/* Features Section */}
       <Features />
 
+      {/* Interactive Particle Section */}
+      <section className="py-16 md:py-24 relative">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-8"
+          >
+            <span className="text-white/40 text-sm uppercase tracking-widest">Interactive Experience</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <ParticleTextDots
+              text="VENTURE X"
+              variant="dark"
+              className="w-full"
+            />
+          </motion.div>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="text-center text-white/40 text-sm mt-6"
+          >
+            Move your cursor to interact with the particles
+          </motion.p>
+        </div>
+      </section>
+
       {/* How It Works Section */}
       <HowItWorks />
 

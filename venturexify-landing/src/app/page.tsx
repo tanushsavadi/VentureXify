@@ -154,8 +154,8 @@ export default function Home() {
                 />
               </div>
 
-              {/* Email form */}
-              <div id="waitlist" className="mb-8 flex flex-col items-center lg:items-start">
+              {/* Email form - elevated z-index to render above starfield */}
+              <div id="waitlist" className="relative z-50 mb-8 flex flex-col items-center lg:items-start" style={{ isolation: 'isolate' }}>
                 <InlineWaitlistForm />
               </div>
 
@@ -480,33 +480,75 @@ function PremiumEmailForm() {
       <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-amber-500/30 to-orange-500/30 blur opacity-50" />
       
       <div className="relative flex flex-col sm:flex-row gap-3">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Enter your email"
-          className="flex-1 px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all"
-          required
-        />
+        {/* Input with focus glow */}
+        <div className="flex-1 relative group">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all"
+            required
+          />
+          {/* Pulsing glow when focused */}
+          <div className="absolute -inset-px bg-gradient-to-r from-amber-500/0 via-amber-500/20 to-amber-500/0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 -z-10 blur-sm" />
+        </div>
+        
+        {/* Flashy Shimmer Button */}
         <motion.button
           type="submit"
           disabled={isSubmitting}
-          whileHover={{ scale: 1.02 }}
+          whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.98 }}
-          className="px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-semibold hover:from-amber-400 hover:to-orange-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[160px]"
+          className="relative overflow-hidden px-8 py-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-black font-bold hover:from-yellow-300 hover:via-amber-400 hover:to-orange-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[180px] group shadow-[0_4px_25px_rgba(251,191,36,0.5),0_0_50px_rgba(245,158,11,0.3)]"
+          animate={{
+            boxShadow: [
+              '0 4px 25px rgba(251, 191, 36, 0.5), 0 0 50px rgba(245, 158, 11, 0.3)',
+              '0 4px 35px rgba(251, 191, 36, 0.7), 0 0 70px rgba(245, 158, 11, 0.5)',
+              '0 4px 25px rgba(251, 191, 36, 0.5), 0 0 50px rgba(245, 158, 11, 0.3)',
+            ],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
         >
-          {isSubmitting ? (
-            <motion.div
-              className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          {/* Rotating light beam border */}
+          <span className="absolute -inset-[2px] overflow-hidden rounded-xl">
+            <span
+              className="absolute w-[200%] h-[200%] -top-1/2 -left-1/2"
+              style={{
+                background: 'conic-gradient(from 0deg, transparent 0deg, transparent 60deg, rgba(255,255,255,0.8) 90deg, #fff 120deg, transparent 150deg, transparent 360deg)',
+                animation: 'spin-around 2s linear infinite',
+              }}
             />
-          ) : (
-            <>
-              <span>Get Early Access</span>
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
+            <span className="absolute inset-[2px] rounded-xl bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500" />
+          </span>
+          
+          {/* Multiple shine sweeps */}
+          <span
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+            style={{
+              animation: 'shimmer-slide 1.5s ease-in-out infinite',
+            }}
+          />
+          
+          {/* Content */}
+          <span className="relative z-10 flex items-center gap-2">
+            {isSubmitting ? (
+              <motion.div
+                className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              />
+            ) : (
+              <>
+                <span>Get Early Access</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </span>
         </motion.button>
       </div>
       

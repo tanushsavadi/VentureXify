@@ -20,6 +20,11 @@ body {
   scroll-behavior: smooth;
 }
 
+/* Scroll padding for fixed navbar */
+html {
+  scroll-padding-top: 80px; /* Account for fixed navbar */
+}
+
 body {
   color: var(--foreground);
   background: var(--background);

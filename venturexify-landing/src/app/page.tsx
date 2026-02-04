@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Star, ChevronDown, ArrowRight, MessageSquare, Rocket, Users, Shield, Zap } from 'lucide-react';
+import { Sparkles, ChevronDown, ArrowRight, MessageSquare, Rocket, Users, Shield, Zap } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Features from '@/components/Features';
 import HowItWorks from '@/components/HowItWorks';
@@ -17,16 +17,16 @@ import { getWaitlistCount } from '@/lib/supabase';
 
 // Stats section data - accurate to actual product
 const stats = [
-  { value: '17', label: 'Transfer Partners', suffix: '+', sublabel: '1:1 airlines' },
-  { value: '8', label: 'Supported Sites', suffix: '+', sublabel: 'Google Flights, hotels' },
-  { value: '90', label: 'Day Eraser Window', suffix: '', sublabel: 'tracked automatically' },
+  { value: '17', label: 'Transfer Partners', suffix: '+', sublabel: 'All Capital One partners' },
+  { value: '<1s', label: 'AI Analysis', suffix: '', sublabel: 'Groq-powered responses' },
+  { value: '100%', label: 'Local Storage', suffix: '', sublabel: 'Your data stays private' },
 ];
 
 // Sections to track for URL hash updates
-const TRACKED_SECTIONS = ['features', 'how-it-works', 'privacy', 'cta'];
+const TRACKED_SECTIONS = ['features', 'how-it-works', 'privacy', 'why-i-built-this', 'cta'];
 
 export default function Home() {
-  const [waitlistCount, setWaitlistCount] = useState(500);
+  const [waitlistCount, setWaitlistCount] = useState(0);
 
   useEffect(() => {
     getWaitlistCount().then(setWaitlistCount);
@@ -120,7 +120,7 @@ export default function Home() {
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-              className="relative z-20"
+              className="relative z-20 text-center lg:text-left"
             >
               {/* Badge */}
               <motion.div
@@ -141,51 +141,45 @@ export default function Home() {
               </h1>
 
               {/* Subheadline */}
-              <p className="text-lg sm:text-xl text-white/60 mb-8 max-w-lg">
-                The AI-powered Chrome extension that helps Capital One Venture X cardholders 
+              <p className="text-lg sm:text-xl text-white/60 mb-8 max-w-lg mx-auto lg:mx-0">
+                The AI-powered Chrome extension that helps Capital One Venture X cardholders
                 make smarter decisions on every booking.
               </p>
 
               {/* 3D Tilt Card - Mobile only */}
               <div className="flex justify-center lg:hidden mb-8" style={{ perspective: '1000px' }}>
-                <TiltCard 
+                <TiltCard
                   imageSrc="/venture-x-card.png"
                   imageAlt="Capital One Venture X Card"
                 />
               </div>
 
               {/* Email form */}
-              <div id="waitlist" className="mb-8">
+              <div id="waitlist" className="mb-8 flex flex-col items-center lg:items-start">
                 <InlineWaitlistForm />
               </div>
 
-              {/* Social proof */}
-              <div className="flex flex-wrap items-center gap-6">
-                {/* Avatar stack */}
-                <div className="flex items-center">
-                  <div className="flex -space-x-3">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div
-                        key={i}
-                        className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 border-2 border-background flex items-center justify-center text-xs font-bold text-black"
-                      >
-                        {String.fromCharCode(64 + i)}
-                      </div>
-                    ))}
+              {/* Social proof - only show when count > 0 */}
+              {waitlistCount > 0 && (
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 mt-2">
+                  {/* Avatar stack */}
+                  <div className="flex items-center">
+                    <div className="flex -space-x-2">
+                      {[...Array(Math.min(waitlistCount, 5))].map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 border-2 border-background flex items-center justify-center"
+                        >
+                          <Users className="w-3.5 h-3.5 text-black" />
+                        </div>
+                      ))}
+                    </div>
+                    <span className="ml-3 text-sm text-white/60">
+                      <span className="text-white font-medium">{waitlistCount}</span> on waitlist
+                    </span>
                   </div>
-                  <span className="ml-3 text-sm text-white/60">
-                    <span className="text-white font-medium">{waitlistCount}+</span> joined
-                  </span>
                 </div>
-
-                {/* Rating */}
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  ))}
-                  <span className="ml-2 text-sm text-white/60">from r/VentureX</span>
-                </div>
-              </div>
+              )}
             </motion.div>
 
             {/* Right content - 3D Card with Preview cards */}
@@ -253,12 +247,12 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Scroll indicator */}
+        {/* Scroll indicator - hidden on mobile to avoid overlap */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+          className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2"
         >
           <motion.div
             animate={{ y: [0, 8, 0] }}
@@ -280,7 +274,7 @@ export default function Home() {
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+                viewport={{ once: false }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 className="text-center"
               >
@@ -305,6 +299,108 @@ export default function Home() {
 
       {/* Privacy Section */}
       <Privacy />
+
+      {/* Why I Built This Section */}
+      <section id="why-i-built-this" className="py-24 md:py-32 relative">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: false }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-6"
+            >
+              <span className="text-sm text-emerald-400 font-medium">From the Creator</span>
+            </motion.div>
+            
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-3xl sm:text-4xl font-bold mb-6"
+            >
+              Why I Built <span className="gradient-text">VentureXify</span>
+            </motion.h2>
+            
+            <div className="text-lg text-white/60 space-y-4 text-left sm:text-center">
+              <motion.p
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                Hey! I&apos;m a college student who got obsessed with maximizing credit card rewards.
+                After spending countless hours calculating portal vs direct bookings, researching transfer partners,
+                and trying to squeeze every cent of value from my Venture X, I thought: <em className="text-white/80">&quot;Why isn&apos;t there a tool for this?&quot;</em>
+              </motion.p>
+              
+              <motion.p
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                So I built one. VentureXify is my passion project—made by a points nerd, for points nerds.
+              </motion.p>
+              
+              <motion.p
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+              >
+                For newcomers, the Venture X can feel overwhelming—there&apos;s so much this card can do. Instead of just
+                giving you answers, this tool <span className="text-white/80">guides you through the decision-making process</span> so
+                you understand <em>why</em> a booking strategy works. My goal is for you to feel confident making these calls yourself.
+              </motion.p>
+            </div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4"
+            >
+              <motion.div
+                whileHover={{ scale: 1.05, y: -2 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-amber-500/10 border border-emerald-500/20"
+              >
+                <div className="text-emerald-400 font-semibold text-lg">100% Free</div>
+                <div className="text-white/50 text-sm">No catch. No premium tier (yet).</div>
+              </motion.div>
+              
+              <motion.a
+                href="https://github.com/tanushsavadi/VentureXify"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.05, y: -2 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 cursor-pointer group"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-white/80" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                  <span className="text-white/80 font-medium group-hover:text-white">Star on GitHub</span>
+                </div>
+                <div className="text-white/50 text-sm">Open source & community-driven</div>
+              </motion.a>
+            </motion.div>
+            
+            <motion.p
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: false }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="mt-6 text-sm text-white/40"
+            >
+              Future paid features will help fund server costs, but the core extension will always be free.
+            </motion.p>
+          </div>
+        </div>
+      </section>
 
       {/* Premium Final CTA Section - seamless like hero */}
       <InteractiveCTASection waitlistCount={waitlistCount} />
@@ -467,7 +563,7 @@ function InteractiveCTASection({ waitlistCount }: { waitlistCount: number }) {
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: false }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           className="text-center"
         >
@@ -476,7 +572,7 @@ function InteractiveCTASection({ waitlistCount }: { waitlistCount: number }) {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 mb-8"
             initial={{ scale: 0.9, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             transition={{ delay: 0.2 }}
           >
             <Rocket className="w-4 h-4 text-amber-400" />

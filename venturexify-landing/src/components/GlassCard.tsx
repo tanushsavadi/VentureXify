@@ -29,7 +29,7 @@ export default function GlassCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-50px' }}
+      viewport={{ once: false, margin: '-50px' }}
       transition={{
         default: { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] },
         y: { type: 'spring', stiffness: 400, damping: 25 },
@@ -37,9 +37,9 @@ export default function GlassCard({
       }}
       whileHover={hover ? { y: -8, scale: 1.02, transition: { type: 'spring', stiffness: 400, damping: 25 } } : undefined}
       className={`
-        bg-white/[0.03] backdrop-blur-xl rounded-2xl
-        border border-white/[0.05] transition-[border-color,box-shadow] duration-100
-        ${hover ? 'hover:border-white/[0.1]' : ''}
+        bg-background/80 backdrop-blur-xl rounded-2xl
+        border border-white/5 transition-[border-color,box-shadow] duration-200
+        ${hover ? 'hover:border-white/10 hover:bg-background/90' : ''}
         ${glowColors[glow]}
         ${className}
       `}

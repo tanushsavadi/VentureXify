@@ -21,15 +21,15 @@ const features = [
     description: 'Intelligent comparison factoring in 5x portal earnings, travel credit, status earning, and break-even analysis. Know exactly which booking option saves you more.',
     color: 'amber',
     gradient: 'from-amber-400 to-orange-500',
-    stats: 'Supports 8+ travel sites',
+    stats: 'Works on any travel site',
   },
   {
     icon: Sparkles,
     title: 'AI Expert Assistant',
-    description: 'Ask anything about Venture X benefits, transfer strategies, or redemption math. Powered by RAG knowledge base with real community insights from r/VentureX.',
+    description: 'Ask anything about Venture X benefits, transfer strategies, or redemption math. Powered by RAG knowledge base with insights from Capital One guides, The Points Guy, NerdWallet, and more.',
     color: 'violet',
     gradient: 'from-violet-400 to-purple-500',
-    stats: 'Groq-powered responses',
+    stats: 'Llama + Qwen via Groq',
   },
   {
     icon: Plane,
@@ -37,23 +37,23 @@ const features = [
     description: 'All 1:1 airline partners mapped: Turkish, Aeroplan, Emirates, Singapore, JetBlue, and more. See which partner gets you the best CPM for your route.',
     color: 'amber',
     gradient: 'from-amber-400 to-orange-500',
-    stats: 'Star Alliance • Oneworld • SkyTeam',
+    stats: 'Powered by PointsYeah',
   },
   {
     icon: CreditCard,
-    title: 'Travel Eraser Queue',
-    description: 'Track the 90-day eraser window for all travel purchases. Import via CSV, get expiry reminders, and use the "double-dip" strategy to earn AND redeem.',
+    title: 'Cover Travel Purchases',
+    description: 'Known on Reddit as "Travel Eraser"—officially "Cover travel purchases" on the portal. Get reimbursed for travel at 1¢/mile with the "double-dip" strategy: earn miles on cash, redeem later.',
     color: 'violet',
     gradient: 'from-violet-400 to-purple-500',
-    stats: 'No minimum • 1¢/mile',
+    stats: 'No minimum required',
   },
   {
     icon: Trophy,
-    title: 'VentureXify Score',
-    description: 'Your personal 0-100 score based on benefit utilization. Track $300 credit, lounge visits, Global Entry, and calculate your renewal ROI.',
+    title: 'Smart Booking Verdicts',
+    description: 'Get instant, personalized recommendations with savings calculations. See exactly how much you save with each booking method—portal, direct, or miles transfer.',
     color: 'emerald',
     gradient: 'from-emerald-400 to-green-500',
-    stats: 'Annual fee worth it? Find out.',
+    stats: 'Real savings • Real data',
   },
   {
     icon: Calculator,
@@ -61,7 +61,7 @@ const features = [
     description: 'Compare Travel Eraser vs Transfer Partners vs Portal booking. Set your target CPM and get personalized recommendations based on your miles valuation.',
     color: 'amber',
     gradient: 'from-amber-400 to-orange-500',
-    stats: 'Default: 1.7¢/mile',
+    stats: 'Customize your valuation',
   },
 ];
 
@@ -73,7 +73,7 @@ export default function Features() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: false }}
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
@@ -125,7 +125,7 @@ export default function Features() {
                   <motion.div
                     initial={{ width: 0 }}
                     whileInView={{ width: '3rem' }}
-                    viewport={{ once: true }}
+                    viewport={{ once: false }}
                     transition={{ delay: 0.5 + index * 0.1, duration: 0.4 }}
                     className={`h-0.5 bg-gradient-to-r ${feature.gradient} mt-4 rounded-full`}
                   />

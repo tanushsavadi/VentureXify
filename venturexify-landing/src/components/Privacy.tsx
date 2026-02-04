@@ -20,7 +20,7 @@ export default function Privacy() {
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             transition={{ duration: 0.6 }}
           >
             <span className="text-emerald-400 text-sm font-medium tracking-wider uppercase mb-4 block">
@@ -42,7 +42,7 @@ export default function Privacy() {
                   key={feature.text}
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
+                  viewport={{ once: false }}
                   transition={{ delay: index * 0.1, duration: 0.4 }}
                   className="flex items-center gap-4"
                 >
@@ -62,7 +62,7 @@ export default function Privacy() {
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: false }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <GlassCard className="p-8" glow="emerald">
@@ -70,7 +70,7 @@ export default function Privacy() {
                 <motion.div
                   initial={{ scale: 0 }}
                   whileInView={{ scale: 1 }}
-                  viewport={{ once: true }}
+                  viewport={{ once: false }}
                   transition={{ type: 'spring', delay: 0.4 }}
                   className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center mx-auto mb-4"
                 >

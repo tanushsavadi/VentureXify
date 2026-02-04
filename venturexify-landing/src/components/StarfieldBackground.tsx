@@ -158,7 +158,7 @@ export function StarfieldBackground({
   }, [count, speed, starColor, twinkle])
 
   return (
-    <div ref={containerRef} className={cn("fixed inset-0 overflow-hidden bg-black", className)}>
+    <div ref={containerRef} className={cn("fixed inset-0 overflow-hidden bg-black -z-10", className)}>
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 
       {/* Subtle vignette for darker edges */}

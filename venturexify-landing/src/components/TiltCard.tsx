@@ -66,18 +66,34 @@ export function TiltCard({ imageSrc, imageAlt, className }: TiltCardProps) {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      className={`relative cursor-pointer ${className}`}
+      className={`relative cursor-pointer group ${className}`}
     >
       {/* Card shadow - moves with tilt */}
-      <motion.div 
+      <motion.div
         className="absolute inset-0 rounded-2xl bg-blue-900/30 blur-2xl"
         style={{
           transform: "translateZ(-50px) translateY(20px) scale(0.9)",
         }}
       />
       
+      {/* Rotating white border light */}
+      <div
+        className="absolute -inset-[3px] rounded-2xl overflow-hidden"
+        style={{ transform: "translateZ(-1px)" }}
+      >
+        <div
+          className="absolute w-[200%] h-[200%] -top-1/2 -left-1/2"
+          style={{
+            background: 'conic-gradient(from 0deg, transparent 0deg, transparent 60deg, rgba(255,255,255,0.6) 90deg, #fff 120deg, rgba(255,255,255,0.6) 150deg, transparent 180deg, transparent 360deg)',
+            animation: 'spin-around 4s linear infinite',
+          }}
+        />
+        {/* Dark background to mask inner area */}
+        <div className="absolute inset-[3px] rounded-2xl bg-black" />
+      </div>
+      
       {/* Main card container */}
-      <div 
+      <div
         className="relative rounded-2xl overflow-hidden shadow-2xl"
         style={{ transform: "translateZ(0px)" }}
       >
@@ -92,24 +108,45 @@ export function TiltCard({ imageSrc, imageAlt, className }: TiltCardProps) {
           />
         </div>
         
-        {/* Dynamic glare overlay */}
+        {/* Dynamic glare overlay - enhanced metallic effect */}
         <motion.div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none transition-opacity duration-300"
           style={{
-            background: `radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.25) 0%, transparent 50%)`,
+            background: `radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.1) 30%, transparent 60%)`,
           }}
         />
         
-        {/* Edge highlight */}
-        <div 
-          className="absolute inset-0 rounded-2xl border border-white/20 pointer-events-none"
+        {/* Metallic shine sweep on hover */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+          style={{
+            background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.3) 45%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.3) 55%, transparent 60%)',
+            transform: 'translateX(-100%)',
+            animation: 'none',
+          }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden"
+        >
+          <div
+            className="absolute inset-0 opacity-0 group-hover:opacity-100"
+            style={{
+              background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.4) 55%, transparent 60%)',
+              animation: 'shimmer-slide 5s ease-in-out infinite',
+            }}
+          />
+        </div>
+        
+        {/* Edge highlight - enhanced */}
+        <div
+          className="absolute inset-0 rounded-2xl border border-white/30 pointer-events-none group-hover:border-white/50 transition-colors duration-300"
           style={{ transform: "translateZ(2px)" }}
         />
       </div>
       
-      {/* Floating reflection effect at bottom */}
+      {/* Floating reflection effect at bottom - enhanced */}
       <motion.div
-        className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-[80%] h-4 rounded-full bg-amber-500/20 blur-xl"
+        className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-[80%] h-4 rounded-full bg-amber-500/30 blur-xl group-hover:bg-amber-500/40 transition-colors duration-300"
         style={{ transform: "translateZ(-30px)" }}
       />
     </motion.div>

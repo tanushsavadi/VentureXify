@@ -81,29 +81,7 @@ export async function joinWaitlist(data: {
   }
 }
 
-// Base offset for social proof display (early-stage waitlist)
-const WAITLIST_BASE_OFFSET = 500;
-
 export async function getWaitlistCount(): Promise<number> {
-  try {
-    const { count, error } = await supabase
-      .from('waitlist')
-      .select('*', { count: 'exact', head: true });
-
-    if (error) {
-      console.error('Waitlist count error:', error);
-      return WAITLIST_BASE_OFFSET; // Fallback number for display
-    }
-
-    // Return real count + base offset for social proof
-    return (count || 0) + WAITLIST_BASE_OFFSET;
-  } catch {
-    return WAITLIST_BASE_OFFSET;
-  }
-}
-
-// Get raw waitlist count without offset (for admin use)
-export async function getRawWaitlistCount(): Promise<number> {
   try {
     const { count, error } = await supabase
       .from('waitlist')
@@ -136,6 +114,6 @@ export async function getWaitlistStats() {
       activated: activatedCount || 0,
     };
   } catch {
-    return { total: 500, activated: 0 };
+    return { total: 0, activated: 0 };
   }
 }

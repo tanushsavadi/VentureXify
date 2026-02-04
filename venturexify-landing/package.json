@@ -12,6 +12,7 @@
     "@react-three/drei": "^9.97.0",
     "@react-three/fiber": "^8.15.16",
     "@supabase/supabase-js": "^2.39.7",
+    "@vercel/analytics": "^1.6.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.0.8",
     "lucide-react": "^0.336.0",

@@ -119,13 +119,23 @@ export default function WaitlistForm({ showExtendedForm = false, className = '' 
             disabled={isLoading || !email}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="absolute right-1 top-1 btn-primary px-4 py-2 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="absolute right-1 top-1 btn-primary px-4 py-2 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group"
           >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              'Join Waitlist'
-            )}
+            {/* Rotating border shimmer */}
+            <span className="absolute inset-0 overflow-hidden rounded-lg">
+              <span className="absolute inset-[-100%] animate-spin-around bg-[conic-gradient(from_90deg_at_50%_50%,transparent_0%,transparent_50%,rgba(255,255,255,0.25)_50%,transparent_100%)]" style={{ animationDuration: '3s' }} />
+            </span>
+            
+            {/* Hover shine */}
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+            
+            <span className="relative z-10">
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                'Join Waitlist'
+              )}
+            </span>
           </motion.button>
         </div>
 
@@ -238,24 +248,81 @@ export function InlineWaitlistForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 flex-col sm:flex-row w-full max-w-md">
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Enter your email"
-        required
-        className="flex-1 input-glass"
-        disabled={isLoading}
-      />
+    <form onSubmit={handleSubmit} className="relative z-50 flex gap-2 flex-col sm:flex-row w-full max-w-md" style={{ isolation: 'isolate' }}>
+      {/* Input with glow effect on focus */}
+      <div className="flex-1 relative group z-10">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          required
+          className="w-full input-glass transition-all duration-300"
+          disabled={isLoading}
+          style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+        />
+        {/* Subtle ambient glow when focused */}
+        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/0 via-amber-500/10 to-amber-500/0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 -z-10 blur-md" />
+      </div>
+      
+      {/* Flashy Shimmer Button with SOLID opaque background */}
       <motion.button
         type="submit"
         disabled={isLoading || !email}
-        whileHover={{ scale: 1.02 }}
+        whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.98 }}
-        className="btn-primary whitespace-nowrap disabled:opacity-50"
+        className="relative z-20 overflow-hidden px-6 py-3 rounded-xl text-black font-bold whitespace-nowrap transition-all disabled:opacity-50 disabled:cursor-not-allowed group shadow-[0_4px_25px_rgba(251,191,36,0.5),0_0_50px_rgba(245,158,11,0.3)]"
+        style={{
+          background: 'linear-gradient(to right, #facc15, #f59e0b, #f97316)',
+        }}
+        animate={{
+          boxShadow: [
+            '0 4px 25px rgba(251, 191, 36, 0.5), 0 0 50px rgba(245, 158, 11, 0.3)',
+            '0 4px 35px rgba(251, 191, 36, 0.7), 0 0 70px rgba(245, 158, 11, 0.5)',
+            '0 4px 25px rgba(251, 191, 36, 0.5), 0 0 50px rgba(245, 158, 11, 0.3)',
+          ],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
       >
-        {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Join Waitlist'}
+        {/* Solid opaque background layer - blocks starfield */}
+        <span
+          className="absolute inset-0 rounded-xl"
+          style={{ background: 'linear-gradient(to right, #facc15, #f59e0b, #f97316)' }}
+        />
+        
+        {/* Rotating light beam border */}
+        <span className="absolute -inset-[2px] overflow-hidden rounded-xl pointer-events-none">
+          <span
+            className="absolute w-[200%] h-[200%] -top-1/2 -left-1/2"
+            style={{
+              background: 'conic-gradient(from 0deg, transparent 0deg, transparent 60deg, rgba(255,255,255,0.8) 90deg, #fff 120deg, transparent 150deg, transparent 360deg)',
+              animation: 'spin-around 2s linear infinite',
+            }}
+          />
+          <span
+            className="absolute inset-[2px] rounded-xl"
+            style={{ background: 'linear-gradient(to right, #facc15, #f59e0b, #f97316)' }}
+          />
+        </span>
+        
+        {/* Shine sweep */}
+        <span className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
+          <span
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+            style={{
+              animation: 'shimmer-slide 1.5s ease-in-out infinite',
+            }}
+          />
+        </span>
+        
+        {/* Content */}
+        <span className="relative z-10">
+          {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Join Waitlist'}
+        </span>
       </motion.button>
     </form>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { Menu, X, Sparkles } from 'lucide-react';
 import { ScrambleText } from './ScrambleText';
+import { FlipText } from './FlipText';
 
 const navLinks = [
   { name: 'Features', href: '#features' },
@@ -11,6 +12,16 @@ const navLinks = [
   { name: 'Privacy', href: '#privacy' },
   { name: 'About', href: '#why-i-built-this' },
 ];
+
+// Section display names for mobile indicator
+const sectionDisplayNames: Record<number, string> = {
+  [-1]: 'Home',
+  0: 'Features',
+  1: 'How it Works',
+  2: 'Privacy',
+  3: 'About',
+  4: 'Get Access',
+};
 
 // Section IDs in order (including hero and CTA)
 const ALL_SECTIONS = ['hero', 'features', 'how-it-works', 'privacy', 'why-i-built-this', 'cta'];
@@ -390,6 +401,50 @@ export default function Navigation() {
               </motion.div>
             </div>
           </motion.a>
+
+          {/* Mobile Section Indicator - Minimal Premium Style */}
+          <div className="flex md:hidden items-center flex-1 justify-center relative z-10">
+            <motion.div
+              className="flex items-center gap-1.5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+            >
+              {/* Subtle amber accent line */}
+              <motion.div
+                className="w-4 h-[1px] bg-gradient-to-r from-amber-500/60 to-transparent"
+                animate={{
+                  opacity: [0.4, 0.8, 0.4],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              />
+              
+              {/* Flip text section name - clean typography */}
+              <FlipText
+                text={sectionDisplayNames[activeNavIndex] || 'Home'}
+                className="text-sm font-medium tracking-wide text-white/80"
+                duration={0.35}
+                direction="down"
+              />
+              
+              {/* Subtle amber accent line */}
+              <motion.div
+                className="w-4 h-[1px] bg-gradient-to-l from-amber-500/60 to-transparent"
+                animate={{
+                  opacity: [0.4, 0.8, 0.4],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              />
+            </motion.div>
+          </div>
 
           {/* Desktop Navigation Links */}
           <div

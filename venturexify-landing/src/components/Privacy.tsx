@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Shield, Eye, Code, Users, Check, Lock, Database } from 'lucide-react';
 import GlassCard from './GlassCard';
+import { BlurInText } from './BlurInText';
 
 const privacyFeatures = [
   { icon: Eye, text: 'No tracking or ads', description: 'We never sell your data or track browsing' },
@@ -26,10 +27,12 @@ export default function Privacy() {
             <span className="text-emerald-400 text-sm font-medium tracking-wider uppercase mb-4 block">
               Privacy First
             </span>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">
-              Your data stays{' '}
-              <span className="gradient-text-emerald">yours</span>
-            </h2>
+            <BlurInText delay={0.1} duration={1.1} once={false} className="mb-6">
+              <h2 className="text-3xl md:text-5xl font-bold">
+                Your data stays{' '}
+                <span className="gradient-text-emerald">yours</span>
+              </h2>
+            </BlurInText>
             <p className="text-white/60 text-lg mb-8">
               Your preferences, history, and perks tracking are stored locally in Chrome.
               AI features use secure Edge Functions — your browsing activity is never logged.

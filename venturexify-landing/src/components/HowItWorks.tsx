@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Download, Search, Brain, Sparkles } from 'lucide-react';
 import GlassCard from './GlassCard';
+import { BlurInText } from './BlurInText';
 
 const steps = [
   {
@@ -40,23 +41,31 @@ export default function HowItWorks() {
     <section id="how-it-works" className="py-24 md:py-32 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <span className="text-amber-400 text-sm font-medium tracking-wider uppercase mb-4 block">
+        <div className="text-center mb-16">
+          <motion.span
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false }}
+            transition={{ duration: 0.5 }}
+            className="text-amber-400 text-sm font-medium tracking-wider uppercase mb-4 block"
+          >
             How it Works
-          </span>
-          <h2 className="text-3xl md:text-5xl font-bold mb-4">
-            Simple as <span className="gradient-text">1, 2, 3</span>
-          </h2>
-          <p className="text-white/60 max-w-2xl mx-auto text-lg">
+          </motion.span>
+          <BlurInText delay={0.1} duration={1.1} once={false} className="mb-4">
+            <h2 className="text-3xl md:text-5xl font-bold">
+              Simple as <span className="gradient-text">1, 2, 3</span>
+            </h2>
+          </BlurInText>
+          <motion.p
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-white/60 max-w-2xl mx-auto text-lg"
+          >
             Get started in under a minute. No complex setup or learning curve.
-          </p>
-        </motion.div>
+          </motion.p>
+        </div>
 
         {/* Steps */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">

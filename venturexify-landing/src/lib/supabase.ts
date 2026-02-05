@@ -27,6 +27,36 @@ export interface JoinWaitlistResult {
   success: boolean;
   position?: number;
   error?: string;
+  isNewSignup?: boolean;
+}
+
+// Send confirmation email via API route
+export async function sendConfirmationEmail(data: {
+  email: string;
+  position: number;
+  source?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch('/api/send-confirmation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('Email send error:', result.error);
+      return { success: false, error: result.error };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to send confirmation email:', error);
+    return { success: false, error: 'Failed to send email' };
+  }
 }
 
 export async function joinWaitlist(data: {
@@ -74,6 +104,7 @@ export async function joinWaitlist(data: {
     return {
       success: true,
       position: newEntry?.queue_position,
+      isNewSignup: true,
     };
   } catch (err) {
     console.error('Waitlist error:', err);

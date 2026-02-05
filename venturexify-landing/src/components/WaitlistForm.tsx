@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Check, AlertCircle, Sparkles } from 'lucide-react';
-import { joinWaitlist } from '@/lib/supabase';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { joinWaitlist, sendConfirmationEmail } from '@/lib/supabase';
+import { useWaitlist } from '@/context/WaitlistContext';
+import { HeroWaitlistSuccess, CTAWaitlistSuccess } from './WaitlistSuccess';
 
 interface WaitlistFormProps {
   showExtendedForm?: boolean;
@@ -11,6 +13,7 @@ interface WaitlistFormProps {
 }
 
 export default function WaitlistForm({ showExtendedForm = false, className = '' }: WaitlistFormProps) {
+  const { isSignedUp, setSignedUp, incrementWaitlistCount } = useWaitlist();
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [redditUsername, setRedditUsername] = useState('');
@@ -44,10 +47,23 @@ export default function WaitlistForm({ showExtendedForm = false, className = '' 
       if (result.success) {
         if (result.error === 'already_registered') {
           setStatus('already_registered');
+          // Don't increment count for already registered
         } else {
           setStatus('success');
+          // Increment count for new signups
+          incrementWaitlistCount();
+          // Send confirmation email for new signups only
+          if (result.position) {
+            sendConfirmationEmail({
+              email,
+              position: result.position,
+              source: 'landing_page',
+            }).catch(console.error); // Non-blocking
+          }
         }
         setPosition(result.position || null);
+        // Sync state globally
+        setSignedUp(email, 'landing_page', result.position);
       } else {
         setStatus('error');
         setErrorMessage(result.error || 'Something went wrong');
@@ -68,35 +84,12 @@ export default function WaitlistForm({ showExtendedForm = false, className = '' 
     );
   };
 
-  if (status === 'success' || status === 'already_registered') {
+  // Show success state if already signed up (from any source)
+  if (isSignedUp || status === 'success' || status === 'already_registered') {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className={`glass-card p-8 text-center ${className}`}
-      >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', delay: 0.1 }}
-          className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto mb-4"
-        >
-          <Check className="w-8 h-8 text-black" />
-        </motion.div>
-        <h3 className="text-2xl font-bold mb-2">
-          {status === 'already_registered' ? 'Welcome Back!' : 'You\'re on the list!'}
-        </h3>
-        {position && (
-          <p className="text-white/60 mb-4">
-            Your position: <span className="text-amber-400 font-semibold">#{position}</span>
-          </p>
-        )}
-        <p className="text-white/60">
-          {status === 'already_registered'
-            ? 'You\'re already registered. We\'ll notify you when beta access opens.'
-            : 'We\'ll send you an email when beta access is ready. Stay tuned!'}
-        </p>
-      </motion.div>
+      <div className={className}>
+        <CTAWaitlistSuccess position={position || undefined} />
+      </div>
     );
   }
 
@@ -217,16 +210,30 @@ export default function WaitlistForm({ showExtendedForm = false, className = '' 
 
 // Simple inline waitlist form for hero
 export function InlineWaitlistForm() {
+  const { isSignedUp, setSignedUp, incrementWaitlistCount } = useWaitlist();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await joinWaitlist({ email });
-      setSuccess(true);
+      const result = await joinWaitlist({ email, referral_source: 'hero_section' });
+      if (result.success) {
+        // Only increment count for new signups (not duplicates)
+        if (result.error !== 'already_registered') {
+          incrementWaitlistCount();
+          // Send confirmation email for new signups only
+          if (result.position) {
+            sendConfirmationEmail({
+              email,
+              position: result.position,
+              source: 'hero_section',
+            }).catch(console.error); // Non-blocking
+          }
+        }
+        setSignedUp(email, 'hero_section', result.position);
+      }
     } catch {
       // Handle error silently
     } finally {
@@ -234,17 +241,8 @@ export function InlineWaitlistForm() {
     }
   };
 
-  if (success) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex items-center gap-2 text-amber-400"
-      >
-        <Sparkles className="w-5 h-5" />
-        <span>You&apos;re on the list!</span>
-      </motion.div>
-    );
+  if (isSignedUp) {
+    return <HeroWaitlistSuccess />;
   }
 
   return (

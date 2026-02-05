@@ -14,6 +14,9 @@ import { TiltCard } from '@/components/TiltCard';
 import { ParticleTextDots } from '@/components/ParticleTextDots';
 import { StarfieldBackground } from '@/components/StarfieldBackground';
 import { getWaitlistCount } from '@/lib/supabase';
+import { BlurInText, BlurInWords } from '@/components/BlurInText';
+import { useWaitlist } from '@/context/WaitlistContext';
+import { CTAWaitlistSuccess } from '@/components/WaitlistSuccess';
 
 // Stats section data - accurate to actual product
 const stats = [
@@ -26,11 +29,7 @@ const stats = [
 const TRACKED_SECTIONS = ['features', 'how-it-works', 'privacy', 'why-i-built-this', 'cta'];
 
 export default function Home() {
-  const [waitlistCount, setWaitlistCount] = useState(0);
-
-  useEffect(() => {
-    getWaitlistCount().then(setWaitlistCount);
-  }, []);
+  const { waitlistCount } = useWaitlist();
 
   // Scroll spy - update URL hash as sections come into view
   useEffect(() => {
@@ -133,12 +132,14 @@ export default function Home() {
                 <span className="text-sm text-amber-400 font-medium">Beta Access Opening Soon</span>
               </motion.div>
 
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                Maximize your{' '}
-                <span className="gradient-text">Venture X</span>{' '}
-                rewards
-              </h1>
+              {/* Headline with blur-in animation */}
+              <BlurInText delay={0.3} duration={1.2} className="mb-6">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
+                  Maximize your{' '}
+                  <span className="gradient-text">Venture X</span>{' '}
+                  rewards
+                </h1>
+              </BlurInText>
 
               {/* Subheadline */}
               <p className="text-lg sm:text-xl text-white/60 mb-8 max-w-lg mx-auto lg:mx-0">
@@ -314,15 +315,11 @@ export default function Home() {
               <span className="text-sm text-emerald-400 font-medium">From the Creator</span>
             </motion.div>
             
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: false }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-3xl sm:text-4xl font-bold mb-6"
-            >
-              Why I Built <span className="gradient-text">VentureXify</span>
-            </motion.h2>
+            <BlurInText delay={0.1} duration={1.1} once={false} className="mb-6">
+              <h2 className="text-3xl sm:text-4xl font-bold">
+                Why I Built <span className="gradient-text">VentureXify</span>
+              </h2>
+            </BlurInText>
             
             <div className="text-lg text-white/60 space-y-4 text-left sm:text-center">
               <motion.p
@@ -414,9 +411,9 @@ export default function Home() {
 
 // Premium Email Form Component
 function PremiumEmailForm() {
+  const { isSignedUp, setSignedUp, incrementWaitlistCount } = useWaitlist();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -428,11 +425,23 @@ function PremiumEmailForm() {
     
     try {
       // Dynamic import to avoid importing at component level
-      const { joinWaitlist } = await import('@/lib/supabase');
+      const { joinWaitlist, sendConfirmationEmail } = await import('@/lib/supabase');
       const result = await joinWaitlist({ email, referral_source: 'cta_section' });
       
       if (result.success) {
-        setIsSuccess(true);
+        // Only increment for new signups (not duplicates)
+        if (result.error !== 'already_registered') {
+          incrementWaitlistCount();
+          // Send confirmation email for new signups only
+          if (result.position) {
+            sendConfirmationEmail({
+              email,
+              position: result.position,
+              source: 'cta_section',
+            }).catch(console.error); // Non-blocking
+          }
+        }
+        setSignedUp(email, 'cta_section', result.position);
       } else {
         setError(result.error || 'Something went wrong');
       }
@@ -443,35 +452,9 @@ function PremiumEmailForm() {
     }
   };
 
-  if (isSuccess) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center py-6"
-      >
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
-          <motion.svg
-            className="w-8 h-8 text-emerald-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <motion.path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </motion.svg>
-        </div>
-        <h3 className="text-xl font-semibold text-white mb-2">You&apos;re on the list!</h3>
-        <p className="text-white/50">We&apos;ll notify you when beta access is ready.</p>
-      </motion.div>
-    );
+  // Show success state if already signed up (from any source)
+  if (isSignedUp) {
+    return <CTAWaitlistSuccess />;
   }
 
   return (
@@ -621,14 +604,16 @@ function InteractiveCTASection({ waitlistCount }: { waitlistCount: number }) {
             <span className="text-sm text-amber-400 font-medium">Launching Soon</span>
           </motion.div>
 
-          {/* Headline */}
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-            Ready to{' '}
-            <span className="gradient-text">maximize</span>
-            {' '}your
-            <br />
-            <span className="gradient-text">Venture X</span>?
-          </h2>
+          {/* Headline with blur-in animation */}
+          <BlurInText delay={0.2} duration={1.1} once={false} className="mb-6">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold">
+              Ready to{' '}
+              <span className="gradient-text">maximize</span>
+              {' '}your
+              <br />
+              <span className="gradient-text">Venture X</span>?
+            </h2>
+          </BlurInText>
 
           {/* Subtitle */}
           <p className="text-white/60 text-lg md:text-xl mb-10 max-w-2xl mx-auto">

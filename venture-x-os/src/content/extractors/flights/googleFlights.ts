@@ -400,6 +400,131 @@ export async function extractGoogleFlightsPriceAsync(): Promise<ExtractionResult
 }
 
 /**
+ * Flight leg details extracted from Google Flights DOM
+ */
+export interface GoogleFlightLeg {
+  departureTime?: string;  // e.g., "1:00 AM"
+  arrivalTime?: string;    // e.g., "11:50 AM"
+  duration?: string;       // e.g., "21 hr 50 min"
+  stops?: number;
+  stopAirports?: string[];
+  airlines?: string[];
+}
+
+/**
+ * Flight details extracted from Google Flights booking page DOM
+ */
+export interface GoogleFlightDOMDetails {
+  outbound?: GoogleFlightLeg;
+  returnFlight?: GoogleFlightLeg;
+}
+
+/**
+ * Extract flight times and details from Google Flights booking page DOM
+ * This captures departure/arrival times which aren't available in the URL
+ */
+export function extractGoogleFlightTimesFromDOM(): GoogleFlightDOMDetails {
+  const result: GoogleFlightDOMDetails = {};
+  
+  try {
+    const pageText = getCleanPageText();
+    const lines = pageText.split('\n').map(l => l.trim()).filter(l => l);
+    
+    console.log('[GF DOM Extractor] Extracting flight times from DOM...');
+    
+    // Google Flights booking page structure:
+    // "Selected flights" section shows the itinerary
+    // Time format: "1:00 AM – 11:50 AM" or "2:00 PM – 10:35 PM+1"
+    // Duration: "21 hr 50 min" or "21h 50m"
+    // Stops: "1 stop" or "Nonstop" or "2 stops"
+    
+    // Pattern for time range: "HH:MM AM/PM – HH:MM AM/PM" or "HH:MM AM/PM - HH:MM AM/PM"
+    const timeRangePattern = /(\d{1,2}:\d{2}\s*(?:AM|PM))\s*[–-]\s*(\d{1,2}:\d{2}\s*(?:AM|PM)(?:\+\d)?)/gi;
+    
+    // Pattern for duration: "21 hr 50 min" or "21h 50m" or "21 hr"
+    const durationPattern = /(\d+)\s*h(?:r|rs?)?\s*(\d+)?\s*m(?:in)?|(\d+)\s*h(?:r|rs?)?/gi;
+    
+    // Pattern for stops: "Nonstop", "1 stop", "2 stops"
+    const stopsPattern = /\b(nonstop|\d+\s*stop(?:s)?)\b/gi;
+    
+    // Find all time ranges
+    const timeMatches = [...pageText.matchAll(timeRangePattern)];
+    const durationMatches = [...pageText.matchAll(durationPattern)];
+    const stopsMatches = [...pageText.matchAll(stopsPattern)];
+    
+    console.log('[GF DOM Extractor] Found time ranges:', timeMatches.map(m => m[0]));
+    console.log('[GF DOM Extractor] Found durations:', durationMatches.map(m => m[0]));
+    console.log('[GF DOM Extractor] Found stops:', stopsMatches.map(m => m[0]));
+    
+    // Parse times - first match is usually outbound, second is return
+    if (timeMatches.length >= 1) {
+      result.outbound = {
+        departureTime: timeMatches[0][1],
+        arrivalTime: timeMatches[0][2],
+      };
+      
+      // Try to get duration for outbound
+      if (durationMatches.length >= 1) {
+        result.outbound.duration = durationMatches[0][0];
+      }
+      
+      // Try to get stops for outbound
+      if (stopsMatches.length >= 1) {
+        const stopsStr = stopsMatches[0][0].toLowerCase();
+        if (stopsStr === 'nonstop') {
+          result.outbound.stops = 0;
+        } else {
+          const stopsNum = parseInt(stopsStr);
+          if (!isNaN(stopsNum)) {
+            result.outbound.stops = stopsNum;
+          }
+        }
+      }
+    }
+    
+    // Parse return flight (second match)
+    if (timeMatches.length >= 2) {
+      result.returnFlight = {
+        departureTime: timeMatches[1][1],
+        arrivalTime: timeMatches[1][2],
+      };
+      
+      // Duration for return - try to get second duration match
+      if (durationMatches.length >= 2) {
+        result.returnFlight.duration = durationMatches[1][0];
+      }
+      
+      // Stops for return - try to get second stops match
+      if (stopsMatches.length >= 2) {
+        const stopsStr = stopsMatches[1][0].toLowerCase();
+        if (stopsStr === 'nonstop') {
+          result.returnFlight.stops = 0;
+        } else {
+          const stopsNum = parseInt(stopsStr);
+          if (!isNaN(stopsNum)) {
+            result.returnFlight.stops = stopsNum;
+          }
+        }
+      }
+    }
+    
+    // Extract airline names from the page
+    // Look for patterns like "KLM", "Air France", "Air France · KLM"
+    const airlineSection = pageText.match(/(?:Tue|Wed|Thu|Fri|Sat|Sun|Mon)[,\s]+\w+\s+\d+.*?(\w+(?:\s+\w+)?)\s*(?:\u00B7|·)/gi);
+    if (airlineSection) {
+      console.log('[GF DOM Extractor] Airline section matches:', airlineSection);
+    }
+    
+    console.log('[GF DOM Extractor] Extracted times:', result);
+    
+  } catch (e) {
+    console.warn('[GF DOM Extractor] Error extracting times:', e);
+  }
+  
+  return result;
+}
+
+/**
  * Extract full flight capture with itinerary
  */
 export async function captureGoogleFlight(): Promise<FlightCapture> {
@@ -439,6 +564,26 @@ export async function captureGoogleFlight(): Promise<FlightCapture> {
       itinerary.tripType = 'roundTrip';
     } else if (pageText.toLowerCase().includes('one way')) {
       itinerary.tripType = 'oneWay';
+    }
+    
+    // Extract times from DOM for more accurate comparison
+    const domTimes = extractGoogleFlightTimesFromDOM();
+    if (domTimes.outbound) {
+      itinerary.outbound = {
+        ...itinerary.outbound,
+        departureTime: domTimes.outbound.departureTime,
+        arrivalTime: domTimes.outbound.arrivalTime,
+        duration: domTimes.outbound.duration,
+        stops: domTimes.outbound.stops,
+      };
+    }
+    if (domTimes.returnFlight) {
+      itinerary.return = {
+        departureTime: domTimes.returnFlight.departureTime,
+        arrivalTime: domTimes.returnFlight.arrivalTime,
+        duration: domTimes.returnFlight.duration,
+        stops: domTimes.returnFlight.stops,
+      };
     }
     
   } catch (e) {

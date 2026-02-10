@@ -18,6 +18,9 @@ import { captureStayFromPortal, startStayAutoCapture } from './staysCapture';
 import { captureGoogleHotelsPrice, startGoogleHotelsAutoCapture, showGoogleHotelsHelper, updateGoogleHotelsHelperStatus } from './staysDirectCapture';
 import { detectStayPageType, type StayPortalCapture } from '../lib/staysTypes';
 
+// Import Google Flights time extraction for mismatch detection
+import { extractGoogleFlightTimesFromDOM } from './extractors/flights/googleFlights';
+
 // ============================================
 // STATE
 // ============================================
@@ -781,6 +784,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ success: true });
       });
       return true;
+    
+    case 'GET_GOOGLE_FLIGHT_TIMES':
+      // Extract flight times from Google Flights DOM for mismatch comparison
+      if (window.location.href.includes('google.com') &&
+          (window.location.href.includes('/travel/flights') || window.location.href.includes('/flights'))) {
+        const times = extractGoogleFlightTimesFromDOM();
+        console.log('[VX Content] 📋 Extracted flight times:', times);
+        sendResponse({ success: true, times });
+      } else {
+        sendResponse({ success: false, error: 'Not on Google Flights page' });
+      }
+      break;
       
     case 'GET_STAY_PAGE_TYPE':
       const pageType = detectStayPageType(window.location.href);

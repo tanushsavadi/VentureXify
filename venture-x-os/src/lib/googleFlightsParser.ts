@@ -439,10 +439,72 @@ export function parseGoogleFlightsUrl(url: string): GoogleFlightDetails | null {
  * Returns mismatch details if flights don't match
  */
 export interface FlightMismatch {
-  type: 'route' | 'dates' | 'airline' | 'stops';
+  type: 'route' | 'dates' | 'airline' | 'stops' | 'times';
   message: string;
   portalValue: string;
   googleValue: string;
+}
+
+/**
+ * DOM-extracted flight times from Google Flights page
+ * Used for more accurate comparison since URL doesn't contain times
+ */
+export interface GoogleFlightDOMTimes {
+  outbound?: {
+    departureTime?: string;
+    arrivalTime?: string;
+    duration?: string;
+    stops?: number;
+  };
+  returnFlight?: {
+    departureTime?: string;
+    arrivalTime?: string;
+    duration?: string;
+    stops?: number;
+  };
+}
+
+/**
+ * Normalize time string for comparison (e.g., "1:00 AM" -> "01:00")
+ */
+function normalizeTime(timeStr?: string): string | null {
+  if (!timeStr) return null;
+  
+  // Handle formats like "1:00 AM", "11:50 AM", "2:00 PM", "10:35 PM+1"
+  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?(?:\+\d)?/i);
+  if (!match) return null;
+  
+  let hours = parseInt(match[1]);
+  const minutes = match[2];
+  const period = match[3]?.toUpperCase();
+  
+  // Convert to 24-hour format if AM/PM present
+  if (period) {
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+  }
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes}`;
+}
+
+/**
+ * Compare times with tolerance (within 5 minutes considered equal)
+ */
+function timesMatch(time1?: string, time2?: string): boolean {
+  const t1 = normalizeTime(time1);
+  const t2 = normalizeTime(time2);
+  
+  if (!t1 || !t2) return true; // If either is missing, can't compare
+  
+  // Parse HH:MM
+  const [h1, m1] = t1.split(':').map(Number);
+  const [h2, m2] = t2.split(':').map(Number);
+  
+  const mins1 = h1 * 60 + m1;
+  const mins2 = h2 * 60 + m2;
+  
+  // Allow 5 minute tolerance (for timezone/display rounding)
+  return Math.abs(mins1 - mins2) <= 5;
 }
 
 export function detectFlightMismatch(
@@ -454,10 +516,25 @@ export function detectFlightMismatch(
     airline?: string;
     airlines?: string[];
     stops?: number;
-    outbound?: { stops?: number; stopAirports?: string[]; airlines?: string[] };
-    returnFlight?: { stops?: number; airlines?: string[]; stopAirports?: string[] };
+    outbound?: {
+      stops?: number;
+      stopAirports?: string[];
+      airlines?: string[];
+      departureTime?: string;
+      arrivalTime?: string;
+      duration?: string;
+    };
+    returnFlight?: {
+      stops?: number;
+      airlines?: string[];
+      stopAirports?: string[];
+      departureTime?: string;
+      arrivalTime?: string;
+      duration?: string;
+    };
   },
-  googleUrl: string
+  googleUrl: string,
+  googleDOMTimes?: GoogleFlightDOMTimes
 ): FlightMismatch[] | null {
   const googleFlight = parseGoogleFlightsUrl(googleUrl);
   
@@ -614,6 +691,68 @@ export function detectFlightMismatch(
         });
       }
     }
+  }
+  
+  // Check outbound departure time if DOM times are provided
+  if (googleDOMTimes?.outbound?.departureTime && portalFlight.outbound?.departureTime) {
+    if (!timesMatch(portalFlight.outbound.departureTime, googleDOMTimes.outbound.departureTime)) {
+      mismatches.push({
+        type: 'times',
+        message: 'Different outbound departure time',
+        portalValue: portalFlight.outbound.departureTime,
+        googleValue: googleDOMTimes.outbound.departureTime,
+      });
+    }
+  }
+  
+  // Check outbound arrival time if DOM times are provided
+  if (googleDOMTimes?.outbound?.arrivalTime && portalFlight.outbound?.arrivalTime) {
+    if (!timesMatch(portalFlight.outbound.arrivalTime, googleDOMTimes.outbound.arrivalTime)) {
+      mismatches.push({
+        type: 'times',
+        message: 'Different outbound arrival time',
+        portalValue: portalFlight.outbound.arrivalTime,
+        googleValue: googleDOMTimes.outbound.arrivalTime,
+      });
+    }
+  }
+  
+  // Check return departure time if DOM times are provided
+  if (googleDOMTimes?.returnFlight?.departureTime && portalFlight.returnFlight?.departureTime) {
+    if (!timesMatch(portalFlight.returnFlight.departureTime, googleDOMTimes.returnFlight.departureTime)) {
+      mismatches.push({
+        type: 'times',
+        message: 'Different return departure time',
+        portalValue: portalFlight.returnFlight.departureTime,
+        googleValue: googleDOMTimes.returnFlight.departureTime,
+      });
+    }
+  }
+  
+  // Check return arrival time if DOM times are provided
+  if (googleDOMTimes?.returnFlight?.arrivalTime && portalFlight.returnFlight?.arrivalTime) {
+    if (!timesMatch(portalFlight.returnFlight.arrivalTime, googleDOMTimes.returnFlight.arrivalTime)) {
+      mismatches.push({
+        type: 'times',
+        message: 'Different return arrival time',
+        portalValue: portalFlight.returnFlight.arrivalTime,
+        googleValue: googleDOMTimes.returnFlight.arrivalTime,
+      });
+    }
+  }
+  
+  // Log time comparison details for debugging
+  if (googleDOMTimes) {
+    console.log('[Flight Matcher] Time comparison:', {
+      portalOutboundDep: portalFlight.outbound?.departureTime,
+      googleOutboundDep: googleDOMTimes.outbound?.departureTime,
+      portalOutboundArr: portalFlight.outbound?.arrivalTime,
+      googleOutboundArr: googleDOMTimes.outbound?.arrivalTime,
+      portalReturnDep: portalFlight.returnFlight?.departureTime,
+      googleReturnDep: googleDOMTimes.returnFlight?.departureTime,
+      portalReturnArr: portalFlight.returnFlight?.arrivalTime,
+      googleReturnArr: googleDOMTimes.returnFlight?.arrivalTime,
+    });
   }
   
   console.log('[Flight Matcher] Mismatches found:', mismatches.length);

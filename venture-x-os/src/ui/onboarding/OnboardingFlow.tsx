@@ -638,8 +638,20 @@ const MilesStep: React.FC<StepProps & {
             <input
               type="number"
               min="0"
-              value={milesBalance ?? ''}
-              onChange={(e) => onBalanceChange(parseInt(e.target.value) || 0)}
+              value={milesBalance === undefined ? '' : milesBalance}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => {
+                const val = e.target.value;
+                // Allow empty string for clearing, parse number otherwise
+                if (val === '') {
+                  onBalanceChange(undefined as unknown as number); // Allow clearing
+                } else {
+                  const parsed = parseInt(val, 10);
+                  if (!isNaN(parsed) && parsed >= 0) {
+                    onBalanceChange(parsed);
+                  }
+                }
+              }}
               placeholder="Enter miles balance"
               className={cn(
                 'w-full px-4 py-3 text-sm rounded-xl',

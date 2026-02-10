@@ -163,7 +163,7 @@ export const ContextStatusChip: React.FC<{
       initial={{ opacity: 0, y: -5 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'inline-flex items-center',
+        'inline-flex items-center max-w-full min-w-0',
         onClick && 'cursor-pointer hover:opacity-80'
       )}
       onClick={onClick}
@@ -173,8 +173,9 @@ export const ContextStatusChip: React.FC<{
         size={size}
         dot={config.dot}
         pulse={config.pulse}
+        className="max-w-full overflow-hidden"
       >
-        {config.text}
+        <span className="truncate">{config.text}</span>
       </GlassBadge>
     </motion.div>
   );

@@ -130,14 +130,17 @@
 
 /* ============================================
    EXTENSION WINDOW CONSTRAINTS
+   Chrome Extension Sidepanel: typically 300-420px wide
+   Prevents over-stretching on large monitors
    ============================================ */
 
 :root {
-  /* Responsive constraints for Chrome/Safari extension */
+  /* Responsive constraints for Chrome/Safari extension sidepanel */
   --extension-min-width: 320px;
   --extension-max-width: 420px;
+  --extension-optimal-width: 380px;
   --extension-min-height: 500px;
-  --extension-max-height: 800px;
+  --extension-max-height: 100vh;
   
   /* Responsive spacing */
   --spacing-responsive-xs: clamp(4px, 1vw, 8px);
@@ -176,23 +179,38 @@ body {
   color: var(--text-primary);
   line-height: 1.5;
   min-height: 100vh;
-  /* Extension window constraints */
+  height: 100%;
+  /* Extension window constraints - prevent over-stretching */
   min-width: var(--extension-min-width);
   max-width: var(--extension-max-width);
   width: 100%;
+  /* Center the body if in a wider container */
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* Root container constraints for extension */
+/* Root container constraints for extension - STRICT max-width */
 #root {
   min-width: var(--extension-min-width);
   max-width: var(--extension-max-width);
-  min-height: var(--extension-min-height);
-  max-height: var(--extension-max-height);
   width: 100%;
+  min-height: var(--extension-min-height);
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile/extension */
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
+  /* Center the app if sidepanel is stretched wider */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Force HTML to also respect max-width to prevent any overflow */
+html {
+  max-width: var(--extension-max-width);
+  margin: 0 auto;
+  background: var(--bg-base);
 }
 
 /* ============================================
@@ -243,16 +261,18 @@ p {
 }
 
 /* ============================================
-   SCROLLBAR (Minimal)
+   SCROLLBAR (Custom Minimal Design)
    ============================================ */
 
+/* Minimal scrollbar - always visible, thin and subtle */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--surface-4) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  height: 6px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -260,12 +280,84 @@ p {
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: var(--surface-4);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: var(--surface-5);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/*
+ * Auto-hide scrollbar - shows ONLY when hovering the scrollbar track area
+ * NOT when hovering content. Uses opacity trick for fade effect.
+ */
+.scrollbar-auto-hide {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent; /* Firefox: start hidden */
+  transition: scrollbar-color 0.3s ease;
+}
+
+/* Firefox: show scrollbar only when scrolling/interacting */
+.scrollbar-auto-hide:active,
+.scrollbar-auto-hide:focus-within {
+  scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+}
+
+/* Webkit: Wide invisible scrollbar track */
+.scrollbar-auto-hide::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: transparent;
+}
+
+.scrollbar-auto-hide::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 5px;
+}
+
+/* Thumb starts completely invisible */
+.scrollbar-auto-hide::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  /* Smooth fade transition */
+  transition: background 0.25s ease;
+}
+
+/*
+ * KEY: Only show when hovering the scrollbar track itself
+ * ::-webkit-scrollbar-track:hover doesn't cascade to thumb,
+ * but ::-webkit-scrollbar-thumb:hover does work
+ */
+.scrollbar-auto-hide::-webkit-scrollbar-track:hover ~ ::-webkit-scrollbar-thumb,
+.scrollbar-auto-hide::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* When actively scrolling or dragging */
+.scrollbar-auto-hide::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Scrollbar-corner for horizontal + vertical scrollbars */
+.scrollbar-auto-hide::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Completely hidden scrollbar (still scrollable) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 /* ============================================

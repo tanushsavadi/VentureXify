@@ -1,13 +1,16 @@
 /**
- * Smart Settings Modal
- * 
- * Progressive disclosure settings that mirror onboarding fields.
+ * Smart Settings Modal — Premium Frosted Glass Design
+ *
+ * Glassmorphic settings panel matching the BottomNav floating pill aesthetic.
+ * Uses translucent surfaces, backdrop blur, and multi-layer shadows for
+ * an Apple-inspired frosted glass look on OLED black.
+ *
  * Includes:
  * - Quick Defaults (most users)
  * - Miles & Valuation
  * - Award Search (PointsYeah)
  * - Advanced (collapsed by default)
- * 
+ *
  * Changes take effect immediately and update verdict.
  */
 
@@ -26,419 +29,12 @@ import {
   getAssumptionLabels,
 } from '../../storage/userPrefs';
 import { POINTSYEAH_TIPS } from '../../engine/pointsyeah';
+import { cn } from '../../lib/utils';
 
 // ============================================
-// STYLES
+// SLIDER CSS (Firefox compatibility) — inject once
 // ============================================
 
-const styles = {
-  overlay: {
-    position: 'fixed' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    backdropFilter: 'blur(10px)',
-    zIndex: 100,
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  panel: {
-    width: '100%',
-    maxWidth: '420px',
-    maxHeight: '90vh',
-    backgroundColor: 'rgba(18,18,18,0.98)',
-    borderRadius: '20px 20px 0 0',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    boxShadow: '0 -10px 60px rgba(0,0,0,0.5)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderBottom: 'none',
-  },
-  header: {
-    padding: '20px',
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexShrink: 0,
-  },
-  headerTitle: {
-    fontSize: '18px',
-    fontWeight: 600,
-    color: 'white',
-    margin: 0,
-  },
-  headerSubtitle: {
-    fontSize: '12px',
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: '4px',
-  },
-  headerActions: {
-    display: 'flex',
-    gap: '8px',
-  },
-  headerButton: {
-    padding: '6px 12px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: '12px',
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  },
-  closeButton: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: '18px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
-    overflowY: 'auto' as const,
-    padding: '16px 20px',
-    position: 'relative' as const,
-  },
-  // P1 fix: scroll indicator gradient at bottom
-  scrollIndicator: {
-    position: 'absolute' as const,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '40px',
-    background: 'linear-gradient(to top, rgba(18,18,18,0.98), transparent)',
-    pointerEvents: 'none' as const,
-    zIndex: 5,
-  },
-  section: {
-    marginBottom: '24px',
-  },
-  sectionTitle: {
-    fontSize: '11px',
-    fontWeight: 600,
-    color: 'rgba(255,255,255,0.4)',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
-    marginBottom: '12px',
-  },
-  settingRow: {
-    padding: '12px 14px',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.06)',
-    marginBottom: '8px',
-  },
-  settingLabel: {
-    fontSize: '14px',
-    fontWeight: 500,
-    color: 'white',
-    marginBottom: '4px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  settingDesc: {
-    fontSize: '12px',
-    color: 'rgba(255,255,255,0.45)',
-    lineHeight: 1.4,
-  },
-  badge: {
-    padding: '2px 6px',
-    borderRadius: '4px',
-    fontSize: '9px',
-    fontWeight: 600,
-    textTransform: 'uppercase' as const,
-  },
-  badgeDefault: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.4)',
-  },
-  badgeCustom: {
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    color: '#a5b4fc',
-  },
-  radioGroup: {
-    display: 'flex',
-    flexWrap: 'wrap' as const,
-    gap: '8px',
-  },
-  radioButton: {
-    padding: '10px 14px',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: '13px',
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-    flex: 1,
-    textAlign: 'center' as const,
-    minWidth: '80px',
-  },
-  radioButtonActive: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderColor: 'rgba(255,255,255,0.25)',
-    color: 'white',
-  },
-  slider: {
-    width: '100%',
-    height: '6px',
-    borderRadius: '3px',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    appearance: 'none' as const,
-    cursor: 'pointer',
-    marginTop: '12px',
-    marginBottom: '8px',
-  },
-  sliderLabels: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '10px',
-    color: 'rgba(255,255,255,0.35)',
-  },
-  sliderValue: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: 'white',
-    textAlign: 'center' as const,
-    marginBottom: '4px',
-  },
-  chipGrid: {
-    display: 'flex',
-    flexWrap: 'wrap' as const,
-    gap: '6px',
-    marginTop: '10px',
-  },
-  chip: {
-    padding: '6px 12px',
-    borderRadius: '16px',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  },
-  chipActive: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderColor: 'rgba(255,255,255,0.2)',
-    color: 'white',
-  },
-  toggle: {
-    width: '44px',
-    height: '24px',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(239, 68, 68, 0.4)', // Red when OFF
-    position: 'relative' as const,
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    flexShrink: 0,
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-  },
-  toggleActive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.5)', // Green when ON
-    border: '1px solid rgba(34, 197, 94, 0.4)',
-  },
-  toggleKnob: {
-    width: '20px',
-    height: '20px',
-    borderRadius: '50%',
-    backgroundColor: 'white',
-    position: 'absolute' as const,
-    top: '2px',
-    left: '2px',
-    transition: 'transform 0.2s',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-  },
-  toggleRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-  },
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    color: 'white',
-    fontSize: '14px',
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-    marginTop: '8px',
-  },
-  advancedToggle: {
-    padding: '12px 14px',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    border: '1px solid rgba(255,255,255,0.06)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    cursor: 'pointer',
-    marginBottom: '12px',
-  },
-  advancedLabel: {
-    fontSize: '13px',
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: 500,
-  },
-  tipsModal: {
-    position: 'fixed' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    zIndex: 110,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px',
-  },
-  tipsContent: {
-    maxWidth: '340px',
-    backgroundColor: 'rgba(25,25,25,0.98)',
-    borderRadius: '16px',
-    padding: '20px',
-    border: '1px solid rgba(255,255,255,0.1)',
-  },
-  tipsList: {
-    margin: 0,
-    padding: 0,
-    listStyle: 'none',
-  },
-  tipItem: {
-    display: 'flex',
-    gap: '10px',
-    marginBottom: '12px',
-    fontSize: '13px',
-    color: 'rgba(255,255,255,0.8)',
-    lineHeight: 1.5,
-  },
-  tipNumber: {
-    width: '20px',
-    height: '20px',
-    borderRadius: '50%',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: '11px',
-    fontWeight: 600,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  footer: {
-    padding: '16px 20px',
-    borderTop: '1px solid rgba(255,255,255,0.08)',
-    display: 'flex',
-    gap: '10px',
-    flexShrink: 0,
-  },
-  footerButton: {
-    flex: 1,
-    padding: '12px',
-    borderRadius: '10px',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-    border: 'none',
-  },
-  primaryButton: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    color: 'white',
-  },
-  dangerButton: {
-    backgroundColor: 'rgba(255,100,100,0.1)',
-    color: 'rgba(255,150,150,0.9)',
-  },
-  // Custom confirm modal styles
-  confirmOverlay: {
-    position: 'fixed' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    zIndex: 120,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px',
-  },
-  confirmModal: {
-    maxWidth: '300px',
-    backgroundColor: 'rgba(25,25,25,0.98)',
-    borderRadius: '16px',
-    padding: '20px',
-    border: '1px solid rgba(255,255,255,0.1)',
-  },
-  confirmTitle: {
-    fontSize: '16px',
-    fontWeight: 600,
-    color: 'white',
-    marginBottom: '8px',
-  },
-  confirmDesc: {
-    fontSize: '13px',
-    color: 'rgba(255,255,255,0.6)',
-    lineHeight: 1.5,
-    marginBottom: '20px',
-  },
-  confirmButtons: {
-    display: 'flex',
-    gap: '10px',
-  },
-  confirmCancel: {
-    flex: 1,
-    padding: '10px',
-    borderRadius: '8px',
-    border: '1px solid rgba(255,255,255,0.1)',
-    backgroundColor: 'transparent',
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: '13px',
-    fontWeight: 500,
-    cursor: 'pointer',
-  },
-  confirmDanger: {
-    flex: 1,
-    padding: '10px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    color: '#fca5a5',
-    fontSize: '13px',
-    fontWeight: 500,
-    cursor: 'pointer',
-  },
-  // Firefox-compatible slider styles (applied via className)
-  sliderFirefox: `
-    appearance: none;
-    background: rgba(255,255,255,0.15);
-    border-radius: 3px;
-    width: 100%;
-    height: 6px;
-    cursor: pointer;
-  `,
-};
-
-// Slider CSS for Firefox compatibility - inject into head
 const sliderStyles = `
   .vx-slider {
     -webkit-appearance: none;
@@ -446,7 +42,7 @@ const sliderStyles = `
     width: 100%;
     height: 6px;
     border-radius: 3px;
-    background: rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.12);
     cursor: pointer;
     margin-top: 12px;
     margin-bottom: 8px;
@@ -454,23 +50,25 @@ const sliderStyles = `
   .vx-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background: #6366f1;
+    background: linear-gradient(135deg, #818cf8, #6366f1);
     cursor: pointer;
-    border: none;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 2px 8px rgba(99,102,241,0.4);
   }
   .vx-slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background: #6366f1;
+    background: linear-gradient(135deg, #818cf8, #6366f1);
     cursor: pointer;
-    border: none;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 2px 8px rgba(99,102,241,0.4);
   }
   .vx-slider::-moz-range-track {
-    background: rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.12);
     border-radius: 3px;
     height: 6px;
   }
@@ -478,14 +76,13 @@ const sliderStyles = `
     outline: none;
   }
   .vx-slider:focus::-webkit-slider-thumb {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3), 0 2px 8px rgba(99,102,241,0.4);
   }
   .vx-slider:focus::-moz-range-thumb {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3), 0 2px 8px rgba(99,102,241,0.4);
   }
 `;
 
-// Inject slider styles once
 if (typeof document !== 'undefined') {
   const existingStyle = document.getElementById('vx-slider-styles');
   if (!existingStyle) {
@@ -500,7 +97,7 @@ if (typeof document !== 'undefined') {
 // SUB-COMPONENTS
 // ============================================
 
-// P1 fix: Accessible toggle with role="switch" and aria-checked
+/** Accessible toggle with glassmorphic styling */
 const Toggle: React.FC<{
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -511,12 +108,14 @@ const Toggle: React.FC<{
     role="switch"
     aria-checked={checked}
     aria-label={label}
-    style={{
-      ...styles.toggle,
-      ...(checked ? styles.toggleActive : {}),
-      border: 'none',
-      outline: 'none',
-    }}
+    className={cn(
+      'relative w-11 h-6 rounded-full flex-shrink-0 cursor-pointer',
+      'transition-all duration-200 border',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50',
+      checked
+        ? 'bg-emerald-500/30 border-emerald-500/25 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+        : 'bg-white/[0.06] border-white/[0.08]'
+    )}
     onClick={() => onChange(!checked)}
     onKeyDown={(e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -525,48 +124,90 @@ const Toggle: React.FC<{
       }
     }}
   >
-    <div style={{ ...styles.toggleKnob, transform: checked ? 'translateX(20px)' : 'translateX(0)' }} />
+    <div
+      className={cn(
+        'w-5 h-5 rounded-full bg-white absolute top-[2px] transition-transform duration-200',
+        'shadow-[0_2px_6px_rgba(0,0,0,0.3)]',
+        checked ? 'translate-x-5' : 'translate-x-[2px]'
+      )}
+    />
   </button>
 );
 
-// P1 fix: Changed "Assumed" to "Default" for clarity
+/** Badge showing Default / Custom status */
 const Badge: React.FC<{ isDefault: boolean }> = ({ isDefault }) => (
-  <span style={{ ...styles.badge, ...(isDefault ? styles.badgeDefault : styles.badgeCustom) }}>
+  <span
+    className={cn(
+      'px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide',
+      isDefault
+        ? 'bg-white/[0.06] text-white/40'
+        : 'bg-indigo-500/20 text-indigo-300'
+    )}
+  >
     {isDefault ? 'Default' : 'Custom'}
   </span>
 );
 
-// Custom confirmation modal (P0 fix: replace browser confirm())
+/** Glassmorphic confirmation modal (P0 fix: replaces browser confirm()) */
 const ConfirmResetModal: React.FC<{
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }> = ({ isOpen, onConfirm, onCancel }) => {
   if (!isOpen) return null;
-  
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      style={styles.confirmOverlay}
+      className="fixed inset-0 z-[120] flex items-center justify-center p-5"
+      style={{ backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)' }}
       onClick={onCancel}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        style={styles.confirmModal}
+        className={cn(
+          'max-w-[300px] w-full p-5 rounded-2xl relative',
+          'backdrop-blur-2xl backdrop-saturate-[1.8]',
+          'border border-white/[0.12]',
+          'shadow-[0_8px_32px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.10)]'
+        )}
+        style={{ background: 'linear-gradient(to bottom, rgba(30, 30, 45, 0.60), rgba(15, 15, 25, 0.55))' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={styles.confirmTitle}>Reset all settings?</h3>
-        <p style={styles.confirmDesc}>
-          This will restore all settings to their default values. Your credit remaining will be set to $300, and all customizations will be cleared.
+        {/* Frosted shine overlay */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent pointer-events-none" />
+
+        <h3 className="relative text-base font-semibold text-white mb-2">
+          Reset all settings?
+        </h3>
+        <p className="relative text-[13px] text-white/60 leading-relaxed mb-5">
+          This will restore all settings to their default values. Your credit remaining will
+          be set to $300, and all customizations will be cleared.
         </p>
-        <div style={styles.confirmButtons}>
-          <button onClick={onCancel} style={styles.confirmCancel}>
+        <div className="relative flex gap-2.5">
+          <button
+            onClick={onCancel}
+            className={cn(
+              'flex-1 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer',
+              'bg-white/[0.04] border border-white/[0.08] text-white/70',
+              'hover:bg-white/[0.08] hover:text-white/90',
+              'transition-all duration-150'
+            )}
+          >
             Cancel
           </button>
-          <button onClick={onConfirm} style={styles.confirmDanger}>
+          <button
+            onClick={onConfirm}
+            className={cn(
+              'flex-1 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer border-none',
+              'bg-red-500/15 text-red-300',
+              'hover:bg-red-500/25 hover:text-red-200',
+              'transition-all duration-150'
+            )}
+          >
             Reset
           </button>
         </div>
@@ -575,34 +216,61 @@ const ConfirmResetModal: React.FC<{
   );
 };
 
+/** Glassmorphic PointsYeah tips modal */
 const PointsYeahTipsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    style={styles.tipsModal}
+    className="fixed inset-0 z-[110] flex items-center justify-center p-5"
+    style={{ backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)' }}
     onClick={onClose}
   >
     <motion.div
       initial={{ scale: 0.95, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      style={styles.tipsContent}
+      className={cn(
+        'max-w-[340px] w-full p-5 rounded-2xl relative',
+        'backdrop-blur-2xl backdrop-saturate-[1.8]',
+        'border border-white/[0.12]',
+        'shadow-[0_8px_32px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.10)]'
+      )}
+      style={{ background: 'linear-gradient(to bottom, rgba(30, 30, 45, 0.60), rgba(15, 15, 25, 0.55))' }}
       onClick={(e) => e.stopPropagation()}
     >
-      <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'white', marginBottom: '16px' }}>
+      {/* Frosted shine overlay */}
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent pointer-events-none" />
+
+      <h3 className="relative text-base font-semibold text-white mb-4">
         How to Use PointsYeah
       </h3>
-      <ul style={styles.tipsList}>
+      <ul className="relative list-none m-0 p-0">
         {POINTSYEAH_TIPS.map((tip) => (
-          <li key={tip.number} style={styles.tipItem}>
-            <span style={styles.tipNumber}>{tip.number}</span>
-            <span style={{ fontWeight: tip.important ? 500 : 400 }}>{tip.text}</span>
+          <li key={tip.number} className="flex gap-2.5 mb-3 text-[13px] text-white/80 leading-relaxed">
+            <span
+              className={cn(
+                'w-5 h-5 rounded-full flex-shrink-0',
+                'bg-white/[0.08] text-white/60',
+                'text-[11px] font-semibold',
+                'flex items-center justify-center'
+              )}
+            >
+              {tip.number}
+            </span>
+            <span className={tip.important ? 'font-medium' : 'font-normal'}>{tip.text}</span>
           </li>
         ))}
       </ul>
       <button
         onClick={onClose}
-        style={{ ...styles.footerButton, ...styles.primaryButton, width: '100%', marginTop: '16px' }}
+        className={cn(
+          'relative w-full mt-4 py-3 rounded-xl text-sm font-semibold cursor-pointer',
+          'bg-gradient-to-b from-white/[0.10] to-white/[0.04]',
+          'backdrop-blur-lg border border-white/[0.08]',
+          'text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
+          'hover:from-white/[0.14] hover:to-white/[0.06]',
+          'transition-all duration-150'
+        )}
       >
         Got it
       </button>
@@ -631,14 +299,14 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
   const [showTips, setShowTips] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  
+
   // Load prefs on open
   useEffect(() => {
     if (isOpen) {
       loadPrefs();
     }
   }, [isOpen]);
-  
+
   const loadPrefs = async () => {
     setIsLoading(true);
     try {
@@ -651,37 +319,40 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
       setIsLoading(false);
     }
   };
-  
+
   // Update a pref (instant effect)
-  const updatePref = useCallback(async <K extends keyof UserPrefs>(key: K, value: UserPrefs[K]) => {
-    const updated = { ...prefs, [key]: value };
-    
-    // Auto-derive creditAlreadyUsed
-    if (key === 'creditRemaining') {
-      updated.creditAlreadyUsed = (value as number) < 300;
-    }
-    
-    // Auto-derive wantsLowHassle
-    if (key === 'defaultMode') {
-      updated.wantsLowHassle = value === 'easiest';
-    }
-    
-    setLocalPrefs(updated);
-    setHasChanges(true);
-    
-    // Save immediately for instant effect
-    try {
-      await setUserPrefs(updated);
-    } catch (error) {
-      console.error('[Settings] Failed to save pref:', error);
-    }
-  }, [prefs]);
-  
+  const updatePref = useCallback(
+    async <K extends keyof UserPrefs>(key: K, value: UserPrefs[K]) => {
+      const updated = { ...prefs, [key]: value };
+
+      // Auto-derive creditAlreadyUsed
+      if (key === 'creditRemaining') {
+        updated.creditAlreadyUsed = (value as number) < 300;
+      }
+
+      // Auto-derive wantsLowHassle
+      if (key === 'defaultMode') {
+        updated.wantsLowHassle = value === 'easiest';
+      }
+
+      setLocalPrefs(updated);
+      setHasChanges(true);
+
+      // Save immediately for instant effect
+      try {
+        await setUserPrefs(updated);
+      } catch (error) {
+        console.error('[Settings] Failed to save pref:', error);
+      }
+    },
+    [prefs]
+  );
+
   // Reset to defaults (P0 fix: use custom modal instead of browser confirm())
   const handleResetClick = () => {
     setShowResetConfirm(true);
   };
-  
+
   const handleResetConfirm = async () => {
     setShowResetConfirm(false);
     try {
@@ -691,561 +362,795 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
       console.error('[Settings] Failed to reset:', error);
     }
   };
-  
+
   const handleResetCancel = () => {
     setShowResetConfirm(false);
   };
-  
+
   // Get assumption labels for UI
   const assumptions = getAssumptionLabels(prefs);
-  
+
   if (!isOpen) return null;
-  
+
   return (
     <AnimatePresence>
+      {/* ── Overlay ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        style={styles.overlay}
+        className="fixed inset-0 z-[100] flex items-end justify-center"
+        style={{ backgroundColor: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(6px)' }}
         onClick={onClose}
       >
+        {/* ── Main Glass Panel ── */}
         <motion.div
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          style={styles.panel}
+          className={cn(
+            'w-full max-w-[420px] max-h-[90vh] overflow-hidden',
+            'flex flex-col relative',
+            // Frosted glass panel — translucent with visible frost
+            'rounded-t-[20px]',
+            'backdrop-blur-2xl backdrop-saturate-[1.8]',
+            // Glass border with stronger visibility
+            'border border-white/[0.12] border-b-0',
+            // Multi-layer shadow for depth (BottomNav style)
+            'shadow-[0_-8px_40px_rgba(0,0,0,0.4),0_-2px_10px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.10)]'
+          )}
           onClick={(e) => e.stopPropagation()}
+          style={{
+            // Translucent tinted glass — NOT opaque; uses a subtle dark tint so
+            // backdrop-blur has visible material to frost through
+            background: 'linear-gradient(to bottom, rgba(30, 30, 45, 0.55), rgba(15, 15, 25, 0.50))',
+          }}
         >
-          {/* Header */}
-          <header style={styles.header}>
+          {/* Frosted shine overlay — brighter for visible glass refraction */}
+          <div className="absolute inset-0 rounded-t-[20px] bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent pointer-events-none z-0" />
+
+          {/* Noise texture overlay for premium feel */}
+          <div
+            className="absolute inset-0 rounded-t-[20px] pointer-events-none z-0 opacity-[0.012] mix-blend-overlay"
+            style={{ backgroundImage: 'var(--noise-texture)' }}
+          />
+
+          {/* ── Header ── */}
+          <header className="relative z-10 px-5 py-4 border-b border-white/[0.06] flex items-center justify-between flex-shrink-0">
             <div>
-              <h2 style={styles.headerTitle}>⚙️ Settings</h2>
-              <p style={styles.headerSubtitle}>These affect your verdicts. Stored locally.</p>
+              <h2 className="text-lg font-semibold text-white m-0">⚙️ Settings</h2>
+              <p className="text-[12px] text-white/45 mt-1">
+                These affect your verdicts. Stored locally.
+              </p>
             </div>
-            <div style={styles.headerActions}>
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleResetClick}
-                style={styles.headerButton}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer',
+                  'bg-white/[0.06] text-white/55 border-none',
+                  'hover:bg-white/[0.10] hover:text-white/80',
+                  'transition-all duration-150'
+                )}
               >
                 Reset
               </button>
               {onRerunOnboarding && (
                 <button
                   onClick={onRerunOnboarding}
-                  style={styles.headerButton}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer',
+                    'bg-white/[0.06] text-white/55 border-none',
+                    'hover:bg-white/[0.10] hover:text-white/80',
+                    'transition-all duration-150'
+                  )}
                 >
                   Re-run Setup
                 </button>
               )}
               <button
                 onClick={onClose}
-                style={styles.closeButton}
+                className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center',
+                  'bg-white/[0.06] text-white/55 border-none text-lg cursor-pointer',
+                  'hover:bg-white/[0.10] hover:text-white/80',
+                  'transition-all duration-150'
+                )}
               >
                 ×
               </button>
             </div>
           </header>
-          
-          {/* Content - P1 fix: wrapped in container for scroll indicator */}
-          <div style={{ position: 'relative' as const, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' as const }}>
-            <div style={styles.content}>
-            {isLoading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
-                Loading...
-              </div>
-            ) : (
-              <>
-                {/* Section 1: Quick Defaults */}
-                <div style={styles.section}>
-                  <h3 style={styles.sectionTitle}>Quick Defaults</h3>
-                  
-                  {/* Default Mode */}
-                  <div style={styles.settingRow}>
-                    <div style={styles.settingLabel}>
-                      Default Decision Mode
-                      <Badge isDefault={prefs.defaultMode === 'cheapest'} />
-                    </div>
-                    <div style={styles.settingDesc}>
-                      Sets which verdict tab opens first. <strong>Cheapest</strong> prioritizes lowest cash out-of-pocket today. <strong>Max Value</strong> factors in miles earned and potential award redemptions. <strong>Easiest</strong> recommends the simplest booking path with fewest steps.
-                    </div>
-                    <div style={{ ...styles.radioGroup, marginTop: '10px' }}>
-                      {[
-                        { value: 'cheapest' as DefaultMode, label: '💸 Cheapest', desc: 'Lowest cash today' },
-                        { value: 'max_value' as DefaultMode, label: '✨ Max Value', desc: 'Best overall value' },
-                        { value: 'easiest' as DefaultMode, label: '😌 Easiest', desc: 'Simplest booking' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => updatePref('defaultMode', opt.value)}
-                          style={{
-                            ...styles.radioButton,
-                            ...(prefs.defaultMode === opt.value ? styles.radioButtonActive : {}),
-                          }}
-                          title={opt.desc}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Default Open Tab */}
-                  <div style={styles.settingRow}>
-                    <div style={styles.settingLabel}>
-                      Default Open Tab
-                      <Badge isDefault={prefs.defaultOpenTab === 'auto'} />
-                    </div>
-                    <div style={styles.settingDesc}>
-                      Which tab opens first when you launch VentureXify. <strong>Auto</strong> selects Chat when no booking is detected, Compare when on a supported page. <strong>Chat</strong> always opens the AI assistant. <strong>Compare</strong> always opens the price comparison flow.
-                    </div>
-                    <div style={{ ...styles.radioGroup, marginTop: '10px' }}>
-                      {[
-                        { value: 'auto' as DefaultOpenTab, label: '🔄 Auto' },
-                        { value: 'chat' as DefaultOpenTab, label: '💬 Chat' },
-                        { value: 'compare' as DefaultOpenTab, label: '📊 Compare' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() => updatePref('defaultOpenTab', opt.value)}
-                          style={{
-                            ...styles.radioButton,
-                            ...(prefs.defaultOpenTab === opt.value ? styles.radioButtonActive : {}),
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Credit Remaining */}
-                  <div style={styles.settingRow}>
-                    <div style={styles.settingLabel}>
-                      Travel Credit Remaining
-                      <Badge isDefault={prefs.creditRemaining === 300} />
-                    </div>
-                    <div style={styles.settingDesc}>
-                      Your Venture X card includes a <strong>$300 annual travel credit</strong> that only applies to Capital One Travel portal bookings. This credit resets each card anniversary year. We use this to calculate your actual out-of-pocket cost when booking through the portal.
-                    </div>
-                    <div style={styles.sliderValue}>${prefs.creditRemaining}</div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="300"
-                      step="10"
-                      value={prefs.creditRemaining}
-                      onChange={(e) => updatePref('creditRemaining', parseInt(e.target.value))}
-                      className="vx-slider"
-                    />
-                    <div style={styles.sliderLabels}>
-                      <span>$0 (fully used)</span>
-                      <span>$300 (fresh)</span>
-                    </div>
-                    <div style={styles.chipGrid}>
-                      {[300, 200, 100, 0].map((amt) => (
-                        <button
-                          key={amt}
-                          onClick={() => updatePref('creditRemaining', amt)}
-                          style={{
-                            ...styles.chip,
-                            ...(prefs.creditRemaining === amt ? styles.chipActive : {}),
-                          }}
-                        >
-                          ${amt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Section 2: Miles & Valuation */}
-                <div style={styles.section}>
-                  <h3 style={styles.sectionTitle}>Miles & Valuation</h3>
-                  
-                  {/* Miles Balance */}
-                  <div style={styles.settingRow}>
-                    <div style={styles.toggleRow}>
-                      <div>
-                        <div style={styles.settingLabel}>Factor in my miles balance</div>
-                        <div style={styles.settingDesc}>
-                                                  Track your Capital One miles balance to see how much you can cover with Travel Eraser (no minimum required - redeem any amount at 1¢/mile). We'll also show when miles can help reduce your trip cost.
-                                                </div>
+
+          {/* ── Scrollable Content ── */}
+          <div className="relative z-10 flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin">
+              {isLoading ? (
+                <div className="py-10 text-center text-white/50 text-sm">Loading...</div>
+              ) : (
+                <>
+                  {/* ━━━ Section 1: Quick Defaults ━━━ */}
+                  <div className="mb-6">
+                    <h3 className="text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-3">
+                      Quick Defaults
+                    </h3>
+
+                    {/* Default Mode */}
+                    <div className={cn(
+                      'p-3.5 rounded-xl mb-2',
+                      'bg-white/[0.03] border border-white/[0.06]',
+                      'backdrop-blur-sm'
+                    )}>
+                      <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
+                        Default Decision Mode
+                        <Badge isDefault={prefs.defaultMode === 'cheapest'} />
                       </div>
-                      <Toggle
-                        checked={prefs.milesBalance !== undefined}
-                        onChange={(on) => updatePref('milesBalance', on ? 0 : undefined)}
-                        label="Factor in my miles balance"
+                      <p className="text-[12px] text-white/45 leading-relaxed">
+                        Sets which verdict tab opens first.{' '}
+                        <strong className="text-white/60">Cheapest</strong> prioritizes lowest cash
+                        out-of-pocket today.{' '}
+                        <strong className="text-white/60">Max Value</strong> factors in miles earned
+                        and potential award redemptions.{' '}
+                        <strong className="text-white/60">Easiest</strong> recommends the simplest
+                        booking path with fewest steps.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-2.5">
+                        {(
+                          [
+                            { value: 'cheapest' as DefaultMode, label: '💸 Cheapest', desc: 'Lowest cash today' },
+                            { value: 'max_value' as DefaultMode, label: '✨ Max Value', desc: 'Best overall value' },
+                            { value: 'easiest' as DefaultMode, label: '😌 Easiest', desc: 'Simplest booking' },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => updatePref('defaultMode', opt.value)}
+                            title={opt.desc}
+                            className={cn(
+                              'flex-1 min-w-[80px] py-2.5 px-3.5 rounded-xl',
+                              'text-[13px] font-medium text-center cursor-pointer',
+                              'border transition-all duration-150',
+                              prefs.defaultMode === opt.value
+                                ? cn(
+                                    'bg-gradient-to-b from-white/[0.12] to-white/[0.05]',
+                                    'border-white/[0.15] text-white',
+                                    'shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                                  )
+                                : cn(
+                                    'bg-white/[0.03] border-white/[0.06] text-white/60',
+                                    'hover:bg-white/[0.06] hover:text-white/80'
+                                  )
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Default Open Tab */}
+                    <div className={cn(
+                      'p-3.5 rounded-xl mb-2',
+                      'bg-white/[0.03] border border-white/[0.06]',
+                      'backdrop-blur-sm'
+                    )}>
+                      <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
+                        Default Open Tab
+                        <Badge isDefault={prefs.defaultOpenTab === 'auto'} />
+                      </div>
+                      <p className="text-[12px] text-white/45 leading-relaxed">
+                        Which tab opens first when you launch VentureXify.{' '}
+                        <strong className="text-white/60">Auto</strong> selects Chat when no booking
+                        is detected, Compare when on a supported page.{' '}
+                        <strong className="text-white/60">Chat</strong> always opens the AI
+                        assistant.{' '}
+                        <strong className="text-white/60">Compare</strong> always opens the price
+                        comparison flow.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-2.5">
+                        {(
+                          [
+                            { value: 'auto' as DefaultOpenTab, label: '🔄 Auto' },
+                            { value: 'chat' as DefaultOpenTab, label: '💬 Chat' },
+                            { value: 'compare' as DefaultOpenTab, label: '📊 Compare' },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => updatePref('defaultOpenTab', opt.value)}
+                            className={cn(
+                              'flex-1 min-w-[80px] py-2.5 px-3.5 rounded-xl',
+                              'text-[13px] font-medium text-center cursor-pointer',
+                              'border transition-all duration-150',
+                              prefs.defaultOpenTab === opt.value
+                                ? cn(
+                                    'bg-gradient-to-b from-white/[0.12] to-white/[0.05]',
+                                    'border-white/[0.15] text-white',
+                                    'shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                                  )
+                                : cn(
+                                    'bg-white/[0.03] border-white/[0.06] text-white/60',
+                                    'hover:bg-white/[0.06] hover:text-white/80'
+                                  )
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Credit Remaining */}
+                    <div className={cn(
+                      'p-3.5 rounded-xl mb-2',
+                      'bg-white/[0.03] border border-white/[0.06]',
+                      'backdrop-blur-sm'
+                    )}>
+                      <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
+                        Travel Credit Remaining
+                        <Badge isDefault={prefs.creditRemaining === 300} />
+                      </div>
+                      <p className="text-[12px] text-white/45 leading-relaxed">
+                        Your Venture X card includes a{' '}
+                        <strong className="text-white/60">$300 annual travel credit</strong> that
+                        only applies to Capital One Travel portal bookings. This credit resets each
+                        card anniversary year. We use this to calculate your actual out-of-pocket
+                        cost when booking through the portal.
+                      </p>
+                      <div className="text-2xl font-bold text-white text-center mb-1 mt-2">
+                        ${prefs.creditRemaining}
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="300"
+                        step="10"
+                        value={prefs.creditRemaining}
+                        onChange={(e) => updatePref('creditRemaining', parseInt(e.target.value))}
+                        className="vx-slider"
                       />
-                    </div>
-                    {prefs.milesBalance !== undefined && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                      >
-                        <input
-                          type="number"
-                          min="0"
-                          value={prefs.milesBalance ?? ''}
-                          onChange={(e) => updatePref('milesBalance', parseInt(e.target.value) || 0)}
-                          placeholder="Enter your current miles balance"
-                          style={styles.input}
-                        />
-                        <div style={{ ...styles.settingDesc, marginTop: '6px', fontSize: '11px' }}>
-                          💡 Travel Eraser has no minimum — redeem any amount from $0.01 up at 1¢/mile
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                  
-                  {/* Mile Valuation - CPP Expanded */}
-                  <div style={styles.settingRow}>
-                    <div style={styles.toggleRow}>
-                      <div>
-                        <div style={styles.settingLabel}>
-                          Use custom mile valuation
-                          <Badge isDefault={!prefs.customMileValuation} />
-                        </div>
-                        <div style={styles.settingDesc}>
-                          <strong>Cents per mile</strong> is how we value your miles when comparing options. For example, 1.5¢ per mile means 10,000 miles = $150 in value.
-                        </div>
+                      <div className="flex justify-between text-[10px] text-white/35">
+                        <span>$0 (fully used)</span>
+                        <span>$300 (fresh)</span>
                       </div>
-                      <Toggle
-                        checked={prefs.customMileValuation ?? false}
-                        label="Use custom mile valuation"
-                        onChange={async (on) => {
-                          // When turning off, reset to conservative value in same update
-                          // P0 fix: use DEFAULT_MILE_VALUATION_CPP instead of hardcoded value
-                          if (!on) {
-                            const updated = { ...prefs, customMileValuation: false, mileValuationCpp: DEFAULT_MILE_VALUATION_CPP };
-                            setLocalPrefs(updated);
-                            setHasChanges(true);
-                            await setUserPrefs(updated);
-                          } else {
-                            updatePref('customMileValuation', true);
-                          }
-                        }}
-                      />
-                    </div>
-                    
-                    {/* Valuation context box */}
-                    <div style={{
-                      marginTop: '10px',
-                      padding: '10px 12px',
-                      backgroundColor: 'rgba(255,255,255,0.03)',
-                      borderRadius: '8px',
-                      fontSize: '11px',
-                      lineHeight: 1.6,
-                      color: 'rgba(255,255,255,0.55)',
-                    }}>
-                      <div style={{ marginBottom: '6px' }}>
-                        <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Reference values:</strong>
+                      <div className="flex flex-wrap gap-1.5 mt-2.5">
+                        {[300, 200, 100, 0].map((amt) => (
+                          <button
+                            key={amt}
+                            onClick={() => updatePref('creditRemaining', amt)}
+                            className={cn(
+                              'px-3 py-1.5 rounded-full text-[12px] cursor-pointer',
+                              'border transition-all duration-150',
+                              prefs.creditRemaining === amt
+                                ? 'bg-white/[0.12] border-white/[0.15] text-white'
+                                : 'bg-white/[0.03] border-white/[0.06] text-white/55 hover:bg-white/[0.06]'
+                            )}
+                          >
+                            ${amt}
+                          </button>
+                        ))}
                       </div>
-                      <div>• <strong>1.0¢</strong> — Travel Eraser floor (guaranteed minimum)</div>
-                      <div>• <strong>1.5¢</strong> — Conservative estimate for comparisons</div>
-                      <div>• <strong>1.8–2.5¢</strong> — Transfer partner sweet spots (business class, etc.)</div>
-                      <div>• <strong>3.0¢+</strong> — Rare award chart wins</div>
-                    </div>
-                    
-                    {!prefs.customMileValuation && (
-                      <div style={{ ...styles.settingDesc, marginTop: '8px', fontStyle: 'italic' }}>
-                        Currently using: <strong>1.0¢ per mile</strong> (conservative default)
-                      </div>
-                    )}
-                    
-                    {prefs.customMileValuation && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                      >
-                        <div style={{ ...styles.sliderValue, fontSize: '18px', marginTop: '12px' }}>
-                          {(prefs.mileValuationCpp * 100).toFixed(1)}¢ per mile
-                        </div>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="3.0"
-                          step="0.1"
-                          value={prefs.mileValuationCpp * 100}
-                          onChange={(e) => updatePref('mileValuationCpp', parseFloat(e.target.value) / 100)}
-                          className="vx-slider"
-                        />
-                        <div style={styles.sliderLabels}>
-                          <span>0.5¢ (pessimistic)</span>
-                          <span>3.0¢ (optimistic)</span>
-                        </div>
-                        <div style={{ ...styles.settingDesc, marginTop: '8px' }}>
-                          At {(prefs.mileValuationCpp * 100).toFixed(1)}¢, your 10,000 miles = <strong>${(prefs.mileValuationCpp * 10000).toFixed(0)}</strong> in value
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Section 3: Award Search */}
-                <div style={styles.section}>
-                  <h3 style={styles.sectionTitle}>Award Search (PointsYeah)</h3>
-                  
-                  {/* What is PointsYeah - info box */}
-                  <div style={{
-                    padding: '10px 12px',
-                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    lineHeight: 1.5,
-                    color: 'rgba(255,255,255,0.6)',
-                    marginBottom: '12px',
-                    border: '1px solid rgba(99, 102, 241, 0.15)',
-                  }}>
-                    <strong style={{ color: 'rgba(255,255,255,0.8)' }}>What is PointsYeah?</strong>
-                    <div style={{ marginTop: '4px' }}>
-                      PointsYeah is a free tool that searches award availability across airline programs. Capital One miles can be transferred to partners like Air France, Turkish, and Avianca to book flights with miles instead of cash—often at much better value than cash or Travel Eraser.
                     </div>
                   </div>
-                  
-                  {/* Enable Award Search */}
-                  <div style={styles.settingRow}>
-                    <div style={styles.toggleRow}>
-                      <div>
-                        <div style={styles.settingLabel}>Show award options in Max Value</div>
-                        <div style={styles.settingDesc}>
-                          When enabled, the "Max Value" tab will include a button to check award flight availability on PointsYeah. This helps you see if transferring miles to an airline partner could get you a better deal than paying cash or using Travel Eraser.
-                        </div>
-                      </div>
-                      <Toggle
-                        checked={prefs.enableAwardSearch}
-                        onChange={(on) => updatePref('enableAwardSearch', on)}
-                        label="Show award options in Max Value"
-                      />
-                    </div>
-                  </div>
-                  
-                  {prefs.enableAwardSearch && (
-                    <>
-                      {/* Auto-prefill */}
-                      <div style={styles.settingRow}>
-                        <div style={styles.toggleRow}>
-                          <div>
-                            <div style={styles.settingLabel}>Auto-open with flight details</div>
-                            <div style={styles.settingDesc}>
-                              When you click "Check Awards", we'll automatically fill in your origin airport, destination, travel dates, and cabin class on PointsYeah—so you don't have to type it all again. You'll still book directly with the airline.
-                            </div>
+
+                  {/* ━━━ Section 2: Miles & Valuation ━━━ */}
+                  <div className="mb-6">
+                    <h3 className="text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-3">
+                      Miles &amp; Valuation
+                    </h3>
+
+                    {/* Miles Balance */}
+                    <div className={cn(
+                      'p-3.5 rounded-xl mb-2',
+                      'bg-white/[0.03] border border-white/[0.06]',
+                      'backdrop-blur-sm'
+                    )}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-white mb-1">
+                            Factor in my miles balance
                           </div>
-                          <Toggle
-                            checked={prefs.autoPrefillPointsYeah}
-                            onChange={(on) => updatePref('autoPrefillPointsYeah', on)}
-                            label="Auto-open with flight details"
+                          <p className="text-[12px] text-white/45 leading-relaxed">
+                            Track your Capital One miles balance to see how much you can cover with
+                            Travel Eraser (no minimum required — redeem any amount at 1¢/mile).
+                            We'll also show when miles can help reduce your trip cost.
+                          </p>
+                        </div>
+                        <Toggle
+                          checked={prefs.milesBalance !== undefined}
+                          onChange={(on) => updatePref('milesBalance', on ? 0 : undefined)}
+                          label="Factor in my miles balance"
+                        />
+                      </div>
+                      {prefs.milesBalance !== undefined && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                        >
+                          <input
+                            type="number"
+                            min="0"
+                            value={prefs.milesBalance === undefined ? '' : prefs.milesBalance}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                updatePref('milesBalance', 0);
+                              } else {
+                                const parsed = parseInt(val, 10);
+                                if (!isNaN(parsed) && parsed >= 0) {
+                                  updatePref('milesBalance', parsed);
+                                }
+                              }
+                            }}
+                            placeholder="Enter your current miles balance"
+                            className={cn(
+                              'w-full mt-2 px-3 py-2.5 rounded-lg text-sm text-white',
+                              'bg-white/[0.04] border border-white/[0.08]',
+                              'placeholder:text-white/30',
+                              'focus:outline-none focus:border-indigo-500/40 focus:bg-white/[0.06]',
+                              'transition-all duration-150'
+                            )}
                           />
-                        </div>
-                      </div>
-                      
-                      {/* Tips Guide */}
-                      <button
-                        onClick={() => setShowTips(true)}
-                        style={{
-                          ...styles.settingRow,
-                          cursor: 'pointer',
-                          width: '100%',
-                          textAlign: 'left',
-                          border: 'none',
-                        }}
-                      >
-                        <div style={styles.settingLabel}>
-                          📖 How to use PointsYeah →
-                        </div>
-                        <div style={styles.settingDesc}>
-                          Learn what to look for: low miles + low fees, seat availability, transfer partners, and when awards beat cash.
-                        </div>
-                      </button>
-                    </>
-                  )}
-                </div>
-                
-                {/* Advanced Section */}
-                <div style={styles.section}>
-                  {/* P2 fix #11: Added Show/Hide text for better affordance */}
-                  <button
-                    style={{ ...styles.advancedToggle, border: 'none', width: '100%', cursor: 'pointer' }}
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                    aria-expanded={showAdvanced}
-                  >
-                    <div>
-                      <span style={styles.advancedLabel}>Advanced (optional)</span>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '2px' }}>
-                        Fine-tune how verdicts are calculated
-                      </div>
+                          <p className="text-[11px] text-white/40 mt-1.5">
+                            💡 Travel Eraser has no minimum — redeem any amount from $0.01 up at
+                            1¢/mile
+                          </p>
+                        </motion.div>
+                      )}
                     </div>
-                    <span style={{
-                      color: 'rgba(255,255,255,0.5)',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}>
-                      {showAdvanced ? 'Hide' : 'Show'}
-                      <span style={{
-                        transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s',
-                        display: 'inline-block',
-                      }}>▼</span>
-                    </span>
-                  </button>
-                  
-                  {showAdvanced && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+
+                    {/* Mile Valuation — CPP */}
+                    <div className={cn(
+                      'p-3.5 rounded-xl mb-2',
+                      'bg-white/[0.03] border border-white/[0.06]',
+                      'backdrop-blur-sm'
+                    )}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
+                            Use custom mile valuation
+                            <Badge isDefault={!prefs.customMileValuation} />
+                          </div>
+                          <p className="text-[12px] text-white/45 leading-relaxed">
+                            <strong className="text-white/60">Cents per mile</strong> is how we
+                            value your miles when comparing options. For example, 1.5¢ per mile
+                            means 10,000 miles = $150 in value.
+                          </p>
+                        </div>
+                        <Toggle
+                          checked={prefs.customMileValuation ?? false}
+                          label="Use custom mile valuation"
+                          onChange={async (on) => {
+                            if (!on) {
+                              const updated = {
+                                ...prefs,
+                                customMileValuation: false,
+                                mileValuationCpp: DEFAULT_MILE_VALUATION_CPP,
+                              };
+                              setLocalPrefs(updated);
+                              setHasChanges(true);
+                              await setUserPrefs(updated);
+                            } else {
+                              updatePref('customMileValuation', true);
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {/* Reference values box */}
+                      <div
+                        className={cn(
+                          'mt-2.5 p-2.5 rounded-lg',
+                          'bg-white/[0.02] text-[11px] leading-relaxed text-white/50'
+                        )}
+                      >
+                        <div className="mb-1.5">
+                          <strong className="text-white/65">Reference values:</strong>
+                        </div>
+                        <div>
+                          • <strong>1.0¢</strong> — Travel Eraser floor (guaranteed minimum)
+                        </div>
+                        <div>
+                          • <strong>1.5¢</strong> — Conservative estimate for comparisons
+                        </div>
+                        <div>
+                          • <strong>1.8–2.5¢</strong> — Transfer partner sweet spots (business class, etc.)
+                        </div>
+                        <div>
+                          • <strong>3.0¢+</strong> — Rare award chart wins
+                        </div>
+                      </div>
+
+                      {!prefs.customMileValuation && (
+                        <p className="text-[12px] text-white/45 mt-2 italic">
+                          Currently using: <strong>1.0¢ per mile</strong> (conservative default)
+                        </p>
+                      )}
+
+                      {prefs.customMileValuation && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                        >
+                          <div className="text-lg font-bold text-white text-center mt-3">
+                            {(prefs.mileValuationCpp * 100).toFixed(1)}¢ per mile
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="3.0"
+                            step="0.1"
+                            value={prefs.mileValuationCpp * 100}
+                            onChange={(e) =>
+                              updatePref('mileValuationCpp', parseFloat(e.target.value) / 100)
+                            }
+                            className="vx-slider"
+                          />
+                          <div className="flex justify-between text-[10px] text-white/35">
+                            <span>0.5¢ (pessimistic)</span>
+                            <span>3.0¢ (optimistic)</span>
+                          </div>
+                          <p className="text-[12px] text-white/45 mt-2">
+                            At {(prefs.mileValuationCpp * 100).toFixed(1)}¢, your 10,000 miles ={' '}
+                            <strong>${(prefs.mileValuationCpp * 10000).toFixed(0)}</strong> in value
+                          </p>
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ━━━ Section 3: Award Search ━━━ */}
+                  <div className="mb-6">
+                    <h3 className="text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-3">
+                      Award Search (PointsYeah)
+                    </h3>
+
+                    {/* Info box */}
+                    <div
+                      className={cn(
+                        'p-3 rounded-lg mb-3',
+                        'bg-indigo-500/[0.06] border border-indigo-500/[0.12]',
+                        'text-[12px] leading-relaxed text-white/55'
+                      )}
                     >
-                      {/* Confidence Labels */}
-                      <div style={styles.settingRow}>
-                        <div style={styles.toggleRow}>
-                          <div>
-                            <div style={styles.settingLabel}>Show confidence labels</div>
-                            <div style={styles.settingDesc}>
-                              Display how certain we are about each verdict. "High" means we have accurate data; "Medium" or "Low" means some values are estimated or prices may have changed.
-                            </div>
+                      <strong className="text-white/75">What is PointsYeah?</strong>
+                      <div className="mt-1">
+                        PointsYeah is a free tool that searches award availability across airline
+                        programs. Capital One miles can be transferred to partners like Air France,
+                        Turkish, and Avianca to book flights with miles instead of cash—often at much
+                        better value than cash or Travel Eraser.
+                      </div>
+                    </div>
+
+                    {/* Enable Award Search */}
+                    <div className={cn(
+                      'p-3.5 rounded-xl mb-2',
+                      'bg-white/[0.03] border border-white/[0.06]',
+                      'backdrop-blur-sm'
+                    )}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-white mb-1">
+                            Show award options in Max Value
                           </div>
-                          <Toggle
-                            checked={prefs.showConfidenceLabels}
-                            onChange={(on) => updatePref('showConfidenceLabels', on)}
-                            label="Show confidence labels"
-                          />
+                          <p className="text-[12px] text-white/45 leading-relaxed">
+                            When enabled, the "Max Value" tab will include a button to check award
+                            flight availability on PointsYeah. This helps you see if transferring
+                            miles to an airline partner could get you a better deal than paying cash
+                            or using Travel Eraser.
+                          </p>
                         </div>
-                      </div>
-                      
-                      {/* What Could Change */}
-                      <div style={styles.settingRow}>
-                        <div style={styles.toggleRow}>
-                          <div>
-                            <div style={styles.settingLabel}>Show "What could change the answer?"</div>
-                            <div style={styles.settingDesc}>
-                              Lists factors that could flip the recommendation—like if your credit resets, if prices change, or if you value miles differently. Helps you understand the "gray area" in close calls.
-                            </div>
-                          </div>
-                          <Toggle
-                            checked={prefs.showWhatCouldChange}
-                            onChange={(on) => updatePref('showWhatCouldChange', on)}
-                            label="Show what could change the answer"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Assume Direct is Airline */}
-                      <div style={styles.settingRow}>
-                        <div style={styles.toggleRow}>
-                          <div>
-                            <div style={styles.settingLabel}>Assume direct = airline checkout</div>
-                            <div style={styles.settingDesc}>
-                              When ON, we assume "direct" prices come from the airline's own website (earning full miles/status). When OFF, we show a warning that the price might be from an OTA (online travel agency like Expedia) which may not earn airline miles.
-                            </div>
-                          </div>
-                          <Toggle
-                            checked={prefs.assumeDirectIsAirline}
-                            onChange={(on) => updatePref('assumeDirectIsAirline', on)}
-                            label="Assume direct is airline checkout"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Portal Miles Basis */}
-                      <div style={styles.settingRow}>
-                        <div style={styles.settingLabel}>Portal miles calculation basis</div>
-                        <div style={styles.settingDesc}>
-                          Capital One awards 5x miles on portal flights. The question is: does 5x apply to the full ticket price, or only what you pay after the travel credit? Data points vary, so we let you choose how to calculate it.
-                        </div>
-                        <div style={{
-                          marginTop: '10px',
-                          padding: '8px 10px',
-                          backgroundColor: 'rgba(255,255,255,0.02)',
-                          borderRadius: '6px',
-                          fontSize: '10px',
-                          color: 'rgba(255,255,255,0.45)',
-                          lineHeight: 1.5,
-                        }}>
-                          • <strong>Full price</strong> — 5x on the ticket's sticker price (optimistic)<br/>
-                          • <strong>After credit</strong> — 5x only on what you actually pay (conservative)<br/>
-                          • <strong>Show range</strong> — Display both possibilities (recommended)
-                        </div>
-                        <div style={{ ...styles.radioGroup, marginTop: '10px' }}>
-                          {[
-                            { value: 'sticker' as PortalMilesBasis, label: 'Full price' },
-                            { value: 'post_credit' as PortalMilesBasis, label: 'After credit' },
-                            { value: 'range' as PortalMilesBasis, label: 'Show range' },
-                          ].map((opt) => (
-                            <button
-                              key={opt.value}
-                              onClick={() => updatePref('portalMilesBasis', opt.value)}
-                              style={{
-                                ...styles.radioButton,
-                                fontSize: '12px',
-                                ...(prefs.portalMilesBasis === opt.value ? styles.radioButtonActive : {}),
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Price Premium Threshold */}
-                      {/* P2 fix #12: Changed min from 0% to 2% - 0-1% could be rounding errors */}
-                      <div style={styles.settingRow}>
-                        <div style={styles.settingLabel}>
-                          Price premium threshold
-                          <Badge isDefault={prefs.pricePremiumThreshold === 0.07} />
-                        </div>
-                        <div style={styles.settingDesc}>
-                          If the portal price is significantly higher than the direct price, we'll flag it as a warning. This sets how much higher the portal needs to be before we consider it a "premium." For example, 7% means if direct is $500 and portal is $535+, we flag it.
-                        </div>
-                        <div style={{ ...styles.sliderValue, fontSize: '16px', marginTop: '10px' }}>
-                          {(prefs.pricePremiumThreshold * 100).toFixed(0)}%
-                        </div>
-                        <input
-                          type="range"
-                          min="2"
-                          max="25"
-                          step="1"
-                          value={Math.max(2, prefs.pricePremiumThreshold * 100)}
-                          onChange={(e) => updatePref('pricePremiumThreshold', parseFloat(e.target.value) / 100)}
-                          className="vx-slider"
+                        <Toggle
+                          checked={prefs.enableAwardSearch}
+                          onChange={(on) => updatePref('enableAwardSearch', on)}
+                          label="Show award options in Max Value"
                         />
-                        <div style={styles.sliderLabels}>
-                          <span>2% (strict)</span>
-                          <span>25% (lenient)</span>
+                      </div>
+                    </div>
+
+                    {prefs.enableAwardSearch && (
+                      <>
+                        {/* Auto-prefill */}
+                        <div className={cn(
+                          'p-3.5 rounded-xl mb-2',
+                          'bg-white/[0.03] border border-white/[0.06]',
+                          'backdrop-blur-sm'
+                        )}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-white mb-1">
+                                Auto-open with flight details
+                              </div>
+                              <p className="text-[12px] text-white/45 leading-relaxed">
+                                When you click "Check Awards", we'll automatically fill in your
+                                origin airport, destination, travel dates, and cabin class on
+                                PointsYeah—so you don't have to type it all again. You'll still
+                                book directly with the airline.
+                              </p>
+                            </div>
+                            <Toggle
+                              checked={prefs.autoPrefillPointsYeah}
+                              onChange={(on) => updatePref('autoPrefillPointsYeah', on)}
+                              label="Auto-open with flight details"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Tips Guide */}
+                        <button
+                          onClick={() => setShowTips(true)}
+                          className={cn(
+                            'w-full p-3.5 rounded-xl mb-2 text-left',
+                            'bg-white/[0.03] border border-white/[0.06]',
+                            'cursor-pointer backdrop-blur-sm',
+                            'hover:bg-white/[0.05] hover:border-white/[0.10]',
+                            'transition-all duration-150'
+                          )}
+                        >
+                          <div className="text-sm font-medium text-white mb-1">
+                            📖 How to use PointsYeah →
+                          </div>
+                          <p className="text-[12px] text-white/45 leading-relaxed">
+                            Learn what to look for: low miles + low fees, seat availability,
+                            transfer partners, and when awards beat cash.
+                          </p>
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* ━━━ Section 4: Advanced ━━━ */}
+                  <div className="mb-6">
+                    <button
+                      className={cn(
+                        'w-full p-3.5 rounded-xl mb-3 flex items-center justify-between',
+                        'bg-white/[0.02] border border-white/[0.06] cursor-pointer',
+                        'hover:bg-white/[0.04] hover:border-white/[0.08]',
+                        'transition-all duration-150'
+                      )}
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      aria-expanded={showAdvanced}
+                    >
+                      <div>
+                        <span className="text-[13px] font-medium text-white/50">
+                          Advanced (optional)
+                        </span>
+                        <div className="text-[10px] text-white/30 mt-0.5">
+                          Fine-tune how verdicts are calculated
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-                </div>
-              </>
-            )}
+                      <span className="flex items-center gap-1 text-[12px] text-white/45">
+                        {showAdvanced ? 'Hide' : 'Show'}
+                        <span
+                          className="inline-block transition-transform duration-200"
+                          style={{
+                            transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
+                          }}
+                        >
+                          ▼
+                        </span>
+                      </span>
+                    </button>
+
+                    {showAdvanced && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                      >
+                        {/* Confidence Labels */}
+                        <div className={cn(
+                          'p-3.5 rounded-xl mb-2',
+                          'bg-white/[0.03] border border-white/[0.06]',
+                          'backdrop-blur-sm'
+                        )}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-white mb-1">
+                                Show confidence labels
+                              </div>
+                              <p className="text-[12px] text-white/45 leading-relaxed">
+                                Display how certain we are about each verdict. "High" means we have
+                                accurate data; "Medium" or "Low" means some values are estimated or
+                                prices may have changed.
+                              </p>
+                            </div>
+                            <Toggle
+                              checked={prefs.showConfidenceLabels}
+                              onChange={(on) => updatePref('showConfidenceLabels', on)}
+                              label="Show confidence labels"
+                            />
+                          </div>
+                        </div>
+
+                        {/* What Could Change */}
+                        <div className={cn(
+                          'p-3.5 rounded-xl mb-2',
+                          'bg-white/[0.03] border border-white/[0.06]',
+                          'backdrop-blur-sm'
+                        )}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-white mb-1">
+                                Show "What could change the answer?"
+                              </div>
+                              <p className="text-[12px] text-white/45 leading-relaxed">
+                                Lists factors that could flip the recommendation—like if your credit
+                                resets, if prices change, or if you value miles differently. Helps
+                                you understand the "gray area" in close calls.
+                              </p>
+                            </div>
+                            <Toggle
+                              checked={prefs.showWhatCouldChange}
+                              onChange={(on) => updatePref('showWhatCouldChange', on)}
+                              label="Show what could change the answer"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Assume Direct is Airline */}
+                        <div className={cn(
+                          'p-3.5 rounded-xl mb-2',
+                          'bg-white/[0.03] border border-white/[0.06]',
+                          'backdrop-blur-sm'
+                        )}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-white mb-1">
+                                Assume direct = airline checkout
+                              </div>
+                              <p className="text-[12px] text-white/45 leading-relaxed">
+                                When ON, we assume "direct" prices come from the airline's own
+                                website (earning full miles/status). When OFF, we show a warning
+                                that the price might be from an OTA (online travel agency like
+                                Expedia) which may not earn airline miles.
+                              </p>
+                            </div>
+                            <Toggle
+                              checked={prefs.assumeDirectIsAirline}
+                              onChange={(on) => updatePref('assumeDirectIsAirline', on)}
+                              label="Assume direct is airline checkout"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Portal Miles Basis */}
+                        <div className={cn(
+                          'p-3.5 rounded-xl mb-2',
+                          'bg-white/[0.03] border border-white/[0.06]',
+                          'backdrop-blur-sm'
+                        )}>
+                          <div className="text-sm font-medium text-white mb-1">
+                            Portal miles calculation basis
+                          </div>
+                          <p className="text-[12px] text-white/45 leading-relaxed">
+                            Capital One awards 5x miles on portal flights. The question is: does 5x
+                            apply to the full ticket price, or only what you pay after the travel
+                            credit? Data points vary, so we let you choose how to calculate it.
+                          </p>
+                          <div className={cn(
+                            'mt-2.5 p-2.5 rounded-lg',
+                            'bg-white/[0.02] text-[10px] text-white/40 leading-relaxed'
+                          )}>
+                            •{' '}
+                            <strong>Full price</strong> — 5x on the ticket's sticker price
+                            (optimistic)
+                            <br />•{' '}
+                            <strong>After credit</strong> — 5x only on what you actually pay
+                            (conservative)
+                            <br />•{' '}
+                            <strong>Show range</strong> — Display both possibilities (recommended)
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-2.5">
+                            {(
+                              [
+                                { value: 'sticker' as PortalMilesBasis, label: 'Full price' },
+                                { value: 'post_credit' as PortalMilesBasis, label: 'After credit' },
+                                { value: 'range' as PortalMilesBasis, label: 'Show range' },
+                              ] as const
+                            ).map((opt) => (
+                              <button
+                                key={opt.value}
+                                onClick={() => updatePref('portalMilesBasis', opt.value)}
+                                className={cn(
+                                  'flex-1 py-2.5 px-3 rounded-xl',
+                                  'text-[12px] font-medium text-center cursor-pointer',
+                                  'border transition-all duration-150',
+                                  prefs.portalMilesBasis === opt.value
+                                    ? cn(
+                                        'bg-gradient-to-b from-white/[0.12] to-white/[0.05]',
+                                        'border-white/[0.15] text-white',
+                                        'shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                                      )
+                                    : cn(
+                                        'bg-white/[0.03] border-white/[0.06] text-white/60',
+                                        'hover:bg-white/[0.06] hover:text-white/80'
+                                      )
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Price Premium Threshold */}
+                        <div className={cn(
+                          'p-3.5 rounded-xl mb-2',
+                          'bg-white/[0.03] border border-white/[0.06]',
+                          'backdrop-blur-sm'
+                        )}>
+                          <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
+                            Price premium threshold
+                            <Badge isDefault={prefs.pricePremiumThreshold === 0.07} />
+                          </div>
+                          <p className="text-[12px] text-white/45 leading-relaxed">
+                            If the portal price is significantly higher than the direct price, we'll
+                            flag it as a warning. This sets how much higher the portal needs to be
+                            before we consider it a "premium." For example, 7% means if direct is
+                            $500 and portal is $535+, we flag it.
+                          </p>
+                          <div className="text-base font-bold text-white text-center mt-2.5">
+                            {(prefs.pricePremiumThreshold * 100).toFixed(0)}%
+                          </div>
+                          <input
+                            type="range"
+                            min="2"
+                            max="25"
+                            step="1"
+                            value={Math.max(2, prefs.pricePremiumThreshold * 100)}
+                            onChange={(e) =>
+                              updatePref(
+                                'pricePremiumThreshold',
+                                parseFloat(e.target.value) / 100
+                              )
+                            }
+                            className="vx-slider"
+                          />
+                          <div className="flex justify-between text-[10px] text-white/35">
+                            <span>2% (strict)</span>
+                            <span>25% (lenient)</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-            {/* P1 fix: Scroll indicator gradient */}
-            <div style={styles.scrollIndicator} />
+
+            {/* Scroll fade indicator at bottom */}
+            <div
+              className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none z-[5]"
+              style={{ background: 'linear-gradient(to top, rgba(15, 15, 25, 0.65), transparent)' }}
+            />
           </div>
-          
-          {/* Footer */}
-          <footer style={styles.footer}>
+
+          {/* ── Footer ── */}
+          <footer className="relative z-10 px-5 py-4 border-t border-white/[0.06] flex gap-2.5 flex-shrink-0">
             <button
               onClick={onClose}
-              style={{ ...styles.footerButton, ...styles.primaryButton }}
+              className={cn(
+                'flex-1 py-3 rounded-xl text-sm font-semibold cursor-pointer',
+                'bg-gradient-to-b from-white/[0.10] to-white/[0.04]',
+                'backdrop-blur-lg border border-white/[0.08]',
+                'text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
+                'hover:from-white/[0.14] hover:to-white/[0.06]',
+                'active:scale-[0.98]',
+                'transition-all duration-150'
+              )}
             >
               Done
             </button>
           </footer>
         </motion.div>
       </motion.div>
-      
+
       {/* Tips Modal */}
       <AnimatePresence>
         {showTips && <PointsYeahTipsModal onClose={() => setShowTips(false)} />}
       </AnimatePresence>
-      
+
       {/* Reset Confirmation Modal (P0 fix) */}
       <AnimatePresence>
         <ConfirmResetModal

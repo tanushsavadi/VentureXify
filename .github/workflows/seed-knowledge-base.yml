@@ -5,29 +5,44 @@
 # This workflow runs the knowledge base seeder on a schedule to keep
 # the VentureXify RAG system up to date with fresh content.
 #
-# Schedule: Every 2 weeks (1st and 15th of each month at 6 AM UTC)
+# Schedule: Weekly (every Monday at 6 AM UTC)
 # Can also be triggered manually via workflow_dispatch
+#
+# Scraping Method: Playwright headless browser (no Reddit API keys needed!)
+# The stealth plugin makes scraping invisible to bot detection.
 #
 # Required Secrets:
 # - SUPABASE_URL: Your Supabase project URL
 # - SUPABASE_SERVICE_ROLE_KEY: Service role key for upserts
 # - HF_API_KEY: HuggingFace API key for embeddings
-# - REDDIT_CLIENT_ID: (Optional) Reddit OAuth client ID
-# - REDDIT_CLIENT_SECRET: (Optional) Reddit OAuth client secret
+#
+# Optional Secrets (not needed with Playwright):
+# - REDDIT_CLIENT_ID: Reddit OAuth client ID (fallback only)
+# - REDDIT_CLIENT_SECRET: Reddit OAuth client secret (fallback only)
 #
 
 name: Seed Knowledge Base
 
 on:
-  # Run bi-weekly: 1st and 15th of each month at 6 AM UTC
+  # Run weekly: Every Monday at 6 AM UTC
   schedule:
-    - cron: '0 6 1,15 * *'
+    - cron: '0 6 * * 1'
   
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
+      use_playwright:
+        description: 'Use Playwright headless browser for Reddit (recommended)'
+        required: false
+        default: true
+        type: boolean
       include_reddit:
-        description: 'Include Reddit scraping (requires OAuth)'
+        description: 'Include Reddit scraping'
+        required: false
+        default: true
+        type: boolean
+      include_capitalone:
+        description: 'Include Capital One scraping'
         required: false
         default: true
         type: boolean
@@ -40,7 +55,7 @@ on:
 jobs:
   seed:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30  # Playwright scraping takes longer
     
     steps:
       - name: Checkout repository
@@ -57,17 +72,26 @@ jobs:
         working-directory: venture-x-os
         run: npm ci
       
-      - name: Run knowledge base seeder
+      - name: Install Playwright Chromium
+        if: ${{ github.event.inputs.use_playwright != 'false' }}
+        working-directory: venture-x-os
+        run: npx playwright install chromium --with-deps
+      
+      - name: Run knowledge base seeder (Playwright)
         working-directory: venture-x-os
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          USE_PLAYWRIGHT: ${{ github.event.inputs.use_playwright || 'true' }}
+          PLAYWRIGHT_HEADLESS: 'true'
           INCLUDE_REDDIT: ${{ github.event.inputs.include_reddit || 'true' }}
           MAX_POSTS: ${{ github.event.inputs.max_posts || '50' }}
-          INCLUDE_CAPITALONE: 'true'
+          MAX_REDDIT_PAGES: '5'
+          INCLUDE_CAPITALONE: ${{ github.event.inputs.include_capitalone || 'true' }}
+          # Fallback: Reddit OAuth (only used if Playwright fails)
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
         run: npm run seed
       
       - name: Report status
@@ -75,6 +99,8 @@ jobs:
         run: |
           if [ "${{ job.status }}" == "success" ]; then
             echo "✅ Knowledge base seeding completed successfully!"
+            echo "   Method: Playwright headless browser"
+            echo "   Time: $(date -u)"
           else
             echo "❌ Knowledge base seeding failed. Check logs above."
           fi
@@ -95,17 +121,20 @@ jobs:
             
             **Workflow Run:** [View Run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
             **Time:** ${new Date().toISOString()}
+            **Method:** Playwright headless browser
             
             ### Possible Causes:
             - Supabase credentials expired or invalid
             - HuggingFace API rate limited
+            - Reddit changed their page structure (update CSS selectors in \`scripts/playwright-config.cjs\`)
+            - Playwright browser install failed in CI
             - Capital One website structure changed
-            - Reddit API blocked (needs OAuth credentials)
             
             ### Action Required:
             1. Check the workflow logs for specific errors
-            2. Verify secrets are still valid
-            3. Run manually to test fixes
+            2. Verify secrets are still valid (\`SUPABASE_URL\`, \`SUPABASE_SERVICE_ROLE_KEY\`, \`HF_API_KEY\`)
+            3. If Reddit selectors broke, update \`scripts/playwright-config.cjs\` SELECTORS
+            4. Run manually to test fixes: Actions → Seed Knowledge Base → Run workflow
             `;
             
             await github.rest.issues.create({

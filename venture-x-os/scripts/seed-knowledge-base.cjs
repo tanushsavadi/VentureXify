@@ -5,12 +5,15 @@
 // ============================================
 //
 // Run locally: npm run seed
+// Run with Playwright: npm run seed:playwright
 // Run via GitHub Action: .github/workflows/seed-knowledge-base.yml
 //
 // Environment variables:
 // - SUPABASE_URL or VITE_SUPABASE_URL
 // - SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY
 // - HF_API_KEY (optional but recommended)
+// - USE_PLAYWRIGHT=true (optional, enables headless browser scraping)
+// - PLAYWRIGHT_HEADLESS=true/false (optional, show browser for debugging)
 // - REDDIT_CLIENT_ID (optional, for OAuth - more reliable)
 // - REDDIT_CLIENT_SECRET (optional, for OAuth - more reliable)
 //
@@ -71,6 +74,9 @@ const INCLUDE_CAPITALONE = process.env.INCLUDE_CAPITALONE !== 'false';
 // Reddit OAuth (optional but more reliable)
 const REDDIT_CLIENT_ID = process.env.REDDIT_CLIENT_ID;
 const REDDIT_CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET;
+
+// Playwright scraping (USE_PLAYWRIGHT=true enables headless browser scraping)
+const USE_PLAYWRIGHT = process.env.USE_PLAYWRIGHT === 'true';
 
 // ============================================
 // HELPERS
@@ -146,6 +152,43 @@ async function getRedditOAuthToken() {
 
 async function scrapeReddit(maxPosts = 50) {
   console.log('[Seed] Scraping Reddit r/Venturex...');
+  
+  // ============================================
+  // FALLBACK CHAIN:
+  // 1. Playwright (headless browser) — if USE_PLAYWRIGHT=true
+  // 2. Reddit OAuth API — if REDDIT_CLIENT_ID is set
+  // 3. Reddit public JSON API — always available but rate-limited
+  // ============================================
+
+  // OPTION 1: Playwright scraping (most reliable, no API keys needed)
+  if (USE_PLAYWRIGHT) {
+    try {
+      console.log('[Seed] Using Playwright headless browser scraper...');
+      const { scrapeRedditWithPlaywright } = require('./playwright-reddit-scraper.cjs');
+      
+      const playwrightDocs = await scrapeRedditWithPlaywright({
+        maxPosts,
+        includeComments: true,
+        onProgress: (msg, pct) => {
+          process.stdout.write(`\r  [Playwright ${pct}%] ${msg}                    `);
+        },
+      });
+      
+      console.log(''); // Clear progress line
+      
+      if (playwrightDocs.length > 0) {
+        console.log(`[Seed] Playwright scraper returned ${playwrightDocs.length} documents`);
+        return playwrightDocs;
+      }
+      
+      console.log('[Seed] Playwright scraper returned no results, falling back to JSON API...');
+    } catch (err) {
+      console.error('[Seed] Playwright scraper failed:', err.message);
+      console.log('[Seed] Falling back to JSON API...');
+    }
+  }
+
+  // OPTION 2 & 3: Reddit JSON API (OAuth or public)
   const docs = [];
   
   // Try to get OAuth token for more reliable access
@@ -618,6 +661,7 @@ async function main() {
   console.log('📋 Configuration:');
   console.log(`   • Capital One scraping: ${INCLUDE_CAPITALONE ? 'ON' : 'OFF'}`);
   console.log(`   • Reddit scraping: ${INCLUDE_REDDIT ? 'ON' : 'OFF'}`);
+  console.log(`   • Reddit method: ${USE_PLAYWRIGHT ? '🎭 Playwright (headless browser)' : REDDIT_CLIENT_ID ? '🔑 OAuth API' : '📡 Public JSON API'}`);
   console.log(`   • Max Reddit posts: ${MAX_POSTS}`);
   console.log(`   • Supabase URL: ${SUPABASE_URL.slice(0, 40)}...`);
   console.log(`   • HF API Key: ${HF_API_KEY ? 'SET' : 'NOT SET (may be rate limited)'}`);

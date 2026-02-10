@@ -2,6 +2,26 @@
 // REDDIT SCRAPER FOR r/VentureX
 // Uses Reddit's public JSON API (no auth required for public subreddits)
 // ============================================
+//
+// ARCHITECTURE NOTE:
+// This file provides a lightweight JSON API-based Reddit scraper that runs
+// INSIDE the Chrome extension (browser context). It's used for runtime
+// knowledge refreshes and as a fallback when Supabase is unavailable.
+//
+// For heavy-duty knowledge base seeding, use the Playwright-based scraper:
+//   scripts/playwright-reddit-scraper.cjs
+//
+// The Playwright scraper runs in Node.js (NOT in the extension) and uses a
+// headless browser with stealth plugins to scrape old.reddit.com without
+// needing any Reddit API credentials. It populates Supabase pgvector,
+// which this extension then queries at runtime.
+//
+// Scraping strategy:
+//   1. SEEDING (Node.js): Playwright → old.reddit.com → Supabase pgvector
+//   2. RUNTIME (Extension): This file → reddit.com/.json → Local cache fallback
+//
+// Run seeding with: npm run seed:playwright
+// ============================================
 
 export interface RedditPost {
   id: string;

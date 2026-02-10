@@ -3553,6 +3553,12 @@ export function SidePanelApp() {
   const [successRecommendation, setSuccessRecommendation] = useState<'portal' | 'direct'>('portal');
   const [successSavings, setSuccessSavings] = useState<number | undefined>(undefined);
 
+  // New search detection prompt - shown when user returns to portal search page with existing captured data
+  const [showNewSearchPrompt, setShowNewSearchPrompt] = useState<{
+    type: 'flight' | 'stay';
+    summary: string;
+  } | null>(null);
+
   // Derive context status - now supports both flights and stays
   // IMPORTANT: Don't show "???" in badges - show helpful status instead
   const contextStatus: BookingContextStatus = (() => {
@@ -4875,6 +4881,35 @@ export function SidePanelApp() {
     setBookingType('flight');
     // Reset success state
     setShowBookingSuccess(false);
+  };
+
+  // Full reset including clearing persisted storage (used by "Start New Search" prompt)
+  const handleStartNewSearch = async () => {
+    console.log('[SidePanelApp] 🆕 Starting new search - clearing all captured data and storage');
+    // Clear React state
+    setPortalCapture(null);
+    setDirectCapture(null);
+    setStayCapture(null);
+    setDirectStayCapture(null);
+    setCurrentStep(1);
+    setBookingType('flight');
+    setShowBookingSuccess(false);
+    setShowNewSearchPrompt(null);
+    // Clear persisted storage so stale data doesn't reload
+    try {
+      await chrome.storage.local.remove([
+        'vx_portal_snapshot',
+        'vx_direct_snapshot',
+        'vx_stay_portal_snapshot',
+        'vx_stay_direct_snapshot',
+        'vx_flow_state',
+      ]);
+      console.log('[SidePanelApp] 🗑️ Cleared all capture snapshots from storage');
+    } catch (e) {
+      console.error('[SidePanelApp] Error clearing storage:', e);
+    }
+    // Re-detect current page to set correct site/booking type
+    detectCurrentPage();
   };
 
   // P2-21: Handle "Continue to Portal/Direct" from verdict card - show success celebration

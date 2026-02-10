@@ -5094,6 +5094,72 @@ export function SidePanelApp() {
         )}
       </AnimatePresence>
 
+      {/* New Search Detection Prompt - shown when user returns to portal search with existing data */}
+      <AnimatePresence>
+        {showNewSearchPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowNewSearchPrompt(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xs bg-[#1a1a2e] rounded-2xl border border-white/10 p-5 shadow-2xl"
+            >
+              <div className="text-center mb-4">
+                <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl">{showNewSearchPrompt.type === 'flight' ? '✈️' : '🏨'}</span>
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-1.5">
+                  Existing {showNewSearchPrompt.type === 'flight' ? 'Flight' : 'Stay'} Found
+                </h3>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.08] mb-3">
+                  <span className="text-xs font-medium text-white/80">{showNewSearchPrompt.summary}</span>
+                </div>
+                <p className="text-sm text-white/50 leading-relaxed">
+                  You have a captured {showNewSearchPrompt.type === 'flight' ? 'flight' : 'stay'} from a previous search. What would you like to do?
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <GlassButton
+                  variant="primary"
+                  className="w-full"
+                  onClick={() => {
+                    console.log('[SidePanelApp] User chose to keep current search');
+                    setShowNewSearchPrompt(null);
+                  }}
+                >
+                  ✅ Keep Current Search
+                </GlassButton>
+                <GlassButton
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => {
+                    console.log('[SidePanelApp] User chose to start new search');
+                    handleStartNewSearch();
+                  }}
+                >
+                  🔄 Start New {showNewSearchPrompt.type === 'flight' ? 'Flight' : 'Stay'} Search
+                </GlassButton>
+                <button
+                  onClick={() => setShowNewSearchPrompt(null)}
+                  className="w-full py-2 text-xs text-white/40 hover:text-white/60 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-40 px-4 py-3 border-b border-[rgba(255,255,255,0.04)] bg-black/95 backdrop-blur-xl">
         <div className="flex items-center gap-2">

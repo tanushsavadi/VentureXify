@@ -26,6 +26,7 @@ import {
   Users,
   Coffee,
   Shield,
+  HelpCircle,
 } from 'lucide-react';
 
 // Import glass components
@@ -1026,7 +1027,8 @@ const DirectCaptureCard: React.FC<{
   portalCapture?: PortalCapture;  // For flight mismatch detection
   onConfirm: () => void;
   onRecapture: () => void;
-}> = ({ capture, portalPriceUSD, portalCapture, onConfirm, onRecapture }) => {
+  onFindCorrectFlight?: () => void;  // Callback when user wants to find a different flight
+}> = ({ capture, portalPriceUSD, portalCapture, onConfirm, onRecapture, onFindCorrectFlight }) => {
   const savings = portalPriceUSD - capture.priceUSD;
   const isDirectCheaper = savings > 0;
   
@@ -1065,8 +1067,8 @@ const DirectCaptureCard: React.FC<{
       try {
         // Get current tab URL
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tab?.url) {
-          console.log('[DirectCaptureCard] ❌ No tab URL found');
+        if (!tab?.url || !tab?.id) {
+          console.log('[DirectCaptureCard] ❌ No tab URL or ID found');
           return;
         }
         
@@ -1100,9 +1102,29 @@ const DirectCaptureCard: React.FC<{
           outboundAirlines: portalCapture.outbound?.airlines,
           returnAirlines: portalCapture.returnFlight?.airlines,
           singleAirline: portalCapture.airline,
+          outboundDepartureTime: portalCapture.outbound?.departureTime,
+          outboundArrivalTime: portalCapture.outbound?.arrivalTime,
+          returnDepartureTime: portalCapture.returnFlight?.departureTime,
+          returnArrivalTime: portalCapture.returnFlight?.arrivalTime,
         });
         
-        const mismatches = detectFlightMismatch(portalFlightForComparison, tab.url);
+        // Request flight times from the Google Flights DOM via content script
+        let googleDOMTimes: {
+          outbound?: { departureTime?: string; arrivalTime?: string; duration?: string; stops?: number };
+          returnFlight?: { departureTime?: string; arrivalTime?: string; duration?: string; stops?: number };
+        } | undefined;
+        
+        try {
+          const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_GOOGLE_FLIGHT_TIMES' });
+          if (response?.success && response?.times) {
+            googleDOMTimes = response.times;
+            console.log('[DirectCaptureCard] 📋 Google DOM times received:', googleDOMTimes);
+          }
+        } catch (timeErr) {
+          console.log('[DirectCaptureCard] ⚠️ Could not get DOM times (content script may not be loaded):', timeErr);
+        }
+        
+        const mismatches = detectFlightMismatch(portalFlightForComparison, tab.url, googleDOMTimes);
         setFlightMismatches(mismatches);
         
         if (mismatches && mismatches.length > 0) {
@@ -1204,6 +1226,11 @@ const DirectCaptureCard: React.FC<{
                         const searchUrl = `https://www.google.com/travel/flights?q=${encodeURIComponent(searchQuery)}`;
                         console.log('[DirectCaptureCard] Navigating back to search:', searchUrl);
                         chrome.tabs.update({ url: searchUrl });
+                        
+                        // Go back to step 1 to show the captured portal booking info
+                        if (onFindCorrectFlight) {
+                          onFindCorrectFlight();
+                        }
                       }
                     }}
                     className="px-3 py-1.5 text-xs bg-white/[0.08] hover:bg-white/[0.12] border border-white/10 rounded-lg text-white/70 hover:text-white transition-colors"
@@ -1307,7 +1334,7 @@ const VerdictSection: React.FC<{
   onOpenSettings?: () => void;
   // P2-21: Callback when user clicks "Continue to Portal/Direct" - triggers success celebration
   onVerdictContinue?: (recommendation: 'portal' | 'direct', savings?: number) => void;
-}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 50000, mileValueCpp: userMileValueCpp = 0.015, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency, onOpenSettings, onVerdictContinue }) => {
+}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 0, mileValueCpp: userMileValueCpp = 0.015, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency, onOpenSettings, onVerdictContinue }) => {
   // Use controlled mode if provided, otherwise local state
   const [localTabMode, setLocalTabMode] = useState<UITabMode>('cheapest');
   const tabMode = controlledTabMode ?? localTabMode;
@@ -2082,6 +2109,32 @@ const VerdictSection: React.FC<{
                     ${Math.max(0, directPriceUSD - doubleDipRec.breakdown.payToday).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </span>
                 </div>
+                
+                {/* Effective Total Cost - factoring in all miles */}
+                {milesBalance > 0 && (() => {
+                  const totalMiles = milesBalance + doubleDipRec.breakdown.milesEarned;
+                  const eraseValue = totalMiles / 100;
+                  const effectiveCost = Math.max(0, doubleDipRec.breakdown.payToday - eraseValue);
+                  return (
+                    <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-white/5 group relative">
+                      <div className="flex items-center gap-1">
+                        <div className="flex flex-col">
+                          <span className="text-white/60 text-xs">Effective Total Cost</span>
+                          <span className="text-[10px] text-white/40">After using all {totalMiles.toLocaleString()} miles</span>
+                        </div>
+                        <div className="relative">
+                          <HelpCircle className="w-3 h-3 text-white/30 hover:text-white/50 cursor-help peer" />
+                          <div className="absolute left-0 top-full mt-1 z-50 w-52 p-2 rounded-lg bg-black/95 border border-white/20 text-[10px] text-white/80 shadow-xl opacity-0 peer-hover:opacity-100 transition-opacity pointer-events-none">
+                            ${doubleDipRec.breakdown.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} pay today − ${eraseValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} erased ({totalMiles.toLocaleString()} miles @ 1¢/mi) = ${effectiveCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-lg font-bold text-cyan-400">
+                        ${effectiveCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             
@@ -2577,9 +2630,9 @@ const ChatTabContent: React.FC<{
   const showStarterPrompts = messages.length <= 1;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-transparent via-indigo-950/5 to-purple-950/10">
-      {/* Chat Messages - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 pb-0">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Chat Messages - Scrollable with auto-hide scrollbar */}
+      <div className="flex-1 overflow-y-auto p-4 pb-24 scrollbar-auto-hide">
         <AnimatePresence mode="popLayout">
           {messages.map((msg) => (
             <MessageBubble 
@@ -2698,6 +2751,7 @@ const CompareTabContent: React.FC<{
   onRecapturePortal: () => void;
   onConfirmDirect: () => void;
   onRecaptureDirect: () => void;
+  onFindCorrectFlight?: () => void;  // When user wants to go back to find a different flight
   onConfirmStayPortal: () => void;
   onConfirmStayDirect: () => void;
   onManualDirectPriceSubmit?: (price: number, provider?: string) => void;
@@ -2709,6 +2763,7 @@ const CompareTabContent: React.FC<{
   onTabModeChange?: (mode: UITabMode) => void;
   onOpenSettings?: () => void;
   mileValuationCpp?: number;  // User's mile valuation preference (default 0.015 = 1.5¢)
+  milesBalance?: number;  // User's current miles balance for Travel Eraser calculation
   // P2-21: Callback when user clicks "Continue to Portal/Direct" - triggers success celebration
   onVerdictContinue?: (recommendation: 'portal' | 'direct', savings?: number) => void;
 }> = ({
@@ -2725,6 +2780,7 @@ const CompareTabContent: React.FC<{
   onRecapturePortal,
   onConfirmDirect,
   onRecaptureDirect,
+  onFindCorrectFlight,
   onConfirmStayPortal,
   onConfirmStayDirect,
   onManualDirectPriceSubmit,
@@ -2736,6 +2792,7 @@ const CompareTabContent: React.FC<{
   onTabModeChange,
   onOpenSettings,
   mileValuationCpp,
+  milesBalance,
   onVerdictContinue,
 }) => {
   // Determine what state we're in for better UX - now booking-type aware
@@ -2816,7 +2873,7 @@ const CompareTabContent: React.FC<{
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 pb-6 bg-gradient-to-b from-transparent via-indigo-950/5 to-purple-950/10">
+    <div className="flex-1 overflow-y-auto p-4 pb-24 scrollbar-auto-hide">
       {/* Step Navigation Confirmation Popup */}
       <AnimatePresence>
         {showNavConfirm && (
@@ -3289,6 +3346,7 @@ const CompareTabContent: React.FC<{
           portalCapture={portalCapture}
           onConfirm={onConfirmDirect}
           onRecapture={onRecaptureDirect}
+          onFindCorrectFlight={onFindCorrectFlight}
         />
       )}
 
@@ -3299,6 +3357,7 @@ const CompareTabContent: React.FC<{
             portalPriceUSD={portalCapture.priceUSD}
             directPriceUSD={directCapture.priceUSD}
             creditRemaining={creditRemaining}
+            milesBalance={milesBalance}  // Pass user's miles balance for Travel Eraser
             mileValueCpp={mileValuationCpp}  // Pass user's mile valuation preference
             itinerary={{
               origin: portalCapture.origin,
@@ -3388,6 +3447,7 @@ const CompareTabContent: React.FC<{
             // CRITICAL: If credit was already applied by portal, pass 0 to avoid double-dipping!
             // The portal price already reflects what user will pay after credit.
             creditRemaining={stayCapture.creditAlreadyApplied ? 0 : creditRemaining}
+            milesBalance={milesBalance}  // Pass user's miles balance for Travel Eraser
             mileValueCpp={mileValuationCpp}  // Pass user's mile valuation preference
             itinerary={undefined} // No flight itinerary for stays
             tabMode={tabMode}
@@ -4716,6 +4776,14 @@ export function SidePanelApp() {
     setDirectCapture(null);
   };
 
+  // Handler for when user wants to find a different flight (from flight mismatch warning)
+  // Goes back to step 1 to show captured portal booking info while browser navigates to search
+  const handleFindCorrectFlight = () => {
+    setDirectCapture(null);
+    setCurrentStep(1);
+    console.log('[SidePanelApp] 🔄 User clicked "Find correct flight" - returning to step 1');
+  };
+
   // Handler for confirming stay portal capture and opening Google Hotels
   const handleConfirmStayPortal = () => {
     if (stayCapture) {
@@ -4879,9 +4947,9 @@ export function SidePanelApp() {
   }
 
   return (
-    <div className="h-screen w-full bg-black text-white flex flex-col relative overflow-hidden">
+    <div className="h-full min-h-screen w-full bg-black text-white flex flex-col relative overflow-hidden">
       {/* Subtle gradient background - minimal, not overwhelming */}
-      <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/15 via-transparent to-purple-950/10 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/15 via-transparent to-transparent pointer-events-none" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-indigo-500/[0.03] blur-[100px] rounded-full pointer-events-none" />
       <AuroraBackground />
 
@@ -4935,17 +5003,19 @@ export function SidePanelApp() {
 
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-40 px-4 py-3 border-b border-[rgba(255,255,255,0.04)] bg-black/95 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <AnimatedLogo size="sm" />
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-semibold text-[rgba(255,255,255,0.95)] tracking-tight">VentureXify</h1>
+          <div className="flex-shrink-0">
+            <h1 className="text-sm font-semibold text-[rgba(255,255,255,0.95)] tracking-tight whitespace-nowrap">VentureXify</h1>
           </div>
-          <ContextStatusChip status={contextStatus} size="sm" />
+          <div className="flex-1 min-w-0 flex justify-end">
+            <ContextStatusChip status={contextStatus} size="sm" />
+          </div>
         </div>
       </header>
 
-      {/* Main Content - with padding for fixed header, bottom nav floats over content */}
-      <main className="flex-1 flex flex-col min-h-0 relative z-10 pt-14 pb-16">
+      {/* Main Content - with padding for fixed header only; floating nav overlays content */}
+      <main className="flex-1 flex flex-col min-h-0 relative z-10 pt-14">
         <AnimatePresence mode="wait">
           {activeTab === 'chat' ? (
             <motion.div
@@ -5029,6 +5099,7 @@ export function SidePanelApp() {
                 onRecapturePortal={handleRecapturePortal}
                 onConfirmDirect={handleConfirmDirect}
                 onRecaptureDirect={handleRecaptureDirect}
+                onFindCorrectFlight={handleFindCorrectFlight}
                 onConfirmStayPortal={handleConfirmStayPortal}
                 onConfirmStayDirect={handleConfirmStayDirect}
                 onManualDirectPriceSubmit={handleManualDirectPriceSubmit}
@@ -5040,6 +5111,7 @@ export function SidePanelApp() {
                 onTabModeChange={setVerdictTabMode}
                 onOpenSettings={() => setShowSettings(true)}
                 mileValuationCpp={userPrefs?.mileValuationCpp}  // Pass user's mile valuation preference
+                milesBalance={userPrefs?.milesBalance}  // Pass user's miles balance for Travel Eraser
                 // P2-21: Wire up success celebration callback
                 onVerdictContinue={handleVerdictContinue}
               />

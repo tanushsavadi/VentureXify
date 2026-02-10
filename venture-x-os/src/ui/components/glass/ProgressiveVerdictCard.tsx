@@ -899,37 +899,41 @@ const FrictionBadge: React.FC<{
   const config = {
     low: {
       color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-      label: 'Simple',
+      label: 'Easy',
+      shortLabel: 'Easy',
       icon: '✓'
     },
     medium: {
       color: 'bg-white/10 text-white/60 border-white/20',
       label: 'Standard',
-      icon: '○'
+      shortLabel: 'Standard',
+      icon: '•'
     },
     high: {
       color: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-      label: 'Multi-step',
-      icon: '⚠'
+      label: 'Complex',
+      shortLabel: '⚡',
+      icon: '!'
     },
   };
   
-  const { color, label, icon } = config[level];
+  const { color, label, shortLabel, icon } = config[level];
   
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         onClick={() => setShowTooltip(!showTooltip)}
         className={cn(
-          'inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium rounded-full border cursor-help transition-colors hover:bg-white/5',
+          'inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium rounded-full border cursor-help transition-colors hover:bg-white/5 whitespace-nowrap',
           color
         )}
       >
-        <span className="text-[9px]">{icon}</span>
-        {label} booking
-        <Info className="w-2.5 h-2.5 opacity-50" />
+        <span className="text-[8px] leading-none">{icon}</span>
+        <span className="hidden sm:inline">{label}</span>
+        <span className="sm:hidden">{shortLabel}</span>
+        <Info className="w-2 h-2 opacity-50 shrink-0" />
       </button>
       
       <AnimatePresence>
@@ -1379,6 +1383,25 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
                               </span>
                             </div>
                           )}
+                          
+                          {/* Effective Total Cost - if using Travel Eraser */}
+                          {verdict.doubleDipStrategy.eraseLater > 0 && (
+                            <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/[0.05]">
+                              <div className="flex items-center gap-1">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-white/50">Effective Total Cost</span>
+                                  <span className="text-[9px] text-white/30">After using all miles via Eraser</span>
+                                </div>
+                                <InfoTooltip
+                                  term=""
+                                  definition={`$${verdict.doubleDipStrategy.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} pay today − $${verdict.doubleDipStrategy.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })} erased (${Math.round(verdict.doubleDipStrategy.eraseLater * 100).toLocaleString()} miles @ 1¢/mi) = $${Math.max(0, verdict.doubleDipStrategy.payToday - verdict.doubleDipStrategy.eraseLater).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                                />
+                              </div>
+                              <span className="text-sm font-bold text-cyan-400">
+                                ${Math.max(0, verdict.doubleDipStrategy.payToday - verdict.doubleDipStrategy.eraseLater).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         
                         {/* Fine print */}
@@ -1392,7 +1415,7 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
                   {/* Show math button */}
                   <button
                     onClick={() => setShowDetails(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs text-white/50 hover:bg-white/[0.05] hover:text-white/70 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 mt-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs text-white/50 hover:bg-white/[0.05] hover:text-white/70 transition-colors"
                   >
                     <Calculator className="w-3.5 h-3.5" />
                     Show math & assumptions

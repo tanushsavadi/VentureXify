@@ -4501,6 +4501,64 @@ export function SidePanelApp() {
         if (newStep !== 1) {
           setCurrentStep(newStep);
         }
+        
+        // ============================================
+        // NEW SEARCH DETECTION: When user navigates to
+        // portal search page with existing captured data,
+        // prompt to keep current search or start fresh
+        // ============================================
+        const hasFlightShopProgress = /flightshopprogress=\d/i.test(url);
+        const isOnFlightReviewOrBook = /flightshopprogress=3/i.test(url) || url.includes('/flights/book');
+        const isPortalFlightSearchPage = newDetectedSite === 'capital-one-portal' &&
+                                          !isOnFlightReviewOrBook &&
+                                          !hasFlightShopProgress;
+        const isPortalStaySearchPage = newDetectedSite === 'capital-one-stays' &&
+                                        !url.includes('/stays/details') &&
+                                        !url.includes('/stays/checkout') &&
+                                        !url.includes('lodging/');
+        
+        if (isPortalFlightSearchPage || isPortalStaySearchPage) {
+          // Check chrome.storage directly (avoids stale closure issues with React state)
+          try {
+            const storageKeys = isPortalFlightSearchPage
+              ? ['vx_portal_snapshot']
+              : ['vx_stay_portal_snapshot'];
+            const stored = await chrome.storage.local.get(storageKeys);
+            const snapshot = isPortalFlightSearchPage
+              ? stored.vx_portal_snapshot
+              : stored.vx_stay_portal_snapshot;
+            
+            if (snapshot) {
+              let summary = '';
+              if (isPortalFlightSearchPage) {
+                // Build flight summary from stored snapshot
+                const itin = snapshot.itinerary as { origin?: string; destination?: string; cabin?: string } | undefined;
+                const price = snapshot.totalPrice?.amount;
+                const route = itin?.origin && itin?.destination
+                  ? `${itin.origin} → ${itin.destination}`
+                  : 'Flight';
+                const cabin = itin?.cabin ? ` • ${formatCabinClass(itin.cabin)}` : '';
+                const priceStr = price ? ` • $${Math.round(price)}` : '';
+                summary = `${route}${cabin}${priceStr}`;
+              } else {
+                // Build stay summary from stored snapshot
+                const stayData = snapshot as { propertyName?: string; totalPrice?: { amount?: number }; priceUSD?: number };
+                const propName = stayData.propertyName || 'Hotel Stay';
+                const price = stayData.totalPrice?.amount || stayData.priceUSD;
+                const priceStr = price ? ` • $${Math.round(price)}` : '';
+                summary = `${propName}${priceStr}`;
+              }
+              
+              console.log('[SidePanelApp] 🔍 User on portal search page with existing data - showing new search prompt');
+              setShowNewSearchPrompt({
+                type: isPortalFlightSearchPage ? 'flight' : 'stay',
+                summary,
+              });
+            }
+          } catch (storageErr) {
+            console.log('[SidePanelApp] New search detection storage check failed:', storageErr);
+          }
+        }
       }
     } catch (e) {
       console.log('[SidePanelApp] Tab detection error:', e);

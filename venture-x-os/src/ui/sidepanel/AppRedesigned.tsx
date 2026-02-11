@@ -26,7 +26,6 @@ import {
   Users,
   Coffee,
   Shield,
-  HelpCircle,
 } from 'lucide-react';
 
 // Import glass components
@@ -292,6 +291,52 @@ function formatTimeConsistent(time?: string): string {
   
   return `${hour}:${min} ${ampm}`;
 }
+
+// ============================================
+// R8: EXPANDABLE INFO — Progressive disclosure helper
+// Hides detailed explanations behind a tap-to-reveal ⓘ button
+// ============================================
+
+const ExpandableInfo: React.FC<{
+  summary: string;
+  detail: React.ReactNode;
+  variant?: 'default' | 'amber';
+  className?: string;
+}> = ({ summary, detail, variant = 'default', className }) => {
+  const [expanded, setExpanded] = useState(false);
+  const colors = variant === 'amber'
+    ? 'text-amber-400/70 hover:text-amber-300'
+    : 'text-white/40 hover:text-white/60';
+  const detailColors = variant === 'amber'
+    ? 'text-amber-200/70'
+    : 'text-white/40';
+  return (
+    <div className={className}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn('flex items-center gap-1 text-xs transition-colors', colors)}
+      >
+        <Info className="w-3 h-3 flex-shrink-0" />
+        <span>{summary}</span>
+      </button>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className={cn('mt-1.5 text-xs leading-relaxed', detailColors)}>
+              {detail}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 // ============================================
 // ANIMATED LOGO (Compact)
@@ -1335,12 +1380,15 @@ const VerdictSection: React.FC<{
   // P2-21: Callback when user clicks "Continue to Portal/Direct" - triggers success celebration
   onVerdictContinue?: (recommendation: 'portal' | 'direct', savings?: number) => void;
 }> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 0, mileValueCpp: userMileValueCpp = 0.015, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency, onOpenSettings, onVerdictContinue }) => {
-  // Use controlled mode if provided, otherwise local state
+  // R3: Removed 3-tab selector. Now use a simple "factor in miles value" toggle.
+  // Default: cheapest (out-of-pocket). Toggle ON: max_value (effective cost after miles).
   const [localTabMode, setLocalTabMode] = useState<UITabMode>('cheapest');
   const tabMode = controlledTabMode ?? localTabMode;
   const setTabMode = onTabModeChange ?? setLocalTabMode;
-  const [applyTravelCredit, setApplyTravelCredit] = useState(true);
-  const [showDoubleDipStrategy, setShowDoubleDipStrategy] = useState(true);
+  const factorMilesValue = tabMode === 'max_value';
+  const toggleFactorMilesValue = () => setTabMode(factorMilesValue ? 'cheapest' : 'max_value');
+  // R5: Credit toggle moved to Settings/Onboarding — no longer inline local state.
+  // creditRemaining is now always derived from the persisted userPrefs value passed via props.
   
   // Mile value sensitivity control - initialize from user preference prop (default 1.5¢ conservative)
   const [mileValueCpp, setMileValueCpp] = useState(userMileValueCpp);
@@ -1360,8 +1408,9 @@ const VerdictSection: React.FC<{
   const [inputError, setInputError] = useState<string | null>(null);
   const [awardBaseline, setAwardBaseline] = useState<'portal_with_credit' | 'portal_no_credit' | 'direct'>('portal_with_credit');
   
-  // Credit toggle - determines effective credit
-  const creditRemaining = applyTravelCredit ? initialCreditRemaining : 0;
+  // R5: Credit is now always read from persisted userPrefs (passed via props).
+  // No more inline toggle — users change this in Settings or Onboarding.
+  const creditRemaining = initialCreditRemaining;
   
   // Reset max value phase when switching tabs
   useEffect(() => {
@@ -1428,33 +1477,7 @@ const VerdictSection: React.FC<{
       : `Within $${CLOSE_CALL_THRESHOLD_ABS} or ${CLOSE_CALL_THRESHOLD_PERCENT}%. Choose based on cancellation policy, support quality, or personal preference.`
     : undefined;
 
-  // Tab definitions with descriptions and detailed tooltips - NOW CONTEXT-AWARE
-  const tabDefs = [
-    {
-      mode: 'cheapest' as UITabMode,
-      label: 'Cheapest',
-      emoji: '💵',
-      description: 'Lowest out-of-pocket today (after credits)',
-      tooltip: 'Minimizes cash you pay today. Good when you want the lowest immediate cost, regardless of miles earned.',
-    },
-    {
-      mode: 'max_value' as UITabMode,
-      label: 'Max Value',
-      emoji: '📈',
-      description: 'Lowest effective cost after valuing points earned/spent',
-      tooltip: 'Best value after subtracting the estimated worth of miles you\'ll earn (at your mile valuation, default 1.5¢). Higher upfront cost can be worth it if you\'ll earn significantly more miles. Adjust mile value in Settings.',
-    },
-    {
-      mode: 'easiest' as UITabMode,
-      label: 'Easiest',
-      emoji: '✨',
-      description: 'Lowest friction (even if it costs a bit more)',
-      // Context-aware tooltip based on booking type (hotels vs flights)
-      tooltip: bookingType === 'hotel' || bookingType === 'vacation_rental'
-        ? 'Prioritizes convenience: easier changes/cancellations, direct hotel support, keeping hotel loyalty status & elite nights. Direct booking usually wins unless portal is significantly cheaper.'
-        : 'Prioritizes convenience: easier changes/cancellations, direct airline support for delays & cancellations, keeping loyalty status. Direct booking usually wins unless portal is significantly cheaper.',
-    },
-  ];
+  // R3: tabDefs removed — tabs replaced by a single "Factor in miles value" toggle
 
   // Calculate effective costs for Max Value mode - use user's preference or 1.5¢ default
   const MILES_VALUE_CPP = mileValueCpp || 0.015; // Use user preference or 1.5¢/mi conservative default
@@ -1924,238 +1947,56 @@ const VerdictSection: React.FC<{
         <span className="text-xs text-white/40">Portal + Direct</span>
       </motion.div>
 
-      {/* Tab Selector with descriptions and tooltips */}
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          {tabDefs.map(({ mode, label, emoji }) => (
-            <GlassButton
-              key={mode}
-              variant={tabMode === mode ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => setTabMode(mode)}
-            >
-              {emoji} {label}
-            </GlassButton>
-          ))}
-        </div>
-        {/* Active tab description + tooltip */}
-        <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-          <div className="flex items-start gap-2">
-            <div className="flex-1">
-              <div className="text-xs text-white/80 font-medium mb-1">
-                {tabDefs.find(t => t.mode === tabMode)?.description}
-              </div>
-              <div className="text-[10px] text-white/50 leading-relaxed">
-                {tabDefs.find(t => t.mode === tabMode)?.tooltip}
-              </div>
-            </div>
-            <Info className="w-3.5 h-3.5 text-white/30 flex-shrink-0 mt-0.5" />
-          </div>
-        </div>
-      </div>
-
-      {/* Credit Toggle - Enhanced with verification messaging per UX critique P1-4 */}
+      {/* R3: "Factor in miles value" toggle — replaces 3-tab selector */}
       <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]">
         <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-0.5 flex-1">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-indigo-400" />
-              <span className="text-sm text-white/80">Include ${initialCreditRemaining} credit in comparison</span>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-violet-400" />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm text-white/80">Factor in miles value</span>
+              <span className="text-[10px] text-white/40">
+                {factorMilesValue ? 'Showing effective cost after subtracting miles value' : 'Comparing out-of-pocket prices only'}
+              </span>
             </div>
-            <span className="text-[10px] text-white/40 ml-6">
-              {applyTravelCredit ? 'Portal price will reflect credit applied' : 'Comparing sticker prices only'}
-            </span>
           </div>
           <button
-            onClick={() => setApplyTravelCredit(!applyTravelCredit)}
+            onClick={toggleFactorMilesValue}
             className={cn(
               'relative w-12 h-6 rounded-full transition-colors flex-shrink-0',
-              applyTravelCredit ? 'bg-indigo-500' : 'bg-white/20'
+              factorMilesValue ? 'bg-violet-500' : 'bg-white/20'
             )}
           >
             <motion.div
               className="absolute top-1 w-4 h-4 rounded-full bg-white shadow"
-              animate={{ left: applyTravelCredit ? 'calc(100% - 20px)' : '4px' }}
+              animate={{ left: factorMilesValue ? 'calc(100% - 20px)' : '4px' }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             />
           </button>
         </div>
-        {/* P1-4: Credit verification messaging */}
-        {/* P0 #7 FIX: Changed amber/orange (error-like) to informational blue/gray styling */}
-        {applyTravelCredit && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-2 pt-2 border-t border-white/[0.06]"
-          >
-            <div className="flex items-start gap-2 text-[10px]">
-              <Info className="w-3 h-3 text-blue-400/70 flex-shrink-0 mt-0.5" />
-              <div className="text-white/50">
-                <span className="text-blue-300/80">Assumes you have ${initialCreditRemaining} credit available and unused.</span>
-                {' '}The credit applies only to Capital One Travel portal bookings.
-                Toggle off to compare prices without credit.
-              </div>
-            </div>
-          </motion.div>
-        )}
       </div>
 
-      {/* ============================================
-          DOUBLE-DIP STRATEGY CARD
-          Shows the optimal "Portal + Travel Eraser" approach
-          Now ALWAYS shows for flights (educational), even if user can't execute yet
-          ============================================ */}
-      {/* P1 FIX: Hide double-dip strategy on "Easiest" tab - it's not simple/easy */}
-      {/* P1 FIX: Hide standalone double-dip card when verdict is showing (it's now integrated into verdict card accordion) */}
-      {/* Only show during max_value pre-verdict flow (ask/searching/input phases) */}
-      {showDoubleDipStrategy && bookingType === 'flight' && tabMode !== 'easiest' && showMaxValueFlow && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative rounded-2xl overflow-hidden"
-        >
-          <div className="relative bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-cyan-500/10 backdrop-blur-xl rounded-2xl border border-emerald-500/30 p-4">
-            {/* Close button */}
-            <button
-              onClick={() => setShowDoubleDipStrategy(false)}
-              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/20 hover:text-white/80 transition-colors"
-            >
-              ✕
-            </button>
-            
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
-                <span className="text-lg">🎯</span>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-white">Maximum Value Strategy</h3>
-                <p className="text-[10px] text-emerald-300/80">Portal + Travel Eraser "Double-Dip"</p>
-              </div>
-            </div>
-            
-            {/* Strategy Steps */}
-            <div className="space-y-2 mb-4">
-              <div className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[10px] text-emerald-300 font-bold flex-shrink-0 mt-0.5">1</div>
-                <div className="text-xs text-white/80">
-                  <strong className="text-white">Book via Capital One Travel Portal</strong>
-                  <div className="text-white/50 mt-0.5">Pay ${doubleDipRec.breakdown.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} today → Earn <span className="text-emerald-300 font-semibold">{doubleDipRec.breakdown.milesEarned.toLocaleString()}</span> miles at 5x rate</div>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[10px] text-emerald-300 font-bold flex-shrink-0 mt-0.5">2</div>
-                <div className="text-xs text-white/80">
-                  <strong className="text-white">Use Travel Eraser within 90 days</strong>
-                  <div className="text-white/50 mt-0.5">Redeem miles at 1¢/mile — <span className="text-cyan-300 font-medium">no minimum, partial OK!</span></div>
-                  <div className="text-white/40 mt-0.5 text-[10px]">Cover any amount: $1 to ${doubleDipRec.breakdown.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })} — you choose</div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Cost Breakdown - FIXED: Show Miles Value vs Travel Eraser as ALTERNATIVE options, not additive */}
-            <div className="p-3 rounded-xl bg-black/20 border border-white/10 mb-3">
-              <div className="text-[10px] text-white/50 uppercase tracking-wider mb-2">Cost Breakdown</div>
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-white/60">Pay today (portal)</span>
-                  <span className="text-white/90">${doubleDipRec.breakdown.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-white/60">Miles earned (5x × ${doubleDipRec.breakdown.payToday.toFixed(0)})</span>
-                  <span className="text-emerald-300">+{doubleDipRec.breakdown.milesEarned.toLocaleString()} mi</span>
-                </div>
-                
-                {/* FIXED: Show alternatives clearly - user can EITHER keep miles OR use Travel Eraser */}
-                <div className="mt-3 pt-2 border-t border-white/10">
-                  <div className="text-[10px] text-white/50 uppercase tracking-wider mb-2">Then Choose One:</div>
-                  
-                  {/* Option A: Keep miles for transfer partners */}
-                  {/* P0 FIX: Only show concrete dollar value if user actually found an award via PointsYeah */}
-                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 mb-2">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[10px]">🅰️</span>
-                      <span className="text-xs text-emerald-300 font-medium">Keep Miles for Transfers</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-white/50">Earned miles</span>
-                      <span className="text-emerald-300 font-medium">+{doubleDipRec.breakdown.milesEarned.toLocaleString()} mi</span>
-                    </div>
-                    <div className="text-[9px] text-white/40 mt-1">Check PointsYeah to find actual award value for your route</div>
-                  </div>
-                  
-                  {/* Option B: Use Travel Eraser */}
-                  {doubleDipRec.breakdown.eraseLater > 0 && (
-                    <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px]">🅱️</span>
-                        <span className="text-xs text-cyan-300 font-medium">Use Travel Eraser</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-white/50">Erase up to (@1¢/mi)</span>
-                        <span className="text-cyan-300 font-medium">−${doubleDipRec.breakdown.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                      </div>
-                      <div className="text-[9px] text-white/40 mt-1">Apply within 90 days to reduce out-of-pocket</div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Actual cash savings vs direct - this is the REAL comparison */}
-                <div className="flex justify-between items-center text-sm pt-3 border-t border-white/10 mt-3">
-                  <span className="text-white font-semibold">Cash Savings vs Direct</span>
-                  <span className="text-xl font-bold text-emerald-400">
-                    ${Math.max(0, directPriceUSD - doubleDipRec.breakdown.payToday).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
-                </div>
-                
-                {/* Effective Total Cost - factoring in all miles */}
-                {milesBalance > 0 && (() => {
-                  const totalMiles = milesBalance + doubleDipRec.breakdown.milesEarned;
-                  const eraseValue = totalMiles / 100;
-                  const effectiveCost = Math.max(0, doubleDipRec.breakdown.payToday - eraseValue);
-                  return (
-                    <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-white/5 group relative">
-                      <div className="flex items-center gap-1">
-                        <div className="flex flex-col">
-                          <span className="text-white/60 text-xs">Effective Total Cost</span>
-                          <span className="text-[10px] text-white/40">After using all {totalMiles.toLocaleString()} miles</span>
-                        </div>
-                        <div className="relative">
-                          <HelpCircle className="w-3 h-3 text-white/30 hover:text-white/50 cursor-help peer" />
-                          <div className="absolute left-0 top-full mt-1 z-50 w-52 p-2 rounded-lg bg-black/95 border border-white/20 text-[10px] text-white/80 shadow-xl opacity-0 peer-hover:opacity-100 transition-opacity pointer-events-none">
-                            ${doubleDipRec.breakdown.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} pay today − ${eraseValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} erased ({totalMiles.toLocaleString()} miles @ 1¢/mi) = ${effectiveCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-lg font-bold text-cyan-400">
-                        ${effectiveCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </span>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-            
-            {/* P0 #2 FIX: Removed misleading "Save $877" highlight that used effectiveCost.
-                The correct "Cash Savings vs Direct: $312" is already shown above. */}
-            
-            {/* Fine print */}
-            <div className="mt-3 text-[9px] text-white/40 leading-relaxed space-y-1.5">
-              <div>
-                💡 <strong className="text-white/50">Why this works:</strong> You earn miles on the cash purchase AND get to redeem them. Travel Eraser applies to any travel purchase made in the last 90 days.
-              </div>
-              <div className="flex items-start gap-1.5 p-1.5 rounded bg-cyan-500/10 border border-cyan-500/20">
-                <span className="text-[10px]">✨</span>
-                <span className="text-cyan-300/80">
-                  <strong>No minimum!</strong> Cover $0.78 or $780 — Capital One lets you choose exactly how much to erase. Partial redemptions OK.
-                </span>
-              </div>
-            </div>
+      {/* R5: Credit status indicator — replaces inline toggle per UX audit.
+          Credit value is now persisted in Settings/Onboarding, not toggled mid-verdict. */}
+      <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-indigo-400" />
+            {initialCreditRemaining > 0 ? (
+              <span className="text-sm text-white/80">💳 ${initialCreditRemaining} credit applied</span>
+            ) : (
+              <span className="text-sm text-white/60">💳 No credit applied ($0 remaining)</span>
+            )}
           </div>
-        </motion.div>
-      )}
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="text-[10px] text-indigo-400/80 hover:text-indigo-300 transition-colors"
+            >
+              Change in Settings
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Pay Today display for Max Value mode - UX FIX NEW-7 */}
       {tabMode === 'max_value' && (
@@ -2225,12 +2066,12 @@ const VerdictSection: React.FC<{
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.08]">
-                  <p className="text-xs text-white/60 leading-relaxed">
-                    Transfer partners can sometimes beat both portal and direct prices.
-                    Takes ~2 min to check PointsYeah.
-                  </p>
-                </div>
+                {/* R8: Collapsed explanation — full text revealed on tap */}
+                <ExpandableInfo
+                  summary="How do transfer partners work?"
+                  detail="Transfer partners can sometimes beat both portal and direct prices. Takes ~2 min to check on PointsYeah."
+                  className="px-1"
+                />
 
                 {/* P1 FIX: "Show verdict" is the primary action (why user is here),
                     "Check awards" is secondary (exploratory, leaves the app) */}
@@ -2267,12 +2108,12 @@ const VerdictSection: React.FC<{
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                  <p className="text-xs text-white/70 leading-relaxed">
-                    <strong className="text-white">Look for:</strong><br />
-                    • Miles required (e.g., "42,900 pts")<br />
-                    • Taxes/fees (e.g., "+ $258")
-                  </p>
+                {/* R8: Collapsed search tips — expanded on tap */}
+                <div className="px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                  <ExpandableInfo
+                    summary="What to look for on PointsYeah"
+                    detail={<>• Miles required (e.g., &quot;42,900 pts&quot;)<br />• Taxes/fees (e.g., &quot;+ $258&quot;)</>}
+                  />
                 </div>
 
                 <div className="p-2 rounded-lg bg-white/[0.03] text-[11px] text-white/50">
@@ -2963,9 +2804,15 @@ const CompareTabContent: React.FC<{
             <Plane className="w-10 h-10 text-white/25" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Booking Detected</h3>
-          <p className="text-sm text-white/50 mb-6 max-w-[280px] mx-auto leading-relaxed">
-            Compare prices on flights, hotels, and vacation rentals to see if you should book via the Capital One Travel portal or directly. Start on the portal to capture your booking.
+          {/* R8: Shortened paragraph — full explanation on tap */}
+          <p className="text-sm text-white/50 mb-2 max-w-[280px] mx-auto leading-relaxed">
+            See if Portal or Direct gives you the best deal.
           </p>
+          <ExpandableInfo
+            summary="How it works"
+            detail="Compare prices on flights, hotels, and vacation rentals to see if you should book via the Capital One Travel portal or directly. Start on the portal to capture your booking."
+            className="mb-6 max-w-[280px] mx-auto justify-center"
+          />
           <div className="flex flex-col gap-3 max-w-[260px] mx-auto">
             <GlassButton
               variant="primary"

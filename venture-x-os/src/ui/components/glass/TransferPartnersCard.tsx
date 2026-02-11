@@ -248,6 +248,52 @@ interface ComparisonResult {
 }
 
 // ============================================
+// R8: EXPANDABLE INFO — Progressive disclosure helper
+// Hides detailed explanations behind a tap-to-reveal ⓘ button
+// ============================================
+
+const ExpandableInfo: React.FC<{
+  summary: string;
+  detail: React.ReactNode;
+  variant?: 'default' | 'amber';
+  className?: string;
+}> = ({ summary, detail, variant = 'default', className }) => {
+  const [expanded, setExpanded] = useState(false);
+  const colors = variant === 'amber'
+    ? 'text-amber-400/70 hover:text-amber-300'
+    : 'text-white/40 hover:text-white/60';
+  const detailColors = variant === 'amber'
+    ? 'text-amber-200/70'
+    : 'text-white/40';
+  return (
+    <div className={className}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn('flex items-center gap-1 text-xs transition-colors', colors)}
+      >
+        <Info className="w-3 h-3 flex-shrink-0" />
+        <span>{summary}</span>
+      </button>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className={cn('mt-1.5 text-xs leading-relaxed', detailColors)}>
+              {detail}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// ============================================
 // TIPS MODAL COMPONENT
 // ============================================
 
@@ -917,13 +963,13 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
                         </div>
                       )}
 
-                      {/* Info message when no awards */}
+                      {/* R8: Info message collapsed — full explanation on tap */}
                       {!hasAwards && !isImporting && (
-                        <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                          <p className="text-xs text-white/60 leading-relaxed">
-                            Transfer partners can beat cash prices. Search PointsYeah, then enter what you find to compare.
-                          </p>
-                        </div>
+                        <ExpandableInfo
+                          summary="How transfer partners work"
+                          detail="Transfer partners can beat cash prices. Search PointsYeah, then enter what you find to compare."
+                          className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]"
+                        />
                       )}
 
                       {/* Loading state */}
@@ -979,17 +1025,16 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
                       exit={{ opacity: 0 }}
                       className="space-y-3"
                     >
+                      {/* R8: Collapsed search instructions — expanded on tap */}
                       <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                        <p className="text-xs text-white/70 leading-relaxed">
-                          <strong className="text-white">PointsYeah opened in a new tab.</strong><br />
-                          Look for award options showing Capital One as a transfer source.
+                        <p className="text-xs text-white/70">
+                          <strong className="text-white">PointsYeah opened in a new tab.</strong>
                         </p>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-white/[0.03] text-[11px] text-white/50 leading-relaxed">
-                        <strong className="text-white/70">Look for:</strong><br />
-                        • Miles required (e.g., "42,900 pts")<br />
-                        • Taxes/fees (e.g., "+ $258 tax")
+                        <ExpandableInfo
+                          summary="What to look for"
+                          detail={<>Look for award options showing Capital One as a transfer source.<br />• Miles required (e.g., &quot;42,900 pts&quot;)<br />• Taxes/fees (e.g., &quot;+ $258 tax&quot;)</>}
+                          className="mt-1.5"
+                        />
                       </div>
 
                       <GlassButton
@@ -1201,15 +1246,18 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
                       </div>
                       
                       {/* Warning for below-threshold awards */}
+                      {/* R8: Shortened warning — full explanation on tap */}
                       {comparisonResult.awardCpp < CPM_THRESHOLDS.FLOOR && (
                         <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                          <div className="text-xs text-red-400 flex items-start gap-1.5">
-                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                            <span>
-                              This award is below the Travel Eraser baseline ({CPM_THRESHOLDS.FLOOR}¢/mile).
-                              You're better off paying cash and erasing later to get 1¢/mile guaranteed.
-                            </span>
+                          <div className="text-xs text-red-400 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>Below Travel Eraser baseline ({CPM_THRESHOLDS.FLOOR}¢/mi)</span>
                           </div>
+                          <ExpandableInfo
+                            summary="Why this matters"
+                            detail={`At ${comparisonResult.awardCpp.toFixed(1)}¢/mile, this award is below the Travel Eraser baseline (${CPM_THRESHOLDS.FLOOR}¢/mile). You're better off paying cash and erasing later to get 1¢/mile guaranteed.`}
+                            className="ml-5 mt-1"
+                          />
                         </div>
                       )}
 
@@ -1233,18 +1281,14 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
                       {/* Tie-breaker guidance when award wins */}
                       {comparisonResult.winner === 'award' && <TieBreakerGuidance />}
 
-                      {/* Transfer instructions if award wins */}
+                      {/* R8: Transfer instructions collapsed behind tap-to-expand */}
                       {comparisonResult.winner === 'award' && (
                         <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                          <div className="text-[10px] text-amber-400/80 font-medium mb-1">
-                            📋 Next Steps
-                          </div>
-                          <div className="text-[11px] text-white/60 leading-relaxed">
-                            1. Transfer miles to {selectedProgram}<br />
-                            2. Verify availability on their site<br />
-                            3. Book through the airline<br />
-                            <span className="text-amber-400/70">⚠️ Transfers take up to 48 hours</span>
-                          </div>
+                          <ExpandableInfo
+                            summary="📋 Next Steps"
+                            detail={<>1. Transfer miles to {selectedProgram}<br />2. Verify availability on their site<br />3. Book through the airline<br /><span className="text-amber-400/70">⚠️ Transfers take up to 48 hours</span></>}
+                            variant="amber"
+                          />
                         </div>
                       )}
 

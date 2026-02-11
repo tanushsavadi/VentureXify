@@ -316,6 +316,52 @@ const InfoTooltip: React.FC<{
 };
 
 // ============================================
+// R8: EXPANDABLE INFO — Progressive disclosure helper
+// Hides detailed explanations behind a tap-to-reveal ⓘ button
+// ============================================
+
+const ExpandableInfo: React.FC<{
+  summary: string;
+  detail: React.ReactNode;
+  variant?: 'default' | 'amber';
+  className?: string;
+}> = ({ summary, detail, variant = 'default', className }) => {
+  const [expanded, setExpanded] = useState(false);
+  const colors = variant === 'amber'
+    ? 'text-amber-400/70 hover:text-amber-300'
+    : 'text-white/40 hover:text-white/60';
+  const detailColors = variant === 'amber'
+    ? 'text-amber-200/70'
+    : 'text-white/40';
+  return (
+    <div className={className}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn('flex items-center gap-1 text-xs transition-colors', colors)}
+      >
+        <Info className="w-3 h-3 flex-shrink-0" />
+        <span>{summary}</span>
+      </button>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className={cn('mt-1.5 text-xs leading-relaxed', detailColors)}>
+              {detail}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// ============================================
 // ACCORDION COMPONENT
 // ============================================
 
@@ -323,14 +369,19 @@ const Accordion: React.FC<{
   title: string;
   icon: React.ReactNode;
   defaultOpen?: boolean;
+  onToggle?: (isOpen: boolean) => void;
   children: React.ReactNode;
-}> = ({ title, icon, defaultOpen = false, children }) => {
+}> = ({ title, icon, defaultOpen = false, onToggle, children }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   
   return (
     <div className="rounded-xl border border-white/[0.08] overflow-hidden">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const next = !isOpen;
+          setIsOpen(next);
+          onToggle?.(next);
+        }}
         className={cn(
           'w-full flex items-center justify-between gap-2 px-4 py-3',
           'bg-white/[0.03] hover:bg-white/[0.05] transition-colors'
@@ -1022,12 +1073,15 @@ const CloseCallBanner: React.FC<{
     <div className="flex items-start gap-2">
       <span className="text-base mt-0.5">⚖️</span>
       <div className="flex-1">
-        <div className="text-sm font-semibold text-amber-300 mb-1">
+        <div className="text-sm font-semibold text-amber-300 mb-0.5">
           Essentially a tie
         </div>
-        <div className="text-xs text-amber-200/80">
-          {reason || 'Prices are within $25 or 2% — choose based on cancellation policies, support quality, or personal preference.'}
-        </div>
+        {/* R8: Dense tie-breaker guidance collapsed behind tap-to-expand */}
+        <ExpandableInfo
+          summary="How to decide"
+          detail={reason || 'Prices are within $25 or 2% — choose based on cancellation policies, support quality, or personal preference.'}
+          variant="amber"
+        />
       </div>
     </div>
   </motion.div>
@@ -1081,11 +1135,14 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
   onCompareOthers,
   className,
 }) => {
-  // UX FIX P2-8: Expand "Why This Wins" by default for transparency
-  const [showWhy, setShowWhy] = useState(true);
+  // R4: Collapse "Why This Wins" by default for a 5-second decision viewport.
+  // Level 0 (recommendation + price + savings + CTA) is all that's needed at first glance.
+  // Users tap "Why?" to expand Level 1 details on demand.
+  const [showWhy, setShowWhy] = useState(false);
   // Auto-open math for low confidence verdicts
   const [showDetails, setShowDetails] = useState(verdict.confidence === 'low');
   const [warningConfirmed, setWarningConfirmed] = useState(false);
+  const [powerUserExpanded, setPowerUserExpanded] = useState(false);
 
   const getRecommendationEmoji = () => {
     // Show tie emoji for close calls
@@ -1312,11 +1369,17 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
                   </div>
 
                   {/* Power User Strategy: Portal + Eraser "Double-Dip" */}
+                  {verdict.doubleDipStrategy && verdict.recommendation === 'portal' && !powerUserExpanded && verdict.doubleDipStrategy.eraseLater > 0 && (
+                    <div className="text-xs text-emerald-400/80 mb-1.5 pl-1">
+                      💡 You could save an extra ${verdict.doubleDipStrategy.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })} with the double-dip strategy →
+                    </div>
+                  )}
                   {verdict.doubleDipStrategy && verdict.recommendation === 'portal' && (
                     <Accordion
                       title="Power User Strategy"
                       icon={<Sparkles className="w-4 h-4 text-emerald-400" />}
                       defaultOpen={false}
+                      onToggle={setPowerUserExpanded}
                     >
                       <div className="space-y-4">
                         {/* Strategy Steps */}

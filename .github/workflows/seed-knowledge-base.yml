@@ -16,9 +16,6 @@
 # - SUPABASE_SERVICE_ROLE_KEY: Service role key for upserts
 # - HF_API_KEY: HuggingFace API key for embeddings
 #
-# Optional Secrets (not needed with Playwright):
-# - REDDIT_CLIENT_ID: Reddit OAuth client ID (fallback only)
-# - REDDIT_CLIENT_SECRET: Reddit OAuth client secret (fallback only)
 #
 
 name: Seed Knowledge Base

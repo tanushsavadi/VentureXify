@@ -52,7 +52,7 @@ It's like having a points-obsessed friend who actually does the math.
 
 ```bash
 # Clone it
-git clone https://github.com/tanushsavadi/VentureXify.git
+git clone https://github.com/VentureXify/VentureXify.git
 cd VentureXify/venture-x-os
 
 # Install dependencies

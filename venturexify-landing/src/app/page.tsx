@@ -371,7 +371,7 @@ export default function Home() {
               </motion.div>
               
               <motion.a
-                href="https://github.com/tanushsavadi/VentureXify"
+                href="https://github.com/VentureXify/VentureXify"
                 target="_blank"
                 rel="noopener noreferrer"
                 whileHover={{ scale: 1.05, y: -2 }}

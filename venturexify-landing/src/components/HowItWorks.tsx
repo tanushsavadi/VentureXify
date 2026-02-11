@@ -51,7 +51,7 @@ export default function HowItWorks() {
           >
             How it Works
           </motion.span>
-          <BlurInText delay={0.1} duration={1.1} once={false} className="mb-4">
+          <BlurInText scrollSync className="mb-4">
             <h2 className="text-3xl md:text-5xl font-bold">
               Simple as <span className="gradient-text">1, 2, 3</span>
             </h2>

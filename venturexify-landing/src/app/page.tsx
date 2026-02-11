@@ -315,7 +315,7 @@ export default function Home() {
               <span className="text-sm text-emerald-400 font-medium">From the Creator</span>
             </motion.div>
             
-            <BlurInText delay={0.1} duration={1.1} once={false} className="mb-6">
+            <BlurInText scrollSync className="mb-6">
               <h2 className="text-3xl sm:text-4xl font-bold">
                 Why I Built <span className="gradient-text">VentureXify</span>
               </h2>
@@ -605,7 +605,7 @@ function InteractiveCTASection({ waitlistCount }: { waitlistCount: number }) {
           </motion.div>
 
           {/* Headline with blur-in animation */}
-          <BlurInText delay={0.2} duration={1.1} once={false} className="mb-6">
+          <BlurInText scrollSync className="mb-6">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold">
               Ready to{' '}
               <span className="gradient-text">maximize</span>

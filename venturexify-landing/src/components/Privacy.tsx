@@ -27,7 +27,7 @@ export default function Privacy() {
             <span className="text-emerald-400 text-sm font-medium tracking-wider uppercase mb-4 block">
               Privacy First
             </span>
-            <BlurInText delay={0.1} duration={1.1} once={false} className="mb-6">
+            <BlurInText scrollSync className="mb-6">
               <h2 className="text-3xl md:text-5xl font-bold">
                 Your data stays{' '}
                 <span className="gradient-text-emerald">yours</span>

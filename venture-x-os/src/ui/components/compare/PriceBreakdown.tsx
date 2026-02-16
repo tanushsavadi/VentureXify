@@ -154,7 +154,7 @@ const LineItem: React.FC<{
   const highlightColors = {
     success: 'text-emerald-400',
     warning: 'text-amber-400',
-    info: 'text-indigo-300',
+    info: 'text-[#7eb8e0]',
     muted: 'text-white/40',
   };
   
@@ -220,7 +220,7 @@ const Section: React.FC<{
   const badgeColors = {
     success: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
     warning: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-    info: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/20',
+    info: 'bg-[#4a90d9]/15 text-[#7eb8e0] border-[#4a90d9]/20',
     neutral: 'bg-white/[0.05] text-white/60 border-white/[0.08]',
   };
   
@@ -236,7 +236,7 @@ const Section: React.FC<{
       >
         <div className="flex items-center gap-2">
           {section.icon && (
-            <span className="text-indigo-400">{section.icon}</span>
+            <span className="text-[#5b9bd5]">{section.icon}</span>
           )}
           <span className="text-xs font-semibold text-white/90 uppercase tracking-wider">
             {section.title}
@@ -296,18 +296,18 @@ const ComparisonSummary: React.FC<{
     <div className={cn(
       'p-4 rounded-xl border',
       portalWins
-        ? 'bg-indigo-500/10 border-indigo-500/20'
+        ? 'bg-[#4a90d9]/10 border-[#4a90d9]/20'
         : 'bg-emerald-500/10 border-emerald-500/20'
     )}>
       {/* Winner badge */}
       <div className="flex items-center gap-2 mb-3">
         <CheckCircle2 className={cn(
           'w-4 h-4',
-          portalWins ? 'text-indigo-400' : 'text-emerald-400'
+          portalWins ? 'text-[#5b9bd5]' : 'text-emerald-400'
         )} />
         <span className={cn(
           'text-xs font-semibold uppercase tracking-wider',
-          portalWins ? 'text-indigo-400' : 'text-emerald-400'
+          portalWins ? 'text-[#5b9bd5]' : 'text-emerald-400'
         )}>
           {winner === 'tie' ? 'Similar Cost' : `${portalWins ? 'Portal' : 'Direct'} Wins`}
         </span>
@@ -317,12 +317,12 @@ const ComparisonSummary: React.FC<{
       <div className="grid grid-cols-2 gap-4">
         <div className={cn(
           'p-3 rounded-lg',
-          portalWins ? 'bg-indigo-500/10' : 'bg-white/[0.03]'
+          portalWins ? 'bg-[#4a90d9]/10' : 'bg-white/[0.03]'
         )}>
           <div className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Portal</div>
           <div className={cn(
             'text-lg font-bold',
-            portalWins ? 'text-indigo-300' : 'text-white/80'
+            portalWins ? 'text-[#7eb8e0]' : 'text-white/80'
           )}>
             {formatCurrency(portalTotal, currency)}
           </div>
@@ -346,11 +346,11 @@ const ComparisonSummary: React.FC<{
       {diff > 0 && winner !== 'tie' && (
         <div className={cn(
           'mt-3 pt-3 border-t text-center',
-          portalWins ? 'border-indigo-500/20' : 'border-emerald-500/20'
+          portalWins ? 'border-[#4a90d9]/20' : 'border-emerald-500/20'
         )}>
           <span className={cn(
             'text-sm font-semibold',
-            portalWins ? 'text-indigo-300' : 'text-emerald-300'
+            portalWins ? 'text-[#7eb8e0]' : 'text-emerald-300'
           )}>
             Save {formatCurrency(diff, currency)}
           </span>

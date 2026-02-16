@@ -464,7 +464,7 @@ export const AskAboutVerdictModule: React.FC<AskAboutVerdictModuleProps> = ({
     >
       {/* Header */}
       <div className="flex items-center gap-2">
-        <MessageCircle className="w-4 h-4 text-indigo-400" />
+        <MessageCircle className="w-4 h-4 text-[#5b9bd5]" />
         <span className="text-xs font-medium text-white/70">
           Ask about this verdict
         </span>
@@ -472,7 +472,7 @@ export const AskAboutVerdictModule: React.FC<AskAboutVerdictModuleProps> = ({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-1 text-[10px] text-indigo-400/60"
+            className="flex items-center gap-1 text-[10px] text-[#5b9bd5]/60"
           >
             <Sparkles className="w-3 h-3" />
             <span>Generating questions...</span>
@@ -493,7 +493,7 @@ export const AskAboutVerdictModule: React.FC<AskAboutVerdictModuleProps> = ({
               'w-full px-3 py-2.5 pr-10',
               'text-sm text-white placeholder:text-white/30',
               'bg-white/[0.04] border border-white/[0.08] rounded-lg',
-              'focus:outline-none focus:border-indigo-500/40 focus:bg-white/[0.06]',
+              'focus:outline-none focus:border-[#4a90d9]/40 focus:bg-white/[0.06]',
               'transition-all duration-150'
             )}
           />
@@ -507,7 +507,7 @@ export const AskAboutVerdictModule: React.FC<AskAboutVerdictModuleProps> = ({
             'w-10 h-10 rounded-lg',
             'transition-all duration-150',
             inputValue.trim()
-              ? 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/30'
+              ? 'bg-[#4a90d9]/20 border border-[#4a90d9]/30 text-[#5b9bd5] hover:bg-[#4a90d9]/30'
               : 'bg-white/[0.04] border border-white/[0.06] text-white/30 cursor-not-allowed'
           )}
           aria-label="Send question"

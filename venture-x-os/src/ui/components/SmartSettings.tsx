@@ -53,19 +53,19 @@ const sliderStyles = `
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #818cf8, #6366f1);
+    background: linear-gradient(135deg, #5b9bd5, #4a90d9);
     cursor: pointer;
     border: 2px solid rgba(255,255,255,0.15);
-    box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+    box-shadow: 0 2px 8px rgba(74,144,217,0.4);
   }
   .vx-slider::-moz-range-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #818cf8, #6366f1);
+    background: linear-gradient(135deg, #5b9bd5, #4a90d9);
     cursor: pointer;
     border: 2px solid rgba(255,255,255,0.15);
-    box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+    box-shadow: 0 2px 8px rgba(74,144,217,0.4);
   }
   .vx-slider::-moz-range-track {
     background: rgba(255,255,255,0.12);
@@ -76,10 +76,10 @@ const sliderStyles = `
     outline: none;
   }
   .vx-slider:focus::-webkit-slider-thumb {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3), 0 2px 8px rgba(99,102,241,0.4);
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.3), 0 2px 8px rgba(74,144,217,0.4);
   }
   .vx-slider:focus::-moz-range-thumb {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3), 0 2px 8px rgba(99,102,241,0.4);
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.3), 0 2px 8px rgba(74,144,217,0.4);
   }
 `;
 
@@ -111,7 +111,7 @@ const Toggle: React.FC<{
     className={cn(
       'relative w-11 h-6 rounded-full flex-shrink-0 cursor-pointer',
       'transition-all duration-200 border',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4a90d9]/50',
       checked
         ? 'bg-emerald-500/30 border-emerald-500/25 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
         : 'bg-white/[0.06] border-white/[0.08]'
@@ -141,7 +141,7 @@ const Badge: React.FC<{ isDefault: boolean }> = ({ isDefault }) => (
       'px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide',
       isDefault
         ? 'bg-white/[0.06] text-white/40'
-        : 'bg-indigo-500/20 text-indigo-300'
+        : 'bg-[#4a90d9]/20 text-[#7eb8e0]'
     )}
   >
     {isDefault ? 'Default' : 'Custom'}
@@ -688,7 +688,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                               'w-full mt-2 px-3 py-2.5 rounded-lg text-sm text-white',
                               'bg-white/[0.04] border border-white/[0.08]',
                               'placeholder:text-white/30',
-                              'focus:outline-none focus:border-indigo-500/40 focus:bg-white/[0.06]',
+                              'focus:outline-none focus:border-[#4a90d9]/40 focus:bg-white/[0.06]',
                               'transition-all duration-150'
                             )}
                           />
@@ -810,7 +810,7 @@ export const SmartSettings: React.FC<SmartSettingsProps> = ({
                     <div
                       className={cn(
                         'p-3 rounded-lg mb-3',
-                        'bg-indigo-500/[0.06] border border-indigo-500/[0.12]',
+                        'bg-[#4a90d9]/[0.06] border border-[#4a90d9]/[0.12]',
                         'text-[12px] leading-relaxed text-white/55'
                       )}
                     >

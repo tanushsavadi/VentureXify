@@ -43,7 +43,7 @@ const sliderStyles = `
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #6366f1;
+    background: #4a90d9;
     cursor: pointer;
     border: none;
   }
@@ -51,7 +51,7 @@ const sliderStyles = `
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #6366f1;
+    background: #4a90d9;
     cursor: pointer;
     border: none;
   }
@@ -64,10 +64,10 @@ const sliderStyles = `
     outline: none;
   }
   .vx-onboarding-slider:focus::-webkit-slider-thumb {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.3);
   }
   .vx-onboarding-slider:focus::-moz-range-thumb {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.3);
   }
 `;
 
@@ -98,7 +98,7 @@ const AnimatedLogo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) 
     <motion.div
       className={cn(
         sizeClasses[size],
-        'rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/10 border border-white/10 flex items-center justify-center overflow-hidden relative'
+        'rounded-2xl bg-gradient-to-br from-[#4a90d9]/20 to-[#1e3048]/10 border border-white/10 flex items-center justify-center overflow-hidden relative'
       )}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
@@ -106,7 +106,7 @@ const AnimatedLogo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) 
       <span className="text-white font-bold text-xl relative z-10">VX</span>
       {/* P2 fix: Animation stops after 2 cycles instead of running forever */}
       <motion.div
-        className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20"
+        className="absolute inset-0 bg-gradient-to-r from-[#4a90d9]/20 to-[#1e3048]/20"
         animate={{ x: ['0%', '100%', '0%'] }}
         transition={{ duration: 3, repeat: 2, ease: 'linear' }}
       />
@@ -148,7 +148,7 @@ const ProgressBar: React.FC<{ currentStep: number; totalSteps: number }> = ({ cu
           className={cn(
             'flex-1 h-1.5 rounded-full transition-all duration-300',
             i + 1 < currentStep
-              ? 'bg-indigo-500/60'
+              ? 'bg-[#4a90d9]/60'
               : i + 1 === currentStep
                 ? 'bg-white/90'
                 : 'bg-white/10'
@@ -198,9 +198,9 @@ const ChoiceCard: React.FC<ChoiceCardProps> = ({
       'w-full p-4 rounded-xl text-left transition-all duration-200',
       'backdrop-blur-md border',
       'flex items-center gap-3',
-      'focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
+      'focus:outline-none focus:ring-2 focus:ring-[#4a90d9]/50',
       isActive
-        ? 'bg-indigo-500/15 border-indigo-500/40'
+        ? 'bg-[#4a90d9]/15 border-[#4a90d9]/40'
         : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.12]'
     )}
   >
@@ -245,9 +245,9 @@ const ChipSelector: React.FC<ChipSelectorProps> = ({ options, selectedValue, onS
         className={cn(
           'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200',
           'border backdrop-blur-sm',
-          'focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
+          'focus:outline-none focus:ring-2 focus:ring-[#4a90d9]/50',
           selectedValue === opt.value
-            ? 'bg-indigo-500/20 border-indigo-500/40 text-white'
+            ? 'bg-[#4a90d9]/20 border-[#4a90d9]/40 text-white'
             : 'bg-white/[0.04] border-white/[0.08] text-white/60 hover:bg-white/[0.08] hover:text-white/80'
         )}
       >
@@ -479,7 +479,7 @@ const CreditStep: React.FC<StepProps & {
                   'focus:outline-none focus:bg-white/[0.06]',
                   isInvalidAmount
                     ? 'border-red-500/50 focus:border-red-500/60'
-                    : 'border-white/[0.08] focus:border-indigo-500/40'
+                    : 'border-white/[0.08] focus:border-[#4a90d9]/40'
                 )}
               />
               {/* P1 fix: Inline validation error message */}
@@ -657,7 +657,7 @@ const MilesStep: React.FC<StepProps & {
                 'w-full px-4 py-3 text-sm rounded-xl',
                 'bg-white/[0.04] border border-white/[0.08]',
                 'text-white placeholder:text-white/30',
-                'focus:outline-none focus:bg-white/[0.06] focus:border-indigo-500/40'
+                'focus:outline-none focus:bg-white/[0.06] focus:border-[#4a90d9]/40'
               )}
             />
           </motion.div>
@@ -930,7 +930,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onOp
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-            className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full mx-auto mb-3"
+            className="w-6 h-6 border-2 border-[#4a90d9]/20 border-t-[#4a90d9] rounded-full mx-auto mb-3"
           />
           <p className="text-white/40 text-sm">Loading...</p>
         </div>
@@ -943,7 +943,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onOp
     return (
       <div className="h-full min-h-0 bg-black text-white flex flex-col relative overflow-hidden">
         <AuroraBackground />
-        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-indigo-950/15 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[#0f1923]/15 via-transparent to-transparent pointer-events-none" />
         <CompleteStep
           creditRemaining={state.creditRemaining}
           defaultMode={state.defaultMode}
@@ -960,7 +960,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onOp
     <div className="h-full min-h-0 bg-black text-white flex flex-col relative overflow-hidden">
       {/* Background - gradient only covers top half to avoid blocking buttons */}
       <AuroraBackground />
-      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-indigo-950/15 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[#0f1923]/15 via-transparent to-transparent pointer-events-none" />
       
       {/* Progress bar (hidden on welcome) */}
       {state.currentStep > 0 && (

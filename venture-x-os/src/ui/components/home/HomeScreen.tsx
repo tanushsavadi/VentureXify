@@ -244,14 +244,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         className="text-center pt-4 pb-2"
       >
         <motion.div
-          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center"
+          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#4a90d9]/30 to-[#1e3048]/20 border border-[#4a90d9]/30 flex items-center justify-center"
           whileHover={{ scale: 1.05 }}
-          animate={{ 
-            boxShadow: ['0 0 20px rgba(99,102,241,0.2)', '0 0 40px rgba(99,102,241,0.3)', '0 0 20px rgba(99,102,241,0.2)'],
+          animate={{
+            boxShadow: ['0 0 20px rgba(74,144,217,0.2)', '0 0 40px rgba(74,144,217,0.3)', '0 0 20px rgba(74,144,217,0.2)'],
           }}
           transition={{ duration: 3, repeat: Infinity }}
         >
-          <Sparkles className="w-8 h-8 text-indigo-300" />
+          <Sparkles className="w-8 h-8 text-[#7eb8e0]" />
         </motion.div>
         <h1 className="text-xl font-semibold text-white mb-2">
           VentureXify
@@ -283,8 +283,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onClick={onAskChat}
           >
             <div className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center flex-shrink-0">
-                <MessageCircle className="w-6 h-6 text-indigo-300" />
+              <div className="w-12 h-12 rounded-xl bg-[#4a90d9]/20 border border-[#4a90d9]/30 flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="w-6 h-6 text-[#7eb8e0]" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-white">
@@ -476,9 +476,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="p-3 rounded-xl bg-indigo-500/[0.08] border border-indigo-500/[0.15]"
+          className="p-3 rounded-xl bg-[#4a90d9]/[0.08] border border-[#4a90d9]/[0.15]"
         >
-          <p className="text-xs text-indigo-200/80 text-center">
+          <p className="text-xs text-[#a3c9e8]/80 text-center">
             💡 Open a flight or hotel page, and I can compare prices automatically
           </p>
         </motion.div>

@@ -104,7 +104,7 @@ export const GlassStrategyCard: React.FC<GlassStrategyCardProps> = ({
           className="absolute inset-0 rounded-xl"
           style={{
             padding: '2px',
-            background: 'conic-gradient(from 0deg, rgba(99, 102, 241, 0.6), rgba(139, 92, 246, 0.4), rgba(168, 85, 247, 0.3), rgba(139, 92, 246, 0.4), rgba(99, 102, 241, 0.6))',
+            background: 'conic-gradient(from 0deg, rgba(74, 144, 217, 0.6), rgba(45, 106, 163, 0.4), rgba(51, 78, 104, 0.3), rgba(45, 106, 163, 0.4), rgba(74, 144, 217, 0.6))',
             WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
             WebkitMaskComposite: 'xor',
             maskComposite: 'exclude',
@@ -120,7 +120,7 @@ export const GlassStrategyCard: React.FC<GlassStrategyCardProps> = ({
           'backdrop-blur-lg',
           'transition-all duration-200',
           isWinner
-            ? 'bg-white/[0.10] shadow-[0_0_30px_rgba(99,102,241,0.20)]'
+            ? 'bg-white/[0.10] shadow-[0_0_30px_rgba(74,144,217,0.20)]'
             : 'bg-white/[0.05] border border-white/[0.10] hover:bg-white/[0.07] hover:border-white/[0.15]'
         )}
       >
@@ -138,7 +138,7 @@ export const GlassStrategyCard: React.FC<GlassStrategyCardProps> = ({
         {/* Header - clickable to expand */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="relative z-10 w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 rounded-lg"
+          className="relative z-10 w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4a90d9]/50 rounded-lg"
         >
           <div className="flex items-start gap-3">
             {/* Icon */}
@@ -147,7 +147,7 @@ export const GlassStrategyCard: React.FC<GlassStrategyCardProps> = ({
                 'flex items-center justify-center w-10 h-10 rounded-xl',
                 'transition-all duration-200',
                 isWinner
-                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                  ? 'bg-[#4a90d9]/20 text-[#7eb8e0] border border-[#4a90d9]/30'
                   : 'bg-white/[0.06] text-white/60 border border-white/[0.10]'
               )}
             >
@@ -245,7 +245,7 @@ export const GlassStrategyCard: React.FC<GlassStrategyCardProps> = ({
                       <div className="text-[10px] text-white/40 uppercase tracking-wide mb-1">
                         Value Realized
                       </div>
-                      <div className="text-sm font-semibold text-indigo-300">
+                      <div className="text-sm font-semibold text-[#7eb8e0]">
                         {strategy.cppRealized.toFixed(2)}¢/mi
                       </div>
                     </div>
@@ -313,9 +313,9 @@ export const GlassStrategyCard: React.FC<GlassStrategyCardProps> = ({
             className="absolute inset-0 rounded-xl pointer-events-none"
             animate={{
               boxShadow: [
-                '0 0 20px rgba(99, 102, 241, 0.1)',
-                '0 0 35px rgba(99, 102, 241, 0.2)',
-                '0 0 20px rgba(99, 102, 241, 0.1)',
+                '0 0 20px rgba(74, 144, 217, 0.1)',
+                '0 0 35px rgba(74, 144, 217, 0.2)',
+                '0 0 20px rgba(74, 144, 217, 0.1)',
               ],
             }}
             transition={{
@@ -429,7 +429,7 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
         className="absolute inset-0 rounded-2xl"
         style={{
           padding: '2px',
-          background: 'conic-gradient(from 0deg, rgba(99, 102, 241, 0.6), rgba(139, 92, 246, 0.4), rgba(168, 85, 247, 0.3), rgba(139, 92, 246, 0.4), rgba(99, 102, 241, 0.6))',
+          background: 'conic-gradient(from 0deg, rgba(74, 144, 217, 0.6), rgba(45, 106, 163, 0.4), rgba(51, 78, 104, 0.3), rgba(45, 106, 163, 0.4), rgba(74, 144, 217, 0.6))',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
           maskComposite: 'exclude',
@@ -480,22 +480,22 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
 
         {/* WHY THIS WON - 3 bullet summary */}
         {verdict.whyThisWon && (
-          <div className="relative z-10 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 mb-4">
-            <div className="text-[10px] text-indigo-300 uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">
+          <div className="relative z-10 p-3 rounded-xl bg-[#4a90d9]/10 border border-[#4a90d9]/20 mb-4">
+            <div className="text-[10px] text-[#7eb8e0] uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3 h-3" />
               Why this wins
             </div>
             <div className="space-y-1.5">
               <div className="text-xs text-white/80 flex items-start gap-2">
-                <span className="text-indigo-400 mt-0.5">💰</span>
+                <span className="text-[#5b9bd5] mt-0.5">💰</span>
                 <span>{verdict.whyThisWon.payToday}</span>
               </div>
               <div className="text-xs text-white/80 flex items-start gap-2">
-                <span className="text-indigo-400 mt-0.5">✈️</span>
+                <span className="text-[#5b9bd5] mt-0.5">✈️</span>
                 <span>{verdict.whyThisWon.milesEarned}</span>
               </div>
               <div className="text-xs text-white/60 flex items-start gap-2">
-                <span className="text-indigo-400 mt-0.5">💡</span>
+                <span className="text-[#5b9bd5] mt-0.5">💡</span>
                 <span>{verdict.whyThisWon.decisionTip}</span>
               </div>
             </div>
@@ -509,7 +509,7 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
             className={cn(
               'p-4 rounded-xl border transition-all duration-200',
               verdict.recommendation === 'portal'
-                ? 'bg-white/[0.10] border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
+                ? 'bg-white/[0.10] border-[#4a90d9]/30 shadow-[0_0_20px_rgba(74,144,217,0.15)]'
                 : 'bg-white/[0.04] border-white/[0.08]'
             )}
           >
@@ -524,7 +524,7 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
               </div>
             )}
             {/* Miles earned - show range if available */}
-            <div className="text-xs text-indigo-300 mt-1">
+            <div className="text-xs text-[#7eb8e0] mt-1">
               {verdict.portalDetails.milesEarnedRange
                 ? `${formatMilesRange(verdict.portalDetails.milesEarnedRange.min, verdict.portalDetails.milesEarnedRange.max)} mi (5x)`
                 : `+${verdict.portalDetails.milesEarned.toLocaleString()} mi (5x)`
@@ -543,7 +543,7 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
             className={cn(
               'p-4 rounded-xl border transition-all duration-200',
               verdict.recommendation === 'direct'
-                ? 'bg-white/[0.10] border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
+                ? 'bg-white/[0.10] border-[#4a90d9]/30 shadow-[0_0_20px_rgba(74,144,217,0.15)]'
                 : 'bg-white/[0.04] border-white/[0.08]'
             )}
           >
@@ -558,7 +558,7 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
             </div>
             <div className="text-[10px] text-white/40 mb-2">out of pocket</div>
             <div className="text-[10px] text-white/30">no credit - portal only</div>
-            <div className="text-xs text-indigo-300 mt-1">
+            <div className="text-xs text-[#7eb8e0] mt-1">
               +{verdict.directDetails.milesEarned.toLocaleString()} mi (2x)
             </div>
           </div>
@@ -578,16 +578,16 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
                   className={cn(
                     'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border transition-all',
                     assumption.editable
-                      ? 'bg-white/[0.06] border-white/[0.15] text-white/70 hover:bg-white/[0.10] hover:border-indigo-500/30 cursor-pointer'
+                      ? 'bg-white/[0.06] border-white/[0.15] text-white/70 hover:bg-white/[0.10] hover:border-[#4a90d9]/30 cursor-pointer'
                       : 'bg-white/[0.03] border-white/[0.08] text-white/50 cursor-default'
                   )}
                 >
                   <span className="text-white/40">{assumption.label}:</span>
-                  <span className={assumption.editable ? 'text-indigo-300' : 'text-white/50'}>
+                  <span className={assumption.editable ? 'text-[#7eb8e0]' : 'text-white/50'}>
                     {assumption.value}
                   </span>
                   {assumption.editable && (
-                    <span className="text-indigo-400 text-[8px]">✎</span>
+                    <span className="text-[#5b9bd5] text-[8px]">✎</span>
                   )}
                 </button>
               ))}
@@ -672,9 +672,9 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
           className="absolute inset-0 rounded-2xl pointer-events-none"
           animate={{
             boxShadow: [
-              '0 0 30px rgba(99, 102, 241, 0.1)',
-              '0 0 50px rgba(99, 102, 241, 0.2)',
-              '0 0 30px rgba(99, 102, 241, 0.1)',
+              '0 0 30px rgba(74, 144, 217, 0.1)',
+              '0 0 50px rgba(74, 144, 217, 0.2)',
+              '0 0 30px rgba(74, 144, 217, 0.1)',
             ],
           }}
           transition={{
@@ -692,7 +692,7 @@ export const GlassVerdictCard: React.FC<GlassVerdictCardProps> = ({
 const styleSheet = `
 @keyframes rotate-gradient {
   to {
-    background: conic-gradient(from 360deg, rgba(99, 102, 241, 0.6), rgba(139, 92, 246, 0.4), rgba(168, 85, 247, 0.3), rgba(139, 92, 246, 0.4), rgba(99, 102, 241, 0.6));
+    background: conic-gradient(from 360deg, rgba(74, 144, 217, 0.6), rgba(45, 106, 163, 0.4), rgba(51, 78, 104, 0.3), rgba(45, 106, 163, 0.4), rgba(74, 144, 217, 0.6));
   }
 }
 `;

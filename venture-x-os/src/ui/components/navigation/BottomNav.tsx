@@ -53,7 +53,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       icon: MessageCircle,
       label: 'Chat',
       highlight: showChatBadge,
-      badgeColor: 'indigo', // indigo dot for chat availability
+      badgeColor: 'navy', // navy blue dot for chat availability
     },
   ];
 
@@ -103,7 +103,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                     // Proportional padding
                     isActive ? 'px-4' : 'px-3',
                     'transition-all duration-150',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4a90d9]/50'
                   )}
                   whileTap={{ scale: 0.96 }}
                   transition={{ duration: 0.1 }}
@@ -153,8 +153,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                           className={cn(
                             'absolute -top-1.5 -right-1.5',
                             'w-2.5 h-2.5 rounded-full',
-                            tab.badgeColor === 'indigo'
-                              ? 'bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.8)]'
+                            tab.badgeColor === 'navy'
+                                ? 'bg-[#5b9bd5] shadow-[0_0_6px_rgba(74,144,217,0.8)]'
                               : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
                           )}
                         />
@@ -201,7 +201,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   'hover:bg-white/[0.10]',
                   'active:bg-white/[0.15]',
                   'transition-all duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4a90d9]/50'
                 )}
                 whileTap={{ scale: 0.92 }}
                 title="Paste booking details"
@@ -223,7 +223,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   'hover:bg-white/[0.10]',
                   'active:bg-white/[0.15]',
                   'transition-all duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4a90d9]/50'
                 )}
                 whileTap={{ scale: 0.92 }}
                 title="More options"

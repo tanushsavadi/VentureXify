@@ -102,8 +102,8 @@ export function FixCaptureButton({
       disabled={disabled || loading}
       className={`
         inline-flex items-center gap-1.5 px-3 py-1.5
-        text-sm font-medium text-indigo-600
-        bg-indigo-50 hover:bg-indigo-100
+        text-sm font-medium text-[#2d6ba6]
+        bg-[#e8f0f8] hover:bg-[#d0e2f0]
         rounded-lg transition-colors
         disabled:opacity-50 disabled:cursor-not-allowed
         ${className}
@@ -168,7 +168,7 @@ export function CandidateList({
       {candidates.length > maxVisible && !expanded && (
         <button
           onClick={() => setExpanded(true)}
-          className="text-xs text-indigo-600 hover:text-indigo-800"
+          className="text-xs text-[#2d6ba6] hover:text-[#13202e]"
         >
           Show {candidates.length - maxVisible} more...
         </button>
@@ -390,7 +390,7 @@ export function ExtractionStatus({
           {onFix && (
             <button 
               onClick={onFix}
-              className="text-xs text-indigo-600 hover:text-indigo-800"
+              className="text-xs text-[#2d6ba6] hover:text-[#13202e]"
             >
               Fix
             </button>
@@ -404,7 +404,7 @@ export function ExtractionStatus({
           {onRetry && (
             <button 
               onClick={onRetry}
-              className="text-xs text-indigo-600 hover:text-indigo-800"
+              className="text-xs text-[#2d6ba6] hover:text-[#13202e]"
             >
               Retry
             </button>
@@ -412,7 +412,7 @@ export function ExtractionStatus({
           {onFix && (
             <button 
               onClick={onFix}
-              className="text-xs text-indigo-600 hover:text-indigo-800"
+              className="text-xs text-[#2d6ba6] hover:text-[#13202e]"
             >
               Manual
             </button>
@@ -567,7 +567,7 @@ export function PriceWithConfidence({
       {needsFix && onFix && (
         <button
           onClick={onFix}
-          className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+          className="text-xs text-[#2d6ba6] hover:text-[#13202e] underline"
         >
           Fix
         </button>

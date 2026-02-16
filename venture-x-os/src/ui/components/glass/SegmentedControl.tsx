@@ -65,7 +65,7 @@ export const GlassSegmentedControl: React.FC<GlassSegmentedControlProps> = ({
                 className={cn(
                   'relative flex items-center gap-2 px-3 py-2',
                   'rounded-xl transition-all duration-200',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4a90d9]/50',
                   isActive && 'z-10'
                 )}
                 whileHover={{ scale: 1.02 }}
@@ -77,7 +77,7 @@ export const GlassSegmentedControl: React.FC<GlassSegmentedControlProps> = ({
                     layoutId="stepper-glow"
                     className="absolute inset-0 rounded-xl bg-white/[0.08] border border-white/[0.15]"
                     style={{
-                      boxShadow: '0 0 20px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
+                      boxShadow: '0 0 20px rgba(74, 144, 217, 0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
                     }}
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
@@ -88,7 +88,7 @@ export const GlassSegmentedControl: React.FC<GlassSegmentedControlProps> = ({
                   className={cn(
                     'relative z-10 flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold',
                     'transition-all duration-200',
-                    isActive && 'bg-indigo-500/30 text-white border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.4)]',
+                    isActive && 'bg-[#4a90d9]/30 text-white border border-[#4a90d9]/50 shadow-[0_0_12px_rgba(74,144,217,0.4)]',
                     isCompleted && 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40',
                     !isActive && !isCompleted && 'bg-white/[0.06] text-white/40 border border-white/[0.10]'
                   )}
@@ -120,7 +120,7 @@ export const GlassSegmentedControl: React.FC<GlassSegmentedControlProps> = ({
                   <div className="absolute inset-0 bg-white/[0.08] rounded-full" />
                   {/* Progress line */}
                   <motion.div
-                    className="absolute inset-y-0 left-0 bg-indigo-500/60 rounded-full"
+                    className="absolute inset-y-0 left-0 bg-[#4a90d9]/60 rounded-full"
                     initial={{ width: '0%' }}
                     animate={{
                       width: isPast || isCompleted ? '100%' : isActive ? '50%' : '0%',
@@ -156,7 +156,7 @@ export const GlassSegmentedControl: React.FC<GlassSegmentedControlProps> = ({
             className={cn(
               'relative flex-1 flex items-center justify-center gap-2 px-4 py-2',
               'rounded-lg transition-colors duration-200',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4a90d9]/50',
               'text-sm font-medium',
               isActive ? 'text-white' : 'text-white/50 hover:text-white/70'
             )}
@@ -181,8 +181,8 @@ export const GlassSegmentedControl: React.FC<GlassSegmentedControlProps> = ({
                 layoutId="tab-glow"
                 className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[2px]"
                 style={{
-                  background: 'linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.8), transparent)',
-                  boxShadow: '0 2px 12px rgba(99, 102, 241, 0.5)',
+                  background: 'linear-gradient(90deg, transparent, rgba(74, 144, 217, 0.8), transparent)',
+                  boxShadow: '0 2px 12px rgba(74, 144, 217, 0.5)',
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               />
@@ -256,7 +256,7 @@ export const GlassProgressRail: React.FC<ProgressRailProps> = ({
                 'relative flex items-center gap-1.5 flex-shrink-0',
                 'py-1 px-2',
                 'rounded-lg transition-all duration-200',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500/50',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#4a90d9]/50',
                 // Clickable styling
                 isClickable && !isActive && 'hover:bg-white/[0.04] cursor-pointer',
                 !isClickable && !isActive && 'cursor-default'
@@ -279,7 +279,7 @@ export const GlassProgressRail: React.FC<ProgressRailProps> = ({
                   'w-5 h-5 rounded-full',
                   'text-[10px] font-semibold',
                   'transition-all duration-200 flex-shrink-0',
-                  isActive && 'bg-indigo-500/35 text-white border border-indigo-400/50',
+                  isActive && 'bg-[#4a90d9]/35 text-white border border-[#5b9bd5]/50',
                   isCompleted && 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/40',
                   !isActive && !isCompleted && 'bg-white/[0.04] text-white/30 border border-white/[0.08]'
                 )}
@@ -310,7 +310,7 @@ export const GlassProgressRail: React.FC<ProgressRailProps> = ({
               <div className="w-4 h-[1.5px] mx-1 relative flex-shrink-0">
                 <div className="absolute inset-0 bg-white/[0.08] rounded-full" />
                 <motion.div
-                  className="absolute inset-y-0 left-0 rounded-full bg-indigo-500/50"
+                  className="absolute inset-y-0 left-0 rounded-full bg-[#4a90d9]/50"
                   initial={false}
                   animate={{
                     width: isCompleted ? '100%' : isActive ? '50%' : '0%',

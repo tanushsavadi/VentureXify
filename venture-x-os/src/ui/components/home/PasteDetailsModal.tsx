@@ -193,8 +193,8 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/[0.08]">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-                  <Plane className="w-4 h-4 text-indigo-300" />
+                <div className="w-9 h-9 rounded-lg bg-[#4a90d9]/20 border border-[#4a90d9]/30 flex items-center justify-center">
+                  <Plane className="w-4 h-4 text-[#7eb8e0]" />
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-white">Paste Booking Details</h2>
@@ -238,7 +238,7 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                         className={cn(
                           'w-full pl-7 pr-3 py-2.5 rounded-lg text-sm',
                           'bg-white/[0.05] border text-white placeholder:text-white/30',
-                          'focus:outline-none focus:ring-2 focus:ring-indigo-500/30',
+                          'focus:outline-none focus:ring-2 focus:ring-[#4a90d9]/30',
                           errors.portalPrice ? 'border-red-500/50' : 'border-white/[0.10]'
                         )}
                       />
@@ -265,7 +265,7 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                         className={cn(
                           'w-full pl-7 pr-3 py-2.5 rounded-lg text-sm',
                           'bg-white/[0.05] border text-white placeholder:text-white/30',
-                          'focus:outline-none focus:ring-2 focus:ring-indigo-500/30',
+                          'focus:outline-none focus:ring-2 focus:ring-[#4a90d9]/30',
                           errors.directPrice ? 'border-red-500/50' : 'border-white/[0.10]'
                         )}
                       />
@@ -299,7 +299,7 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                       onChange={(e) => setOrigin(e.target.value)}
                       placeholder="JFK"
                       maxLength={4}
-                      className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 uppercase"
+                      className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#4a90d9]/30 uppercase"
                     />
                   </div>
                   <div>
@@ -312,7 +312,7 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                       onChange={(e) => setDestination(e.target.value)}
                       placeholder="AUH"
                       maxLength={4}
-                      className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 uppercase"
+                      className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#4a90d9]/30 uppercase"
                     />
                   </div>
                 </div>
@@ -379,11 +379,11 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                 >
                   <Sparkles className={cn(
                     'w-4 h-4 transition-colors',
-                    showAwardSection ? 'text-violet-400' : 'text-white/40'
+                    showAwardSection ? 'text-[#5b9bd5]' : 'text-white/40'
                   )} />
                   <span className={cn(
                     'text-xs font-medium uppercase tracking-wider transition-colors',
-                    showAwardSection ? 'text-violet-300' : 'text-white/60'
+                    showAwardSection ? 'text-[#7eb8e0]' : 'text-white/60'
                   )}>
                     Award Option
                   </span>
@@ -411,7 +411,7 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                               value={awardMiles}
                               onChange={(e) => setAwardMiles(e.target.value)}
                               placeholder="42,900"
-                              className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                              className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#2d4a63]/30"
                             />
                           </div>
                           <div>
@@ -425,7 +425,7 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                                 value={awardTaxes}
                                 onChange={(e) => setAwardTaxes(e.target.value)}
                                 placeholder="85"
-                                className="w-full pl-7 pr-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                                className="w-full pl-7 pr-3 py-2.5 rounded-lg text-sm bg-white/[0.05] border border-white/[0.10] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#2d4a63]/30"
                               />
                             </div>
                           </div>
@@ -443,7 +443,7 @@ export const PasteDetailsModal: React.FC<PasteDetailsModalProps> = ({
                                 className={cn(
                                   'px-2 py-1 rounded text-[10px] transition-colors border',
                                   awardProgram === partner
-                                    ? 'bg-violet-500/20 border-violet-500/30 text-white'
+                                    ? 'bg-[#2d4a63]/20 border-[#2d4a63]/30 text-white'
                                     : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06]'
                                 )}
                               >

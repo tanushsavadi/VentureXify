@@ -98,8 +98,8 @@ const ALLIANCE_INFO: Record<Alliance, AllianceInfo> = {
   independent: {
     name: 'Independent',
     shortName: 'Ind',
-    color: 'bg-violet-500/15 border-violet-500/25',
-    textColor: 'text-violet-400',
+    color: 'bg-[#2d4a63]/15 border-[#2d4a63]/25',
+    textColor: 'text-[#5b9bd5]',
     icon: '💎',
   },
 };
@@ -396,7 +396,7 @@ const ImportedAwardRow: React.FC<{
     if (impliedCpp < CPM_THRESHOLDS.GOOD_DEAL) return 'text-amber-400';
     if (impliedCpp < CPM_THRESHOLDS.EXCELLENT) return 'text-emerald-400';
     if (impliedCpp < CPM_THRESHOLDS.OUTSTANDING) return 'text-blue-400';
-    return 'text-purple-400';
+    return 'text-[#5b9bd5]';
   };
   
   const getBgColor = () => {
@@ -487,8 +487,8 @@ const CpmValueBadge: React.FC<{
       };
     }
     return {
-      bg: 'bg-purple-500/15 border-purple-500/25',
-      text: 'text-purple-400',
+      bg: 'bg-[#1e3048]/15 border-[#1e3048]/25',
+      text: 'text-[#5b9bd5]',
       label: '⭐ Outstanding!',
       icon: Trophy,
     };
@@ -618,7 +618,7 @@ const AllianceTranslationCard: React.FC<{
       <div>
         <div className="text-[10px] text-white/40 uppercase tracking-wider mb-1">You'll fly on</div>
         <div className="flex items-center gap-2">
-          <Plane className="w-4 h-4 text-indigo-400" />
+          <Plane className="w-4 h-4 text-[#5b9bd5]" />
           <span className="text-sm text-white/90">{flyingOn}</span>
         </div>
       </div>
@@ -629,7 +629,7 @@ const AllianceTranslationCard: React.FC<{
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
           onClick={() => setShowTooltip(!showTooltip)}
-          className="flex items-center gap-1.5 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors cursor-help"
+          className="flex items-center gap-1.5 text-[10px] text-[#5b9bd5] hover:text-[#7eb8e0] transition-colors cursor-help"
         >
           <Info className="w-3 h-3" />
           <span>Why this works</span>
@@ -674,8 +674,8 @@ const AllianceTranslationCard: React.FC<{
 // ============================================
 
 const TieBreakerGuidance: React.FC = () => (
-  <div className="p-2 rounded-lg bg-indigo-500/5 border border-indigo-500/10">
-    <div className="text-[10px] text-indigo-300/80 flex items-start gap-1.5">
+  <div className="p-2 rounded-lg bg-[#4a90d9]/5 border border-[#4a90d9]/10">
+    <div className="text-[10px] text-[#7eb8e0]/80 flex items-start gap-1.5">
       <Lightbulb className="w-3 h-3 mt-0.5 flex-shrink-0" />
       <span>{TIE_BREAKER_GUIDANCE}</span>
     </div>
@@ -872,15 +872,15 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
           className
         )}
       >
-        <div className="relative bg-gradient-to-br from-violet-500/10 via-indigo-500/10 to-purple-500/10 backdrop-blur-xl rounded-xl border border-white/[0.10]">
+        <div className="relative bg-gradient-to-br from-[#2d4a63]/10 via-[#4a90d9]/10 to-[#1e3048]/10 backdrop-blur-xl rounded-xl border border-white/[0.10]">
           {/* Header - Always visible */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="w-full p-4 flex items-center justify-between text-left"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-violet-400" />
+              <div className="w-8 h-8 rounded-lg bg-[#2d4a63]/20 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-[#5b9bd5]" />
               </div>
               <div>
                 <h4 className="text-sm font-medium text-white">
@@ -975,7 +975,7 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
                       {/* Loading state */}
                       {isImporting && (
                         <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-center">
-                          <RefreshCw className="w-5 h-5 text-indigo-400 mx-auto mb-2 animate-spin" />
+                          <RefreshCw className="w-5 h-5 text-[#5b9bd5] mx-auto mb-2 animate-spin" />
                           <p className="text-xs text-white/50">
                             Importing results...
                           </p>
@@ -1026,7 +1026,7 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
                       className="space-y-3"
                     >
                       {/* R8: Collapsed search instructions — expanded on tap */}
-                      <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                      <div className="p-3 rounded-lg bg-[#4a90d9]/10 border border-[#4a90d9]/20">
                         <p className="text-xs text-white/70">
                           <strong className="text-white">PointsYeah opened in a new tab.</strong>
                         </p>
@@ -1087,7 +1087,7 @@ export const TransferPartnersCard: React.FC<TransferPartnersCardProps> = ({
                               className={cn(
                                 'px-2 py-1.5 rounded-lg text-[10px] transition-colors border flex items-center gap-1.5',
                                 selectedProgram === p.name
-                                  ? 'bg-violet-500/20 border-violet-500/30 text-white'
+                                  ? 'bg-[#2d4a63]/20 border-[#2d4a63]/30 text-white'
                                   : 'bg-white/[0.04] border-white/[0.08] text-white/60 hover:bg-white/[0.08]'
                               )}
                             >

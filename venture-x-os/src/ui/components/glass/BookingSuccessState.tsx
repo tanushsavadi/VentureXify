@@ -60,10 +60,10 @@ const ConfettiParticle: React.FC<{ delay: number; color: string }> = ({ delay, c
 const ConfettiBurst: React.FC = () => {
   const colors = [
     '#10B981', // emerald
-    '#8B5CF6', // violet
+    '#4a90d9', // navy blue accent
     '#3B82F6', // blue
     '#F59E0B', // amber
-    '#EC4899', // pink
+    '#5b9bd5', // lighter navy accent
     '#14B8A6', // teal
   ];
   
@@ -191,7 +191,7 @@ export const BookingSuccessState: React.FC<BookingSuccessStateProps> = ({
         transition={{ duration: 1 }}
       >
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 left-1/3 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 left-1/3 w-48 h-48 bg-[#2d4a63]/10 rounded-full blur-3xl" />
       </motion.div>
       
       {/* Main content */}

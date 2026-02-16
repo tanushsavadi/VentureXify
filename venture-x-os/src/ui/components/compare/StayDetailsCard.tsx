@@ -182,7 +182,7 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
         className="absolute inset-0 rounded-2xl"
         style={{
           padding: '1px',
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.15), rgba(6, 182, 212, 0.2))',
+          background: 'linear-gradient(135deg, rgba(74, 144, 217, 0.3), rgba(45, 106, 163, 0.15), rgba(6, 182, 212, 0.2))',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
           maskComposite: 'exclude',
@@ -192,14 +192,14 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
       {/* Card content */}
       <div className="relative bg-[#0A0A0F]/95 backdrop-blur-xl rounded-2xl p-5">
         {/* Inner glow */}
-        <div className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-indigo-500/[0.03] via-transparent to-cyan-500/[0.03]" />
+        <div className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-[#4a90d9]/[0.03] via-transparent to-cyan-500/[0.03]" />
 
         <div className="relative z-10 space-y-5">
           {/* Header: Property info */}
           <div className="flex items-start gap-4">
             {/* Property icon/image placeholder */}
-            <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-white/[0.08] flex items-center justify-center">
-              <Building2 className="w-7 h-7 text-indigo-400" />
+            <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-[#4a90d9]/20 to-[#2d4a63]/20 border border-white/[0.08] flex items-center justify-center">
+              <Building2 className="w-7 h-7 text-[#5b9bd5]" />
             </div>
             
             <div className="flex-1 min-w-0">
@@ -226,8 +226,8 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
                 <span className={cn(
                   'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider',
                   capture.accommodationType === 'hotel'
-                    ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20'
-                    : 'bg-violet-500/15 text-violet-300 border border-violet-500/20'
+                    ? 'bg-[#4a90d9]/15 text-[#7eb8e0] border border-[#4a90d9]/20'
+                    : 'bg-[#2d4a63]/15 text-[#7eb8e0] border border-[#2d4a63]/20'
                 )}>
                   {capture.accommodationType === 'vacation_rental' ? '5x Vacation Rental' : '10x Hotel'}
                 </span>
@@ -241,12 +241,12 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
           {/* Stay details grid */}
           <div className="grid grid-cols-2 gap-4">
             <DetailRow
-              icon={<Calendar className="w-4 h-4 text-indigo-400" />}
+              icon={<Calendar className="w-4 h-4 text-[#5b9bd5]" />}
               label="Dates"
               value={dateRange}
             />
             <DetailRow
-              icon={<Bed className="w-4 h-4 text-violet-400" />}
+              icon={<Bed className="w-4 h-4 text-[#5b9bd5]" />}
               label="Stay"
               value={nightsLabel}
             />
@@ -369,8 +369,8 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
                   {/* Miles equivalent */}
                   {checkoutBreakdown.dueTodayMiles && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-indigo-400/80">or</span>
-                      <span className="text-indigo-400 font-medium">
+                      <span className="text-[#5b9bd5]/80">or</span>
+                      <span className="text-[#5b9bd5] font-medium">
                         {checkoutBreakdown.dueTodayMiles.toLocaleString()} miles
                       </span>
                     </div>
@@ -394,7 +394,7 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
                     {formatStayPrice(displayPrice)}
                   </div>
                   {capture.portalMilesEquivalent && (
-                    <div className="text-xs text-indigo-400">
+                    <div className="text-xs text-[#5b9bd5]">
                       or {capture.portalMilesEquivalent.toLocaleString()} miles
                     </div>
                   )}
@@ -405,7 +405,7 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
                   <div className="text-[10px] text-white/40 uppercase tracking-wider">
                     Miles Earned
                   </div>
-                  <div className="flex items-center gap-1 text-indigo-300">
+                  <div className="flex items-center gap-1 text-[#7eb8e0]">
                     <Sparkles className="w-4 h-4" />
                     <span className="text-lg font-bold">
                       {capture.milesEarned?.toLocaleString() || '—'}
@@ -428,8 +428,8 @@ export const StayDetailsCard: React.FC<StayDetailsCardProps> = ({
                 onClick={onCompareClick}
                 className={cn(
                   'w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl',
-                  'bg-gradient-to-r from-indigo-500/20 to-violet-500/20',
-                  'border border-indigo-500/30 hover:border-indigo-500/50',
+                  'bg-gradient-to-r from-[#4a90d9]/20 to-[#2d4a63]/20',
+                  'border border-[#4a90d9]/30 hover:border-[#4a90d9]/50',
                   'text-sm font-medium text-white',
                   'transition-all duration-200 hover:scale-[1.02]',
                   'group'

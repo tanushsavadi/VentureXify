@@ -225,9 +225,9 @@ export const FxRateDisplay: React.FC<FxRateDisplayProps> = ({
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px]"
+          className="p-2 rounded-lg bg-[#4a90d9]/10 border border-[#4a90d9]/20 text-[10px]"
         >
-          <div className="text-indigo-300 font-medium mb-1">
+          <div className="text-[#7eb8e0] font-medium mb-1">
             ⚠️ Rate sensitivity (±{sensitivityPercent}%)
           </div>
           <div className="text-white/60">

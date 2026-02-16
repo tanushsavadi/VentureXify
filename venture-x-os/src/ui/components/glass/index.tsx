@@ -14,6 +14,8 @@ export { GlassSegmentedControl, GlassProgressRail } from './SegmentedControl';
 export { GlassStrategyCard, GlassVerdictCard } from './StrategyCard';
 export { ProgressiveVerdictCard } from './ProgressiveVerdictCard';
 export type { VerdictDataProgressive, RankingMode, DoubleDipStrategyInfo } from './ProgressiveVerdictCard';
+export { SavingsWaterfall } from './SavingsWaterfall';
+export type { SavingsWaterfallProps } from './SavingsWaterfall';
 export { TransferPartnersCard } from './TransferPartnersCard';
 export type { TransferPartnersCardProps } from './TransferPartnersCard';
 export { AskAboutVerdictModule } from './AskAboutVerdictModule';
@@ -21,6 +23,10 @@ export type { VerdictContext, AskAboutVerdictModuleProps } from './AskAboutVerdi
 export { FeedbackButton, InlineFeedbackLink } from './FeedbackButton';
 export type { FeedbackButtonProps, InlineFeedbackLinkProps } from './FeedbackButton';
 export { BookingSuccessState } from './BookingSuccessState';
+export { StepChangeDialog } from './StepChangeDialog';
+export type { StepChangeDialogProps } from './StepChangeDialog';
+export { OutOfOrderStepWarning } from './OutOfOrderStepWarning';
+export type { OutOfOrderStepWarningProps } from './OutOfOrderStepWarning';
 
 // ============================================
 // GLASS PANEL - Container with blur/noise
@@ -246,8 +252,8 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
         )}
         style={{
           boxShadow: getBoxShadow(),
-          background: variant === 'primary' 
-            ? 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.18))'
+          background: variant === 'primary'
+            ? 'linear-gradient(135deg, rgba(74,144,217,0.25), rgba(45,106,163,0.18))'
             : undefined,
         }}
         {...(props as HTMLMotionProps<'button'>)}
@@ -315,7 +321,7 @@ export const GlassBadge = forwardRef<HTMLSpanElement, GlassBadgeProps>(
       success: 'bg-[var(--success-soft)] text-[var(--success)] border-[rgba(16,185,129,0.25)]',
       warning: 'bg-[var(--warning-soft)] text-[var(--warning)] border-[rgba(245,158,11,0.25)]',
       error: 'bg-[var(--danger-soft)] text-[var(--danger)] border-[rgba(239,68,68,0.25)]',
-      accent: 'bg-[var(--accent-soft)] text-[var(--accent-muted)] border-[rgba(99,102,241,0.25)]',
+      accent: 'bg-[var(--accent-soft)] text-[var(--accent-muted)] border-[rgba(74,144,217,0.25)]',
       // UX FIX: Improved muted badge contrast for accessibility (was --text-muted which was too low contrast)
       muted: 'bg-surface-1 text-[var(--text-tertiary)] border-[var(--border-default)]',
     };
@@ -545,7 +551,7 @@ export const GlassEmptyState: React.FC<GlassEmptyStateProps> = ({
   >
     {/* Icon */}
     {icon && (
-      <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-white/[0.08] flex items-center justify-center">
+      <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-[#4a90d9]/10 to-[#1e3048]/10 border border-white/[0.08] flex items-center justify-center">
         <div className="text-white/25">{icon}</div>
       </div>
     )}
@@ -676,8 +682,8 @@ export const AuroraBackground: React.FC = () => (
       className="absolute w-[200%] h-[200%] top-[-50%] left-[-50%]"
       style={{
         background: `
-          radial-gradient(ellipse at 20% 30%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-          radial-gradient(ellipse at 80% 70%, rgba(139, 92, 246, 0.04) 0%, transparent 50%)
+          radial-gradient(ellipse at 20% 30%, rgba(74, 144, 217, 0.06) 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 70%, rgba(45, 106, 163, 0.04) 0%, transparent 50%)
         `,
       }}
       animate={{

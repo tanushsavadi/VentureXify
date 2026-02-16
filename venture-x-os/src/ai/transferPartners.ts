@@ -1,7 +1,10 @@
 // ============================================
 // TRANSFER PARTNERS KNOWLEDGE BASE
 // Capital One Venture X transfer partners
+// Derived from the unified transfer partner registry
 // ============================================
+
+import { getAllPartners, type RegistryPartner } from '../engine/transferPartnerRegistry';
 
 export interface TransferPartner {
   name: string;
@@ -12,123 +15,59 @@ export interface TransferPartner {
   avgCpp: number; // Average cents per point value
 }
 
-export const TRANSFER_PARTNERS: TransferPartner[] = [
+// ---------------------------------------------------------------------------
+// Supplementary AI-context data not present in the registry
+// ---------------------------------------------------------------------------
+
+const AI_SUPPLEMENT: Record<string, { sweetSpot: string; avgCpp: number }> = {
   // Airlines
-  {
-    name: 'Air France/KLM Flying Blue',
-    code: 'AF',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Europe Business Class 70k one-way',
-    avgCpp: 1.7,
-  },
-  {
-    name: 'British Airways Avios',
-    code: 'BA',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Short-haul flights 7.5k-12.5k',
-    avgCpp: 1.5,
-  },
-  {
-    name: 'Emirates Skywards',
-    code: 'EK',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'First Class upgrades, partner awards',
-    avgCpp: 1.4,
-  },
-  {
-    name: 'Singapore KrisFlyer',
-    code: 'SQ',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Asia Business Class 60-80k',
-    avgCpp: 1.8,
-  },
-  {
-    name: 'Turkish Miles&Smiles',
-    code: 'TK',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Star Alliance Business awards',
-    avgCpp: 1.9,
-  },
-  {
-    name: 'Avianca LifeMiles',
-    code: 'AV',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Partner awards, no fuel surcharges',
-    avgCpp: 1.6,
-  },
-  {
-    name: 'Air Canada Aeroplan',
-    code: 'AC',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Stopover routes, Star Alliance',
-    avgCpp: 1.7,
-  },
-  {
-    name: 'Cathay Pacific Asia Miles',
-    code: 'CX',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Asia First Class',
-    avgCpp: 1.5,
-  },
-  {
-    name: 'Qantas Frequent Flyer',
-    code: 'QF',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Australia/New Zealand routes',
-    avgCpp: 1.4,
-  },
-  {
-    name: 'Finnair Plus',
-    code: 'AY',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Nordic Europe, Asia via Helsinki',
-    avgCpp: 1.5,
-  },
-  {
-    name: 'TAP Air Portugal',
-    code: 'TP',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Portugal connections, Star Alliance',
-    avgCpp: 1.4,
-  },
-  {
-    name: 'Etihad Guest',
-    code: 'EY',
-    type: 'airline',
-    ratio: '1:1',
-    sweetSpot: 'Middle East Business Class',
-    avgCpp: 1.5,
-  },
-  
+  aeroplan:   { sweetSpot: 'Stopover routes, Star Alliance', avgCpp: 1.7 },
+  aeromexico: { sweetSpot: 'Mexico & Central America flights', avgCpp: 1.3 },
+  flyingblue: { sweetSpot: 'Europe Business Class 70k one-way', avgCpp: 1.7 },
+  lifemiles:  { sweetSpot: 'Partner awards, no fuel surcharges', avgCpp: 1.6 },
+  avios:      { sweetSpot: 'Short-haul flights 7.5k-12.5k', avgCpp: 1.5 },
+  cathay:     { sweetSpot: 'Asia First Class', avgCpp: 1.5 },
+  emirates:   { sweetSpot: 'First Class upgrades, partner awards', avgCpp: 1.4 },
+  etihad:     { sweetSpot: 'Middle East Business Class', avgCpp: 1.5 },
+  finnair:    { sweetSpot: 'Nordic Europe, Asia via Helsinki', avgCpp: 1.5 },
+  qantas:     { sweetSpot: 'Australia/New Zealand routes', avgCpp: 1.4 },
+  qatar:      { sweetSpot: 'QSuites Business Class', avgCpp: 1.8 },
+  krisflyer:  { sweetSpot: 'Asia Business Class 60-80k', avgCpp: 1.8 },
+  tapmilesgo: { sweetSpot: 'Portugal connections, Star Alliance', avgCpp: 1.4 },
+  turkish:    { sweetSpot: 'Star Alliance Business awards', avgCpp: 1.9 },
+  virginred:  { sweetSpot: 'Virgin Atlantic Upper Class', avgCpp: 1.5 },
+  evaair:     { sweetSpot: 'EVA premium cabins to Taiwan/Asia', avgCpp: 1.2 },
+  jal:        { sweetSpot: 'Japan Airlines premium cabins', avgCpp: 1.4 },
+  trueblue:   { sweetSpot: 'JetBlue Mint, Caribbean', avgCpp: 1.3 },
   // Hotels
-  {
-    name: 'Wyndham Rewards',
-    code: 'WH',
-    type: 'hotel',
-    ratio: '1:1',
-    sweetSpot: 'Budget redemptions 7.5k-15k/night',
-    avgCpp: 0.8,
-  },
-  {
-    name: 'Choice Privileges',
-    code: 'CH',
-    type: 'hotel',
-    ratio: '1:1',
-    sweetSpot: 'Budget redemptions',
-    avgCpp: 0.7,
-  },
-];
+  choice:     { sweetSpot: 'Budget redemptions', avgCpp: 0.7 },
+  wyndham:    { sweetSpot: 'Budget redemptions 7.5k-15k/night', avgCpp: 0.8 },
+  iprefer:    { sweetSpot: 'Preferred Hotels, 1:2 bonus ratio', avgCpp: 0.9 },
+  accor:      { sweetSpot: 'Global hotel coverage (poor ratio)', avgCpp: 0.5 },
+};
+
+const DEFAULT_AI_SUPP = { sweetSpot: 'General redemptions', avgCpp: 1.0 };
+
+/** Map a RegistryPartner to the AI TransferPartner interface */
+function mapToAIPartner(rp: RegistryPartner): TransferPartner {
+  const supp = AI_SUPPLEMENT[rp.id] ?? DEFAULT_AI_SUPP;
+  return {
+    name: rp.name,
+    code: rp.iata,
+    type: rp.type,
+    ratio: rp.c1Ratio,
+    sweetSpot: supp.sweetSpot,
+    avgCpp: supp.avgCpp,
+  };
+}
+
+/**
+ * All 22 Capital One Venture X transfer partners for AI context.
+ *
+ * @deprecated Prefer importing directly from `../../engine/transferPartnerRegistry`
+ * for new code. This array is maintained for backward compatibility.
+ */
+export const TRANSFER_PARTNERS: TransferPartner[] = getAllPartners().map(mapToAIPartner);
 
 /**
  * Get redemption suggestions based on miles balance

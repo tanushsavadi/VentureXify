@@ -1,11 +1,13 @@
 /**
  * PointsYeah Integration Service
- * 
+ *
  * Handles:
  * - Deep link URL building for PointsYeah flight search
  * - Award option types and implied CPP calculation
  * - Message passing for result parsing (optional import)
  */
+
+import { getAllAirlineIataCodes } from './transferPartnerRegistry';
 
 // ============================================
 // TYPES
@@ -42,21 +44,18 @@ export interface PointsYeahParseResult {
 // CONSTANTS - Known PointsYeah URL params
 // ============================================
 
+// Legacy IATA codes that were in the original list but are NOT in the
+// unified transfer partner registry.  Kept as a fallback for compatibility.
+//   AR – possibly a legacy Aeromexico code (registry uses AM)
+//   VA – Virgin Australia Velocity (no longer a Capital One partner)
+const LEGACY_PARTNER_CODES = ['AR', 'VA'];
+
 // Capital One transfer partners (airline programs)
+// Derived from the unified transfer partner registry, supplemented with
+// legacy codes for backward compatibility.
 const CAPITAL_ONE_PARTNERS = [
-  'AR', // Aeromexico
-  'AC', // Air Canada Aeroplan
-  'AV', // Avianca LifeMiles
-  'BA', // British Airways (via TAP)
-  'EK', // Emirates Skywards
-  'EY', // Etihad Guest
-  'AY', // Finnair Plus
-  'B6', // JetBlue TrueBlue
-  'QF', // Qantas Frequent Flyer
-  'SQ', // Singapore KrisFlyer
-  'TK', // Turkish Miles&Smiles
-  'VS', // Virgin Atlantic Flying Club
-  'VA', // Virgin Australia Velocity
+  ...getAllAirlineIataCodes(),
+  ...LEGACY_PARTNER_CODES.filter((c) => !getAllAirlineIataCodes().includes(c)),
 ];
 
 // All airline programs for broader search

@@ -1,8 +1,10 @@
 // ============================================
 // CAPITAL ONE TRANSFER PARTNERS DATA
-// Version: 2024.01
-// Source: https://www.capitalone.com/credit-cards/benefits/transfer-miles/
+// Version: 2026.01
+// Source: Unified Transfer Partner Registry (./transferPartnerRegistry.ts)
 // ============================================
+
+import { getAllPartners, type RegistryPartner } from './transferPartnerRegistry';
 
 export interface TransferPartner {
   id: string;
@@ -18,226 +20,70 @@ export interface TransferPartner {
   notes?: string;
 }
 
-// All Capital One transfer partners with current ratios
-export const TRANSFER_PARTNERS: TransferPartner[] = [
-  // ============================================
-  // AIRLINE PARTNERS (1:1 ratio)
-  // ============================================
-  {
-    id: 'aeroplan',
-    name: 'Air Canada Aeroplan',
-    type: 'airline',
-    alliance: 'Star Alliance',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['North America', 'Europe', 'Asia'],
-    notes: 'Great for Star Alliance awards, especially to Canada and transatlantic',
-  },
-  {
-    id: 'aeromexico',
-    name: 'Aeromexico Rewards',
-    type: 'airline',
-    alliance: 'SkyTeam',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Mexico', 'Latin America'],
-    notes: 'Good for flights to Mexico and Central America',
-  },
-  {
-    id: 'flyingblue',
-    name: 'Air France-KLM Flying Blue',
-    type: 'airline',
-    alliance: 'SkyTeam',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Europe', 'Africa'],
-    notes: 'Monthly promo rewards; good for transatlantic flights',
-  },
-  {
-    id: 'lifemiles',
-    name: 'Avianca LifeMiles',
-    type: 'airline',
-    alliance: 'Star Alliance',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 48 hours',
-    regions: ['Latin America', 'Europe'],
-    notes: 'Often has cheap Star Alliance business class awards; no fuel surcharges',
-  },
-  {
-    id: 'avios',
-    name: 'British Airways Executive Club',
-    type: 'airline',
-    alliance: 'Oneworld',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Europe', 'North America'],
-    notes: 'Best for short-haul flights; distance-based pricing',
-  },
-  {
-    id: 'cathay',
-    name: 'Cathay',
-    type: 'airline',
-    alliance: 'Oneworld',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 48 hours',
-    regions: ['Asia', 'Pacific'],
-    notes: 'Great for premium cabin flights to/from Asia',
-  },
-  {
-    id: 'connectmiles',
-    name: 'Copa ConnectMiles',
-    type: 'airline',
-    alliance: 'Star Alliance',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Latin America', 'Central America'],
-    notes: 'Hub in Panama; good for Latin America connections',
-  },
-  {
-    id: 'emirates',
-    name: 'Emirates Skywards',
-    type: 'airline',
-    alliance: 'None',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Middle East', 'Europe', 'Asia', 'Africa'],
-    notes: 'Great for Emirates first/business class; no alliances',
-  },
-  {
-    id: 'finnair',
-    name: 'Finnair Plus',
-    type: 'airline',
-    alliance: 'Oneworld',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Europe', 'Asia'],
-    notes: 'Good routing via Helsinki to Asia',
-  },
-  {
-    id: 'trueblue',
-    name: 'JetBlue TrueBlue',
-    type: 'airline',
-    alliance: 'None',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant',
-    regions: ['North America', 'Caribbean'],
-    notes: 'Good for domestic US and Caribbean; no blackout dates',
-  },
-  {
-    id: 'qantas',
-    name: 'Qantas Frequent Flyer',
-    type: 'airline',
-    alliance: 'Oneworld',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 48 hours',
-    regions: ['Australia', 'Pacific', 'Asia'],
-    notes: 'Great for flights to/from Australia',
-  },
-  {
-    id: 'qatar',
-    name: 'Qatar Airways Privilege Club',
-    type: 'airline',
-    alliance: 'Oneworld',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Middle East', 'Europe', 'Asia', 'Africa'],
-    notes: 'Qatar QSuites business class is exceptional value',
-  },
-  {
-    id: 'krisflyer',
-    name: 'Singapore KrisFlyer',
-    type: 'airline',
-    alliance: 'Star Alliance',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 48 hours',
-    regions: ['Asia', 'Pacific', 'Australia'],
-    notes: 'Singapore Suites and business class are aspirational awards',
-  },
-  {
-    id: 'tapmilesgo',
-    name: 'TAP Miles&Go',
-    type: 'airline',
-    alliance: 'Star Alliance',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Europe', 'Africa', 'South America'],
-    notes: 'Good for Portugal and transatlantic to South America',
-  },
-  {
-    id: 'turkish',
-    name: 'Turkish Airlines Miles&Smiles',
-    type: 'airline',
-    alliance: 'Star Alliance',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Europe', 'Middle East', 'Africa', 'Asia'],
-    notes: 'AMAZING for Star Alliance business/first class; low fuel surcharges',
-  },
-  {
-    id: 'virginred',
-    name: 'Virgin Red',
-    type: 'airline',
-    alliance: 'None',
-    ratio: { from: 1, to: 1 },
-    transferTime: 'Instant to 24 hours',
-    regions: ['Europe', 'Caribbean', 'North America'],
-    notes: 'Virgin Atlantic Upper Class is great value',
-  },
+// ---------------------------------------------------------------------------
+// Supplementary data not present in the registry (transfer times, regions, notes)
+// ---------------------------------------------------------------------------
 
-  // ============================================
-  // AIRLINE PARTNERS (NOT 1:1 ratio)
-  // ============================================
-  {
-    id: 'evaair',
-    name: 'EVA Air Infinity MileageLands',
-    type: 'airline',
-    alliance: 'Star Alliance',
-    ratio: { from: 2, to: 1.5 }, // 2:1.5 means you get 1.5 EVA miles per 2 C1 miles
-    transferTime: '1-2 business days',
-    regions: ['Asia', 'Taiwan'],
-    notes: '2:1.5 ratio (0.75x); only use if no better options',
-  },
+const PARTNER_SUPPLEMENT: Record<string, { transferTime: string; regions: string[]; notes?: string }> = {
+  aeroplan:   { transferTime: 'Instant to 24 hours', regions: ['North America', 'Europe', 'Asia'], notes: 'Great for Star Alliance awards, especially to Canada and transatlantic' },
+  aeromexico: { transferTime: 'Instant to 24 hours', regions: ['Mexico', 'Latin America'], notes: 'Good for flights to Mexico and Central America' },
+  flyingblue: { transferTime: 'Instant to 24 hours', regions: ['Europe', 'Africa'], notes: 'Monthly promo rewards; good for transatlantic flights' },
+  lifemiles:  { transferTime: 'Instant to 48 hours', regions: ['Latin America', 'Europe'], notes: 'Often has cheap Star Alliance business class awards; no fuel surcharges' },
+  avios:      { transferTime: 'Instant to 24 hours', regions: ['Europe', 'North America'], notes: 'Best for short-haul flights; distance-based pricing' },
+  cathay:     { transferTime: 'Instant to 48 hours', regions: ['Asia', 'Pacific'], notes: 'Great for premium cabin flights to/from Asia' },
+  emirates:   { transferTime: 'Instant to 24 hours', regions: ['Middle East', 'Europe', 'Asia', 'Africa'], notes: '2:1.5 ratio (0.75x); great for Emirates first/business class' },
+  etihad:     { transferTime: 'Instant to 24 hours', regions: ['Middle East', 'Asia'], notes: 'Good for Etihad business class redemptions' },
+  finnair:    { transferTime: 'Instant to 24 hours', regions: ['Europe', 'Asia'], notes: 'Good routing via Helsinki to Asia' },
+  trueblue:   { transferTime: 'Instant', regions: ['North America', 'Caribbean'], notes: '5:3 ratio (0.6x); good for domestic US and Caribbean; no blackout dates' },
+  qantas:     { transferTime: 'Instant to 48 hours', regions: ['Australia', 'Pacific', 'Asia'], notes: 'Great for flights to/from Australia' },
+  qatar:      { transferTime: 'Instant to 24 hours', regions: ['Middle East', 'Europe', 'Asia', 'Africa'], notes: 'Qatar QSuites business class is exceptional value' },
+  krisflyer:  { transferTime: 'Instant to 48 hours', regions: ['Asia', 'Pacific', 'Australia'], notes: 'Singapore Suites and business class are aspirational awards' },
+  tapmilesgo: { transferTime: 'Instant to 24 hours', regions: ['Europe', 'Africa', 'South America'], notes: 'Good for Portugal and transatlantic to South America' },
+  turkish:    { transferTime: 'Instant to 24 hours', regions: ['Europe', 'Middle East', 'Africa', 'Asia'], notes: 'AMAZING for Star Alliance business/first class; low fuel surcharges' },
+  virginred:  { transferTime: 'Instant to 24 hours', regions: ['Europe', 'Caribbean', 'North America'], notes: 'Virgin Atlantic Upper Class is great value' },
+  evaair:     { transferTime: '1-2 business days', regions: ['Asia', 'Taiwan'], notes: '2:1.5 ratio (0.75x); only use if no better options' },
+  jal:        { transferTime: '1-2 business days', regions: ['Asia', 'Japan'], notes: '2:1.5 ratio (0.75x); good for Japan Airlines premium cabins' },
+  accor:      { transferTime: '1-2 business days', regions: ['Global'], notes: '2:1 ratio; generally poor value vs airline transfers' },
+  iprefer:    { transferTime: '1-2 business days', regions: ['Global'], notes: '1:2 ratio; covers Preferred Hotels' },
+  choice:     { transferTime: '1-2 business days', regions: ['North America', 'Global'], notes: 'Budget hotels; 1:1 ratio' },
+  wyndham:    { transferTime: '1-2 business days', regions: ['North America', 'Global'], notes: 'Budget/midscale hotels; 1:1 ratio' },
+};
 
-  // ============================================
-  // HOTEL PARTNERS
-  // ============================================
-  {
-    id: 'accor',
-    name: 'Accor Live Limitless',
-    type: 'hotel',
-    ratio: { from: 2, to: 1 }, // 2:1 means you get 1 Accor point per 2 C1 miles
-    transferTime: '1-2 business days',
-    regions: ['Global'],
-    notes: '2:1 ratio; generally poor value vs airline transfers',
-  },
-  {
-    id: 'iprefer',
-    name: 'I Prefer Hotel Rewards',
-    type: 'hotel',
-    ratio: { from: 1, to: 2 }, // 1:2 means you get 2 I Prefer points per 1 C1 mile
-    transferTime: '1-2 business days',
-    regions: ['Global'],
-    notes: '1:2 ratio; covers Preferred Hotels',
-  },
-  {
-    id: 'choice',
-    name: 'Choice Privileges',
-    type: 'hotel',
-    ratio: { from: 1, to: 1 },
-    transferTime: '1-2 business days',
-    regions: ['North America', 'Global'],
-    notes: 'Budget hotels; 1:1 ratio',
-  },
-  {
-    id: 'wyndham',
-    name: 'Wyndham Rewards',
-    type: 'hotel',
-    ratio: { from: 1, to: 1 },
-    transferTime: '1-2 business days',
-    regions: ['North America', 'Global'],
-    notes: 'Budget/midscale hotels; 1:1 ratio',
-  },
-];
+const DEFAULT_SUPPLEMENT = { transferTime: '1-2 business days', regions: ['Global'] };
+
+/** Parse a c1Ratio string like '2:1.5' into { from, to } */
+function parseC1Ratio(c1Ratio: string): { from: number; to: number } {
+  const [from, to] = c1Ratio.split(':').map(Number);
+  return { from: from || 1, to: to || 1 };
+}
+
+/** Map a RegistryPartner to the legacy TransferPartner interface */
+function mapRegistryPartner(rp: RegistryPartner): TransferPartner {
+  const supp = PARTNER_SUPPLEMENT[rp.id] ?? DEFAULT_SUPPLEMENT;
+  return {
+    id: rp.id,
+    name: rp.name,
+    type: rp.type,
+    alliance: rp.alliance === 'none' ? undefined : rp.alliance,
+    ratio: parseC1Ratio(rp.c1Ratio),
+    transferTime: supp.transferTime,
+    regions: supp.regions,
+    notes: rp.notes ?? supp.notes,
+  };
+}
+
+/**
+ * All Capital One transfer partners with current ratios.
+ *
+ * Now includes all 22 partners from the unified registry with correct ratios:
+ * - Emirates: 2:1.5 (0.75x) — was incorrectly 1:1
+ * - JetBlue: 5:3 (0.6x) — was incorrectly 1:1
+ * - Etihad Guest and Japan Airlines Mileage Bank added
+ *
+ * @deprecated Prefer importing directly from `./transferPartnerRegistry`
+ * for new code. This array is maintained for backward compatibility.
+ */
+export const TRANSFER_PARTNERS: TransferPartner[] = getAllPartners().map(mapRegistryPartner);
 
 // Helper functions
 export function getPartnerById(id: string): TransferPartner | undefined {
@@ -560,7 +406,7 @@ export function getAirlinesBookableViaPartner(partnerId: string): string[] {
  */
 export function getBestPartnersForAirline(
   airlineNameOrCode: string,
-  cabin: 'economy' | 'premium_economy' | 'business' | 'first' = 'economy'
+  _cabin: 'economy' | 'premium_economy' | 'business' | 'first' = 'economy'
 ): Array<{
   partnerId: string;
   partnerName: string;
@@ -596,9 +442,9 @@ export interface PartnerSuggestion {
 
 export function suggestPartnersForRoute(
   operatingAirline: string,
-  origin?: string,
-  destination?: string,
-  cabin: 'economy' | 'premium_economy' | 'business' | 'first' = 'economy'
+  _origin?: string,
+  _destination?: string,
+  _cabin: 'economy' | 'premium_economy' | 'business' | 'first' = 'economy'
 ): PartnerSuggestion[] {
   const mapping = getPartnerOptionsForAirline(operatingAirline);
   if (!mapping || mapping.bookableVia.length === 0) {

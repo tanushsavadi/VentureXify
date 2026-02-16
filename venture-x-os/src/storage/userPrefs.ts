@@ -20,7 +20,7 @@
 // STORAGE VERSION & MIGRATION
 // ============================================
 
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 const SAVE_DEBOUNCE_MS = 500;
 const MAX_RETRIES = 3;
 
@@ -58,6 +58,9 @@ export interface UserPrefs {
 
   // UI Preferences
   defaultOpenTab: DefaultOpenTab;    // 'auto' | 'chat' | 'compare'
+
+  // Display preference: show effective cost after miles value
+  showEffectiveCost: boolean;        // true = show effective cost, false = OOP only
 
   // Advanced settings (collapsed by default)
   showConfidenceLabels: boolean;
@@ -110,6 +113,9 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
 
   // UI Preferences
   defaultOpenTab: 'auto',  // Auto-select based on page context
+
+  // Display preference — default to true for best card optimization
+  showEffectiveCost: true,
 
   // Advanced
   showConfidenceLabels: true,
@@ -202,6 +208,9 @@ export function sanitizePrefs(prefs: Partial<UserPrefs>): UserPrefs {
   if (prefs.defaultOpenTab && ['auto', 'chat', 'compare'].includes(prefs.defaultOpenTab)) {
     base.defaultOpenTab = prefs.defaultOpenTab;
   }
+  if (typeof prefs.showEffectiveCost === 'boolean') {
+    base.showEffectiveCost = prefs.showEffectiveCost;
+  }
 
   // Advanced
   if (typeof prefs.showConfidenceLabels === 'boolean') {
@@ -252,10 +261,16 @@ function migrateStoredData(stored: unknown): StoredPrefsWrapper {
     };
   }
   
-  // Future: Add version-specific migrations here
-  // if (wrapper.version === 1) { ... migrate to 2 ... }
+  // Version-specific migrations
+  if (wrapper.version === 2) {
+    // v2→v3: Seed showEffectiveCost from defaultMode
+    const data = wrapper.data as Partial<UserPrefs> & Record<string, unknown>;
+    data.showEffectiveCost = data.defaultMode === 'max_value' ? true : true;
+    wrapper.version = 3;
+    console.log('[UserPrefs] Migrated from v2 to v3: seeded showEffectiveCost');
+  }
   
-  console.log(`[UserPrefs] Migrated from v${wrapper.version} to v${STORAGE_VERSION}`);
+  console.log(`[UserPrefs] Migrated to v${STORAGE_VERSION}`);
   return {
     version: STORAGE_VERSION,
     lastModified: Date.now(),

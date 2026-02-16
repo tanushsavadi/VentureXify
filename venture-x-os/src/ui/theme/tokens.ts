@@ -27,13 +27,13 @@ export const tokens = {
       5: 'rgba(255, 255, 255, 0.10)',
     },
 
-    // Primary Accent (Indigo/Violet)
+    // Primary Accent (Dark Navy Blue)
     accent: {
-      DEFAULT: '#6366f1',
-      soft: 'rgba(99, 102, 241, 0.15)',
-      glow: 'rgba(99, 102, 241, 0.25)',
-      muted: '#818cf8',
-      strong: '#4f46e5',
+      DEFAULT: '#4a90d9',
+      soft: 'rgba(74, 144, 217, 0.15)',
+      glow: 'rgba(74, 144, 217, 0.25)',
+      muted: '#5b9bd5',
+      strong: '#2d6ba6',
     },
 
     // Semantic
@@ -70,7 +70,7 @@ export const tokens = {
     subtle: 'rgba(255, 255, 255, 0.04)',
     default: 'rgba(255, 255, 255, 0.08)',
     strong: 'rgba(255, 255, 255, 0.12)',
-    accent: 'rgba(99, 102, 241, 0.40)',
+    accent: 'rgba(74, 144, 217, 0.40)',
   },
 
   // ============================================
@@ -81,8 +81,8 @@ export const tokens = {
     md: '0 4px 16px rgba(0, 0, 0, 0.5)',
     lg: '0 8px 32px rgba(0, 0, 0, 0.6)',
     xl: '0 16px 64px rgba(0, 0, 0, 0.7)',
-    glowAccent: '0 0 20px rgba(99, 102, 241, 0.20)',
-    glowAccentStrong: '0 0 40px rgba(99, 102, 241, 0.35)',
+    glowAccent: '0 0 20px rgba(74, 144, 217, 0.20)',
+    glowAccentStrong: '0 0 40px rgba(74, 144, 217, 0.35)',
     glowSuccess: '0 0 20px rgba(16, 185, 129, 0.20)',
   },
 

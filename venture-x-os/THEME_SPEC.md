@@ -24,13 +24,13 @@
 
 ## B. Accent & Semantic Colors
 
-### Primary Accent (Indigo/Violet)
+### Primary Accent (Dark Navy Blue)
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--accent` | `#6366f1` | Primary buttons, active states |
-| `--accent-soft` | `rgba(99,102,241, 0.15)` | Backgrounds |
-| `--accent-glow` | `rgba(99,102,241, 0.25)` | Glow effects |
-| `--accent-muted` | `#818cf8` | Secondary accents |
+| `--accent` | `#4a90d9` | Primary buttons, active states |
+| `--accent-soft` | `rgba(74,144,217, 0.15)` | Backgrounds |
+| `--accent-glow` | `rgba(74,144,217, 0.25)` | Glow effects |
+| `--accent-muted` | `#5b9bd5` | Secondary accents |
 
 ### Semantic Colors
 | Token | Value | Usage |
@@ -62,7 +62,7 @@
 | `--border-subtle` | `rgba(255,255,255, 0.04)` | Very light separators |
 | `--border-default` | `rgba(255,255,255, 0.08)` | Standard borders |
 | `--border-strong` | `rgba(255,255,255, 0.12)` | Emphasized borders |
-| `--border-accent` | `rgba(99,102,241, 0.40)` | Accent highlights |
+| `--border-accent` | `rgba(74,144,217, 0.40)` | Accent highlights |
 
 ---
 
@@ -78,8 +78,8 @@
 ### Glows
 | Token | Value |
 |-------|-------|
-| `--glow-accent` | `0 0 20px rgba(99,102,241, 0.20)` |
-| `--glow-accent-strong` | `0 0 40px rgba(99,102,241, 0.35)` |
+| `--glow-accent` | `0 0 20px rgba(74,144,217, 0.20)` |
+| `--glow-accent-strong` | `0 0 40px rgba(74,144,217, 0.35)` |
 | `--glow-success` | `0 0 20px rgba(16,185,129, 0.20)` |
 
 ### Inner Highlight (Top Edge)
@@ -215,16 +215,16 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 ### Glass Button Primary
 ```css
 .glass-btn-primary {
-  background: linear-gradient(135deg, 
-    rgba(99,102,241, 0.25), 
-    rgba(139,92,246, 0.18));
-  border: 1px solid rgba(99,102,241, 0.40);
+  background: linear-gradient(135deg,
+    rgba(74,144,217, 0.25),
+    rgba(45,106,163, 0.18));
+  border: 1px solid rgba(74,144,217, 0.40);
   box-shadow: var(--shadow-sm), var(--glow-accent);
 }
 .glass-btn-primary:hover {
   background: linear-gradient(135deg,
-    rgba(99,102,241, 0.35),
-    rgba(139,92,246, 0.25));
+    rgba(74,144,217, 0.35),
+    rgba(45,106,163, 0.25));
 }
 .glass-btn-primary:active {
   transform: scale(0.98);

@@ -67,10 +67,10 @@ function injectToastStyles(): void {
     
     @keyframes vx-toast-attention-pulse {
       0%, 100% {
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(99, 102, 241, 0);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(74, 144, 217, 0);
       }
       50% {
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 20px 4px rgba(99, 102, 241, 0.4);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 20px 4px rgba(74, 144, 217, 0.4);
       }
     }
     
@@ -122,7 +122,7 @@ function injectToastStyles(): void {
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+      background: linear-gradient(135deg, #3b82f6 0%, #4a90d9 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -200,20 +200,20 @@ function injectToastStyles(): void {
       align-items: center;
       gap: 6px;
       padding: 6px 12px;
-      background: rgba(99, 102, 241, 0.15);
-      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: rgba(74, 144, 217, 0.15);
+      border: 1px solid rgba(74, 144, 217, 0.3);
       border-radius: 20px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 12px;
       font-weight: 500;
-      color: #818cf8;
+      color: #5b9bd5;
       cursor: pointer;
       transition: all 0.15s;
     }
     
     .vx-compare-chip:hover {
-      background: rgba(99, 102, 241, 0.25);
-      border-color: rgba(99, 102, 241, 0.5);
+      background: rgba(74, 144, 217, 0.25);
+      border-color: rgba(74, 144, 217, 0.5);
     }
     
     .vx-compare-chip svg {

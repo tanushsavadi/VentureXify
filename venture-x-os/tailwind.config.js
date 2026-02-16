@@ -27,26 +27,26 @@ export default {
         },
 
         // ─────────────────────────────────────────
-        // PRIMARY ACCENT (Indigo/Violet)
+        // PRIMARY ACCENT (Dark Navy Blue)
         // ─────────────────────────────────────────
         accent: {
-          DEFAULT: '#6366f1',
-          soft: 'rgba(99, 102, 241, 0.15)',
-          glow: 'rgba(99, 102, 241, 0.25)',
-          muted: '#818cf8',
-          strong: '#4f46e5',
+          DEFAULT: '#4a90d9',
+          soft: 'rgba(74, 144, 217, 0.15)',
+          glow: 'rgba(74, 144, 217, 0.25)',
+          muted: '#5b9bd5',
+          strong: '#2d6ba6',
           // Legacy shades for compatibility
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+          50: '#e8f0f8',
+          100: '#d0e2f0',
+          200: '#b0cde4',
+          300: '#7eb8e0',
+          400: '#5b9bd5',
+          500: '#4a90d9',
+          600: '#2d6ba6',
+          700: '#1e3048',
+          800: '#13202e',
+          900: '#0f1923',
+          950: '#091219',
         },
 
         // ─────────────────────────────────────────
@@ -90,7 +90,7 @@ export default {
           subtle: 'rgba(255, 255, 255, 0.04)',
           DEFAULT: 'rgba(255, 255, 255, 0.08)',
           strong: 'rgba(255, 255, 255, 0.12)',
-          accent: 'rgba(99, 102, 241, 0.40)',
+          accent: 'rgba(74, 144, 217, 0.40)',
         },
 
         // ─────────────────────────────────────────
@@ -154,8 +154,8 @@ export default {
         'md': '0 4px 16px rgba(0, 0, 0, 0.5)',
         'lg': '0 8px 32px rgba(0, 0, 0, 0.6)',
         'xl': '0 16px 64px rgba(0, 0, 0, 0.7)',
-        'glow-accent': '0 0 20px rgba(99, 102, 241, 0.20)',
-        'glow-accent-strong': '0 0 40px rgba(99, 102, 241, 0.35)',
+        'glow-accent': '0 0 20px rgba(74, 144, 217, 0.20)',
+        'glow-accent-strong': '0 0 40px rgba(74, 144, 217, 0.35)',
         'glow-success': '0 0 20px rgba(16, 185, 129, 0.20)',
         'inner-highlight': 'inset 0 1px 0 rgba(255, 255, 255, 0.08)',
         'inner-highlight-subtle': 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
@@ -205,8 +205,8 @@ export default {
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
         pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 15px rgba(99, 102, 241, 0.15)' },
-          '50%': { boxShadow: '0 0 30px rgba(99, 102, 241, 0.30)' },
+          '0%, 100%': { boxShadow: '0 0 15px rgba(74, 144, 217, 0.15)' },
+          '50%': { boxShadow: '0 0 30px rgba(74, 144, 217, 0.30)' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },

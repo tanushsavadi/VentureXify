@@ -38,9 +38,11 @@ import {
   AuroraBackground,
   AskAboutVerdictModule,
   BookingSuccessState,
+  StepChangeDialog,
+  OutOfOrderStepWarning,
   type VerdictContext,
 } from '../components/glass';
-import { FxRateDisplay, FxIndicator } from '../components/glass/FxRateDisplay';
+import { FxIndicator } from '../components/glass/FxRateDisplay';
 import { GlassProgressRail } from '../components/glass/SegmentedControl';
 import { ProgressiveVerdictCard, type VerdictDataProgressive } from '../components/glass/ProgressiveVerdictCard';
 import { cn } from '../../lib/utils';
@@ -65,6 +67,9 @@ import { SmartSettings } from '../components/SmartSettings';
 import {
   needsOnboarding,
   getUserPrefs,
+  setUserPrefs,
+  onPrefsChange,
+  DEFAULT_MILE_VALUATION_CPP,
   type UserPrefs,
 } from '../../storage/userPrefs';
 
@@ -73,12 +78,16 @@ import {
   sendChatMessage as sendChatViaSupabase,
   searchKnowledge,
   buildRAGContext,
-  type SearchResult,
   type ChatContext,
 } from '../../knowledge/vectorStore/supabase';
 import { isSupabaseConfigured } from '../../config/supabase';
 import { simpleCompare } from '../../engine';
-import { calculateDoubleDipRecommendation, type DoubleDipRecommendation } from '../../engine/transferPartners';
+import { calculateDoubleDipRecommendation } from '../../engine/transferPartners';
+import {
+  getPartnersGrouped,
+  getPartnerById,
+  c1MilesNeeded,
+} from '../../engine/transferPartnerRegistry';
 
 // ============================================
 // TYPES
@@ -348,14 +357,14 @@ const AnimatedLogo: React.FC<{ size?: 'sm' | 'md' }> = ({ size = 'md' }) => {
     <motion.div
       className={cn(
         sizeClasses,
-        'rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/10 border border-white/10 flex items-center justify-center overflow-hidden'
+        'rounded-xl bg-gradient-to-br from-[#4a90d9]/20 to-[#1e3048]/10 border border-white/10 flex items-center justify-center overflow-hidden'
       )}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
     >
       <span className="text-white font-bold text-sm relative z-10">VX</span>
       <motion.div
-        className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20"
+        className="absolute inset-0 bg-gradient-to-r from-[#4a90d9]/20 to-[#1e3048]/20"
         animate={{ x: ['0%', '100%', '0%'] }}
         transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
       />
@@ -370,7 +379,7 @@ const AnimatedLogo: React.FC<{ size?: 'sm' | 'md' }> = ({ size = 'md' }) => {
 const CitationBadge: React.FC<{ number: number; onClick?: () => void }> = ({ number, onClick }) => (
   <button
     onClick={onClick}
-    className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-semibold bg-indigo-500/30 text-indigo-300 rounded-full hover:bg-indigo-500/40 transition-colors ml-0.5 align-super"
+    className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-semibold bg-[#4a90d9]/30 text-[#7eb8e0] rounded-full hover:bg-[#4a90d9]/40 transition-colors ml-0.5 align-super"
   >
     {number}
   </button>
@@ -417,7 +426,7 @@ const CitationsDropdown: React.FC<{ citations: CitationSource[] }> = ({ citation
                   className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[10px]"
                 >
                   <div className="flex items-start gap-2">
-                    <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center bg-indigo-500/20 text-indigo-300 rounded-full text-[8px] font-semibold">
+                    <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center bg-[#4a90d9]/20 text-[#7eb8e0] rounded-full text-[8px] font-semibold">
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
@@ -428,7 +437,7 @@ const CitationsDropdown: React.FC<{ citations: CitationSource[] }> = ({ citation
                           href={citation.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-indigo-400 hover:text-indigo-300 truncate block mt-0.5"
+                          className="text-[#5b9bd5] hover:text-[#7eb8e0] truncate block mt-0.5"
                         >
                           View source →
                         </a>
@@ -503,7 +512,7 @@ const MessageBubble: React.FC<{
             'px-4 py-3 rounded-2xl text-sm leading-relaxed',
             'backdrop-blur-md',
             isUser
-              ? 'bg-indigo-500/20 border border-indigo-500/30 text-white rounded-br-md'
+              ? 'bg-[#4a90d9]/20 border border-[#4a90d9]/30 text-white rounded-br-md'
               : 'bg-white/[0.06] border border-white/[0.10] text-white/90 rounded-bl-md'
           )}
         >
@@ -522,7 +531,7 @@ const MessageBubble: React.FC<{
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
             onClick={onContextAction}
-            className="mt-2 px-3 py-1.5 text-xs text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors"
+            className="mt-2 px-3 py-1.5 text-xs text-[#7eb8e0] bg-[#4a90d9]/10 border border-[#4a90d9]/20 rounded-lg hover:bg-[#4a90d9]/20 transition-colors"
           >
             📊 Open a booking page to compare prices
           </motion.button>
@@ -649,8 +658,8 @@ const PortalCaptureCard: React.FC<{
   return (
     <GlassCard variant="elevated" className="mb-4">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-          <Plane className="w-4 h-4 text-indigo-300" />
+        <div className="w-8 h-8 rounded-lg bg-[#4a90d9]/20 border border-[#4a90d9]/30 flex items-center justify-center">
+          <Plane className="w-4 h-4 text-[#7eb8e0]" />
         </div>
         <span className="font-semibold text-white">Portal Itinerary Captured</span>
       </div>
@@ -768,8 +777,8 @@ const StayPortalCaptureCard: React.FC<{
   return (
     <GlassCard variant="elevated" className="mb-4">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
-          <Building2 className="w-4 h-4 text-violet-300" />
+        <div className="w-8 h-8 rounded-lg bg-[#2d4a63]/20 border border-[#2d4a63]/30 flex items-center justify-center">
+          <Building2 className="w-4 h-4 text-[#7eb8e0]" />
         </div>
         <span className="font-semibold text-white">Stay Captured</span>
         <GlassBadge variant="accent" size="sm" className="ml-auto">
@@ -919,8 +928,8 @@ const StayPortalCaptureCard: React.FC<{
         {/* Miles Equivalent */}
         {capture.milesEquivalent && (
           <div className="flex justify-between items-center text-sm pt-2 border-t border-white/[0.06]">
-            <span className="text-indigo-300/80">Or pay with miles</span>
-            <span className="text-indigo-300 font-medium">
+            <span className="text-[#7eb8e0]/80">Or pay with miles</span>
+            <span className="text-[#7eb8e0] font-medium">
               {capture.milesEquivalent.toLocaleString()} miles
             </span>
           </div>
@@ -1326,27 +1335,33 @@ const DirectCaptureCard: React.FC<{
 // ============================================
 // Award data from transfer partner search
 // ============================================
+interface AwardLeg {
+  direction: 'outbound' | 'return' | 'roundtrip';
+  program: string;        // Registry partner ID (e.g., 'turkish', 'emirates')
+  programName: string;    // Display name
+  partnerMiles: number;   // Miles in the partner's program
+  c1Miles: number;        // Capital One miles needed (after ratio conversion)
+  taxes: number;          // Taxes/fees in USD
+  taxesEstimated: boolean;
+  transferRatio: number;  // e.g., 1.0, 0.75, 0.6
+  ratioLabel: string;     // e.g., "1:1", "2:1.5", "5:3"
+  cpp: number;            // CPP for this leg
+}
+
 interface AwardData {
-  program: string;
-  miles: number;
-  taxes: number;
-  taxesEstimated?: boolean;
-  cpp: number;
+  legs: AwardLeg[];
+  totalC1Miles: number;
+  totalPartnerMiles: number;
+  totalTaxes: number;
+  totalCpp: number;
+  comparisonBaseline: 'portal_with_credit' | 'portal_no_credit' | 'direct';
+  baselineAmount: number;
 }
 
 type MaxValuePhase = 'ask' | 'searching' | 'input' | 'verdict';
 
-// Capital One transfer partners
-const TRANSFER_PARTNERS = [
-  { code: 'TK', name: 'Turkish Miles&Smiles' },
-  { code: 'EY', name: 'Etihad Guest' },
-  { code: 'EK', name: 'Emirates Skywards' },
-  { code: 'AV', name: 'Avianca LifeMiles' },
-  { code: 'AF', name: 'Air France/KLM' },
-  { code: 'BA', name: 'British Airways' },
-  { code: 'SQ', name: 'Singapore KrisFlyer' },
-  { code: 'QF', name: 'Qantas' },
-];
+// Derive grouped partner options from the registry (replaces hardcoded 8-partner list)
+const partnerGroups = getPartnersGrouped();
 
 // ============================================
 // VERDICT SECTION (Full Featured with PointsYeah - from AppPremium.tsx)
@@ -1368,6 +1383,8 @@ const VerdictSection: React.FC<{
   };
   tabMode?: UITabMode;
   onTabModeChange?: (mode: UITabMode) => void;
+  // NEW: Decoupled display preference (persisted via UserPrefs)
+  showEffectiveCost?: boolean;
   bookingType?: 'flight' | 'hotel' | 'vacation_rental';
   // Additional props for enhanced UX per critique
   // NEW-8: Added 'airline' for flight bookings on Google Flights
@@ -1379,19 +1396,35 @@ const VerdictSection: React.FC<{
   onOpenSettings?: () => void;
   // P2-21: Callback when user clicks "Continue to Portal/Direct" - triggers success celebration
   onVerdictContinue?: (recommendation: 'portal' | 'direct', savings?: number) => void;
-}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 0, mileValueCpp: userMileValueCpp = 0.015, itinerary, tabMode: controlledTabMode, onTabModeChange, bookingType = 'flight', sellerType = 'unknown', sellerName, hasFxConversion = false, fxCurrency, onOpenSettings, onVerdictContinue }) => {
-  // R3: Removed 3-tab selector. Now use a simple "factor in miles value" toggle.
-  // Default: cheapest (out-of-pocket). Toggle ON: max_value (effective cost after miles).
-  const [localTabMode, setLocalTabMode] = useState<UITabMode>('cheapest');
-  const tabMode = controlledTabMode ?? localTabMode;
-  const setTabMode = onTabModeChange ?? setLocalTabMode;
-  const factorMilesValue = tabMode === 'max_value';
-  const toggleFactorMilesValue = () => setTabMode(factorMilesValue ? 'cheapest' : 'max_value');
+}> = ({ portalPriceUSD, directPriceUSD, creditRemaining: initialCreditRemaining = 300, milesBalance = 0, mileValueCpp: userMileValueCpp = DEFAULT_MILE_VALUATION_CPP, itinerary, tabMode: controlledTabMode, onTabModeChange: _onTabModeChange, showEffectiveCost: initialShowEffectiveCost, bookingType = 'flight', sellerType: _sellerType = 'unknown', sellerName: _sellerName, hasFxConversion = false, fxCurrency: _fxCurrency, onOpenSettings, onVerdictContinue }) => {
+  // R3: "Factor in miles value" toggle — now persisted via UserPrefs.showEffectiveCost
+  // showEffectiveCost controls DISPLAY (effective cost grid, engine objective)
+  // PointsYeah features are now ALWAYS available regardless of this toggle.
+  // FIX: Use localShowEffective as source of truth for immediate UI feedback.
+  // Sync from parent prop when it changes (e.g., after settings/onboarding update).
+  const [localShowEffective, setLocalShowEffective] = useState<boolean>(initialShowEffectiveCost ?? true);
+  useEffect(() => {
+    if (initialShowEffectiveCost !== undefined) {
+      setLocalShowEffective(initialShowEffectiveCost);
+    }
+  }, [initialShowEffectiveCost]);
+  const showEffectiveCost = localShowEffective;
+
+  const toggleFactorMilesValue = () => {
+    const newValue = !showEffectiveCost;
+    setLocalShowEffective(newValue);
+    // Persist to UserPrefs (storage module — not shadowed here)
+    setUserPrefs({ showEffectiveCost: newValue });
+  };
+
+  // Derive tabMode for backward compat with engine + ProgressiveVerdictCard
+  // Use controlledTabMode as fallback to preserve full UITabMode type
+  const tabMode: UITabMode = controlledTabMode ?? (showEffectiveCost ? 'max_value' : 'cheapest');
   // R5: Credit toggle moved to Settings/Onboarding — no longer inline local state.
   // creditRemaining is now always derived from the persisted userPrefs value passed via props.
   
   // Mile value sensitivity control - initialize from user preference prop (default 1.5¢ conservative)
-  const [mileValueCpp, setMileValueCpp] = useState(userMileValueCpp);
+  const [mileValueCpp, _setMileValueCpp] = useState(userMileValueCpp);
   const MILE_VALUE_PRESETS = [
     { value: 0.010, label: '1.0¢' },
     { value: 0.015, label: '1.5¢' },
@@ -1402,28 +1435,37 @@ const VerdictSection: React.FC<{
   // Max Value flow state
   const [maxValuePhase, setMaxValuePhase] = useState<MaxValuePhase>('ask');
   const [awardData, setAwardData] = useState<AwardData | null>(null);
-  const [selectedProgram, setSelectedProgram] = useState('');
-  const [milesInput, setMilesInput] = useState('');
-  const [taxesInput, setTaxesInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
   const [awardBaseline, setAwardBaseline] = useState<'portal_with_credit' | 'portal_no_credit' | 'direct'>('portal_with_credit');
+
+  // Award entry mode: separate legs (default — PointsYeah requires one-way) or roundtrip combined
+  const [awardEntryMode, setAwardEntryMode] = useState<'roundtrip' | 'separate'>('separate');
+
+  // Outbound leg
+  const [obProgram, setObProgram] = useState('');
+  const [obMiles, setObMiles] = useState('');
+  const [obTaxes, setObTaxes] = useState('');
+
+  // Return leg
+  const [rtProgram, setRtProgram] = useState('');
+  const [rtMiles, setRtMiles] = useState('');
+  const [rtTaxes, setRtTaxes] = useState('');
+
+  // Round-trip (single entry) — used when awardEntryMode === 'roundtrip'
+  const [combinedProgram, setCombinedProgram] = useState('');
+  const [combinedMiles, setCombinedMiles] = useState('');
+  const [combinedTaxes, setCombinedTaxes] = useState('');
   
   // R5: Credit is now always read from persisted userPrefs (passed via props).
   // No more inline toggle — users change this in Settings or Onboarding.
   const creditRemaining = initialCreditRemaining;
   
-  // Reset max value phase when switching tabs
-  useEffect(() => {
-    if (tabMode !== 'max_value') {
-      setMaxValuePhase('ask');
-      setAwardData(null);
-    }
-  }, [tabMode]);
-  
-  // Map UI tab mode to engine objective
-  const engineObjective = tabMode === 'cheapest' ? 'cheapest_cash'
-    : tabMode === 'easiest' ? 'easiest'
-    : 'max_value';
+  // NOTE: Removed cleanup effect that cleared award data on tab/toggle switch.
+  // Award data now persists regardless of the effective cost toggle state.
+  // The toggle is purely cosmetic and shouldn't destroy data.
+
+  // Map display preference to engine objective
+  const engineObjective = showEffectiveCost ? 'max_value' : 'cheapest_cash';
   
   // Calculate the double-dip recommendation (Portal + Eraser strategy)
   const doubleDipRec = calculateDoubleDipRecommendation(
@@ -1524,52 +1566,157 @@ const VerdictSection: React.FC<{
     setMaxValuePhase('searching');
   };
 
+  // Helper: estimate taxes per leg when user leaves tax field blank
+  const estimateTaxes = (direction: string) => {
+    const baseCashPrice = direction === 'roundtrip'
+      ? (portalPriceUSD || directPriceUSD || 800)
+      : (portalPriceUSD || directPriceUSD || 800) / 2;
+    return Math.min(150, Math.max(75, baseCashPrice * 0.1));
+  };
+
   const handleCalculateAward = () => {
-    const miles = parseInt(milesInput.replace(/,/g, ''), 10);
-    const taxesRaw = taxesInput.replace(/[^0-9.]/g, '').trim();
-    
-    // Smart default for taxes
-    const estimatedTaxes = Math.min(150, Math.max(75, portalPriceUSD * 0.10));
-    const parsedTaxes = parseFloat(taxesRaw);
-    const hasValidTaxInput = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
-    const taxes = hasValidTaxInput ? parsedTaxes : estimatedTaxes;
-    const taxesWereEstimated = !hasValidTaxInput;
-    
-    if (!selectedProgram) {
-      setInputError('Please select a program');
+    const legs: AwardLeg[] = [];
+
+    if (awardEntryMode === 'separate') {
+      // Build outbound leg if filled
+      if (obProgram && obMiles) {
+        const partner = getPartnerById(obProgram);
+        if (partner) {
+          const partnerMiles = parseInt(obMiles.replace(/,/g, ''), 10);
+          if (isNaN(partnerMiles) || partnerMiles < 1000) {
+            setInputError('Outbound: enter valid miles (at least 1,000)');
+            return;
+          }
+          const c1Miles = c1MilesNeeded(obProgram, partnerMiles);
+          const taxesRaw = obTaxes.replace(/[^0-9.]/g, '').trim();
+          const parsedTaxes = parseFloat(taxesRaw);
+          const hasValidTax = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
+          const taxes = hasValidTax ? parsedTaxes : estimateTaxes('outbound');
+
+          legs.push({
+            direction: 'outbound',
+            program: partner.id,
+            programName: partner.name,
+            partnerMiles,
+            c1Miles,
+            taxes,
+            taxesEstimated: !hasValidTax,
+            transferRatio: partner.effectiveRate,
+            ratioLabel: partner.c1Ratio,
+            cpp: 0,
+          });
+        }
+      }
+
+      // Build return leg if filled
+      if (rtProgram && rtMiles) {
+        const partner = getPartnerById(rtProgram);
+        if (partner) {
+          const partnerMiles = parseInt(rtMiles.replace(/,/g, ''), 10);
+          if (isNaN(partnerMiles) || partnerMiles < 1000) {
+            setInputError('Return: enter valid miles (at least 1,000)');
+            return;
+          }
+          const c1Miles = c1MilesNeeded(rtProgram, partnerMiles);
+          const taxesRaw = rtTaxes.replace(/[^0-9.]/g, '').trim();
+          const parsedTaxes = parseFloat(taxesRaw);
+          const hasValidTax = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
+          const taxes = hasValidTax ? parsedTaxes : estimateTaxes('return');
+
+          legs.push({
+            direction: 'return',
+            program: partner.id,
+            programName: partner.name,
+            partnerMiles,
+            c1Miles,
+            taxes,
+            taxesEstimated: !hasValidTax,
+            transferRatio: partner.effectiveRate,
+            ratioLabel: partner.c1Ratio,
+            cpp: 0,
+          });
+        }
+      }
+    } else {
+      // Round-trip combined entry
+      if (combinedProgram && combinedMiles) {
+        const partner = getPartnerById(combinedProgram);
+        if (partner) {
+          const partnerMiles = parseInt(combinedMiles.replace(/,/g, ''), 10);
+          if (isNaN(partnerMiles) || partnerMiles < 1000) {
+            setInputError('Enter valid miles (at least 1,000)');
+            return;
+          }
+          const c1Miles = c1MilesNeeded(combinedProgram, partnerMiles);
+          const taxesRaw = combinedTaxes.replace(/[^0-9.]/g, '').trim();
+          const parsedTaxes = parseFloat(taxesRaw);
+          const hasValidTax = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
+          const taxes = hasValidTax ? parsedTaxes : estimateTaxes('roundtrip');
+
+          legs.push({
+            direction: 'roundtrip',
+            program: partner.id,
+            programName: partner.name,
+            partnerMiles,
+            c1Miles,
+            taxes,
+            taxesEstimated: !hasValidTax,
+            transferRatio: partner.effectiveRate,
+            ratioLabel: partner.c1Ratio,
+            cpp: 0,
+          });
+        }
+      }
+    }
+
+    if (legs.length === 0) {
+      setInputError('Please select a program and enter miles for at least one leg');
       return;
     }
-    if (isNaN(miles) || miles < 1000) {
-      setInputError('Please enter valid miles (at least 1,000)');
-      return;
-    }
-    
+
     setInputError(null);
-    
-    // Calculate CPP based on selected baseline
-    let cashAvoided: number;
+
+    // Determine baseline amount
+    let baselineAmount: number;
     switch (awardBaseline) {
       case 'portal_with_credit':
-        cashAvoided = Math.max(0, portalPriceUSD - creditRemaining);
+        baselineAmount = Math.max(0, portalPriceUSD - creditRemaining);
         break;
       case 'portal_no_credit':
-        cashAvoided = portalPriceUSD;
+        baselineAmount = portalPriceUSD;
         break;
       case 'direct':
-        cashAvoided = directPriceUSD;
+        baselineAmount = directPriceUSD;
         break;
     }
-    
-    const cpp = cashAvoided > 0 && miles > 0
-      ? ((cashAvoided - taxes) / miles) * 100
+
+    // Compute totals
+    const totalC1Miles = legs.reduce((s, l) => s + l.c1Miles, 0);
+    const totalPartnerMiles = legs.reduce((s, l) => s + l.partnerMiles, 0);
+    const totalTaxes = legs.reduce((s, l) => s + l.taxes, 0);
+
+    // Compute total CPP
+    const totalCpp = totalC1Miles > 0
+      ? ((baselineAmount - totalTaxes) / totalC1Miles) * 100
       : 0;
-    
+
+    // Compute per-leg CPP (proportional to baseline)
+    legs.forEach(leg => {
+      const legProportion = totalC1Miles > 0 ? leg.c1Miles / totalC1Miles : 0;
+      const legBaseline = baselineAmount * legProportion;
+      leg.cpp = leg.c1Miles > 0
+        ? Math.max(0, ((legBaseline - leg.taxes) / leg.c1Miles) * 100)
+        : 0;
+    });
+
     setAwardData({
-      program: selectedProgram,
-      miles,
-      taxes: Math.round(taxes),
-      taxesEstimated: taxesWereEstimated,
-      cpp: Math.max(0, cpp),
+      legs,
+      totalC1Miles,
+      totalPartnerMiles,
+      totalTaxes,
+      totalCpp: Math.max(0, totalCpp),
+      comparisonBaseline: awardBaseline,
+      baselineAmount,
     });
     setMaxValuePhase('verdict');
   };
@@ -1577,20 +1724,33 @@ const VerdictSection: React.FC<{
   // 3-way comparison if award data exists
   let finalWinner: 'portal' | 'direct' | 'award' = comparison.recommendation as 'portal' | 'direct';
   let awardOOP = 0;
-  
-  if (awardData && tabMode === 'max_value') {
-    awardOOP = awardData.taxes;
-    const MILES_VALUE = 0.015;
-    const portalNetCost = portalOOP - (comparison.portalDetails.milesEarned * MILES_VALUE);
-    const directNetCost = directOOP - (comparison.directDetails.milesEarned * MILES_VALUE);
-    const awardNetCost = awardData.taxes + (awardData.miles * MILES_VALUE);
-    
-    if (awardNetCost < portalNetCost && awardNetCost < directNetCost) {
-      finalWinner = 'award';
-    } else if (portalNetCost < directNetCost) {
-      finalWinner = 'portal';
+
+  if (awardData) {
+    awardOOP = awardData.totalTaxes;
+
+    if (showEffectiveCost) {
+      // Effective cost comparison (factors in miles value)
+      const MILES_VALUE = mileValueCpp || 0.015;
+      const portalNetCost = portalOOP - (comparison.portalDetails.milesEarned * MILES_VALUE);
+      const directNetCost = directOOP - (comparison.directDetails.milesEarned * MILES_VALUE);
+      const awardNetCost = awardData.totalTaxes + (awardData.totalC1Miles * MILES_VALUE);
+
+      if (awardNetCost < portalNetCost && awardNetCost < directNetCost) {
+        finalWinner = 'award';
+      } else if (portalNetCost < directNetCost) {
+        finalWinner = 'portal';
+      } else {
+        finalWinner = 'direct';
+      }
     } else {
-      finalWinner = 'direct';
+      // Out-of-pocket comparison (raw cash costs)
+      if (awardOOP < portalOOP && awardOOP < directOOP) {
+        finalWinner = 'award';
+      } else if (portalOOP < directOOP) {
+        finalWinner = 'portal';
+      } else {
+        finalWinner = 'direct';
+      }
     }
   }
   
@@ -1604,39 +1764,49 @@ const VerdictSection: React.FC<{
   const whyBullets: VerdictDataProgressive['whyBullets'] = [];
   
   if (isAward && awardData) {
-    // Award-specific bullets
-    const taxLabel = awardData.taxesEstimated
-      ? `~$${awardData.taxes} est. taxes`
-      : `$${awardData.taxes} in taxes`;
+    // Award-specific bullets with per-leg detail
+    const anyEstimated = awardData.legs.some(l => l.taxesEstimated);
+    const taxLabel = anyEstimated
+      ? `~$${Math.round(awardData.totalTaxes)} est. taxes`
+      : `$${Math.round(awardData.totalTaxes)} in taxes`;
     whyBullets.push({
       icon: '💰',
-      text: `Pay only ${taxLabel} + ${awardData.miles.toLocaleString()} miles`,
+      text: `Transfer award: ${awardData.totalC1Miles.toLocaleString()} C1 miles + ${taxLabel}`,
     });
-    if (awardData.cpp >= 1.5) {
+
+    // Per-leg descriptions with ratio info
+    const legDescriptions = awardData.legs.map(leg => {
+      const ratioNote = leg.transferRatio !== 1.0
+        ? ` (${leg.ratioLabel} ratio → ${leg.c1Miles.toLocaleString()} C1 miles)`
+        : '';
+      return `${leg.direction}: ${leg.partnerMiles.toLocaleString()} ${leg.programName} pts${ratioNote}`;
+    });
+    if (legDescriptions.length > 0) {
       whyBullets.push({
         icon: '✈️',
-        text: `${awardData.cpp >= 2.0 ? 'Excellent' : 'Good'} redemption at ${awardData.cpp.toFixed(2)}¢/mile`,
+        text: legDescriptions.join(' • '),
       });
-    } else if (awardData.cpp >= 1.0) {
+    }
+
+    // CPP tier assessment
+    const getCppTier = (cpp: number) =>
+      cpp >= 2.0 ? 'Excellent' : cpp >= 1.5 ? 'Good' : cpp >= 1.0 ? 'Decent' : 'Low';
+    if (awardData.totalCpp >= 1.0) {
       whyBullets.push({
-        icon: '📊',
-        text: `Decent value at ${awardData.cpp.toFixed(2)}¢/mi (≥1¢ Travel Eraser baseline)`,
+        icon: awardData.totalCpp >= 1.5 ? '✈️' : '📊',
+        text: `Value: ${awardData.totalCpp.toFixed(1)}¢ per mile — ${getCppTier(awardData.totalCpp)}`,
       });
     } else {
       whyBullets.push({
         icon: '⚠️',
-        text: `Low value: ${awardData.cpp.toFixed(2)}¢/mi (below 1¢ Travel Eraser baseline)`,
+        text: `Low value: ${awardData.totalCpp.toFixed(2)}¢/mi (below 1¢ Travel Eraser baseline)`,
       });
     }
-    whyBullets.push({
-      icon: '💡',
-      text: `Transfer to ${awardData.program} (allow up to 48hrs)`,
-    });
   } else if (awardData && !isAward) {
-    if (awardData.cpp < 1.0) {
+    if (awardData.totalCpp < 1.0) {
       whyBullets.push({
         icon: '⚠️',
-        text: `Award skipped: ${awardData.cpp.toFixed(2)}¢/mi is below Travel Eraser (1¢/mi)`,
+        text: `Award skipped: ${awardData.totalCpp.toFixed(2)}¢/mi is below Travel Eraser (1¢/mi)`,
       });
     }
   }
@@ -1759,7 +1929,7 @@ const VerdictSection: React.FC<{
     if (isAward && awardData) {
       return {
         icon: 'miles',
-        label: `${awardData.cpp.toFixed(1)}¢/mile value`,
+        label: `${awardData.totalCpp.toFixed(1)}¢/mile value`,
       };
     }
     if (tabMode === 'easiest') {
@@ -1852,7 +2022,7 @@ const VerdictSection: React.FC<{
       payTodayLabel: isCloseCallWithFx
         ? `Both options within $${Math.round(outOfPocketDiffAbs)} — choose based on flexibility`
         : isAward
-          ? `Pay $${awardOOP} + ${awardData?.miles.toLocaleString()} miles`
+          ? `Pay $${awardOOP} + ${awardData?.totalC1Miles.toLocaleString()} miles`
           : `Pay $${winnerPayToday.toLocaleString()} today`,
     },
     primaryDelta: isAward && awardData ? {
@@ -1899,15 +2069,17 @@ const VerdictSection: React.FC<{
         portalPremiumPercent: directPriceUSD > 0
           ? ((portalPriceUSD - directPriceUSD) / directPriceUSD) * 100
           : undefined,
-        awardProgram: awardData?.program,
-        awardMiles: awardData?.miles,
-        awardTaxes: awardData?.taxes,
-        awardTaxesEstimated: awardData?.taxesEstimated,
-        awardCpp: awardData?.cpp,
+        // Award - totals (backward compat; per-leg detail is in auditTrail.notes)
+        awardProgram: awardData?.legs.map(l => l.programName).join(' + ') || undefined,
+        awardMiles: awardData?.totalC1Miles,
+        awardTaxes: awardData?.totalTaxes,
+        awardTaxesEstimated: awardData?.legs.some(l => l.taxesEstimated),
+        awardCpp: awardData?.totalCpp,
       },
       notes: awardData ? [
-        `Transfer ${awardData.miles.toLocaleString()} Capital One miles to ${awardData.program}.`,
-        `Award taxes: $${awardData.taxes}${awardData.taxesEstimated ? ' (estimated)' : ''}.`,
+        `Transfer ${awardData.totalC1Miles.toLocaleString()} Capital One miles${awardData.legs.length > 1 ? ` across ${awardData.legs.map(l => l.programName).join(' + ')}` : ` to ${awardData.legs[0]?.programName}`}.`,
+        `Award taxes: $${Math.round(awardData.totalTaxes)}${awardData.legs.some(l => l.taxesEstimated) ? ' (estimated)' : ''}.`,
+        ...awardData.legs.filter(l => l.transferRatio !== 1.0).map(l => `${l.programName}: ${l.ratioLabel} ratio (${l.partnerMiles.toLocaleString()} pts → ${l.c1Miles.toLocaleString()} C1 miles).`),
         'Transfers typically take up to 48 hours.',
       ] : [
         comparison.portalDetails.creditApplied > 0
@@ -1930,7 +2102,9 @@ const VerdictSection: React.FC<{
   };
 
   // Check if we should show the Max Value pre-verdict flow
-  const showMaxValueFlow = tabMode === 'max_value' &&
+  // PointsYeah flow is available for any flight with itinerary data
+  // regardless of the display toggle (decoupled from showEffectiveCost)
+  const showMaxValueFlow =
     itinerary?.origin && itinerary?.destination && itinerary?.departDate &&
     maxValuePhase !== 'verdict';
 
@@ -1951,11 +2125,11 @@ const VerdictSection: React.FC<{
       <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-violet-400" />
+            <TrendingUp className="w-4 h-4 text-[#5b9bd5]" />
             <div className="flex flex-col gap-0.5">
               <span className="text-sm text-white/80">Factor in miles value</span>
-              <span className="text-[10px] text-white/40">
-                {factorMilesValue ? 'Showing effective cost after subtracting miles value' : 'Comparing out-of-pocket prices only'}
+              <span className="text-xs text-white/50">
+                {showEffectiveCost ? 'Showing effective cost after subtracting miles value' : 'Comparing out-of-pocket prices only'}
               </span>
             </div>
           </div>
@@ -1963,12 +2137,12 @@ const VerdictSection: React.FC<{
             onClick={toggleFactorMilesValue}
             className={cn(
               'relative w-12 h-6 rounded-full transition-colors flex-shrink-0',
-              factorMilesValue ? 'bg-violet-500' : 'bg-white/20'
+              showEffectiveCost ? 'bg-[#4a90d9]' : 'bg-white/20'
             )}
           >
             <motion.div
               className="absolute top-1 w-4 h-4 rounded-full bg-white shadow"
-              animate={{ left: factorMilesValue ? 'calc(100% - 20px)' : '4px' }}
+              animate={{ left: showEffectiveCost ? 'calc(100% - 20px)' : '4px' }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             />
           </button>
@@ -1980,7 +2154,7 @@ const VerdictSection: React.FC<{
       <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.08]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-indigo-400" />
+            <CreditCard className="w-4 h-4 text-[#5b9bd5]" />
             {initialCreditRemaining > 0 ? (
               <span className="text-sm text-white/80">💳 ${initialCreditRemaining} credit applied</span>
             ) : (
@@ -1989,8 +2163,8 @@ const VerdictSection: React.FC<{
           </div>
           {onOpenSettings && (
             <button
-              onClick={onOpenSettings}
-              className="text-[10px] text-indigo-400/80 hover:text-indigo-300 transition-colors"
+             onClick={onOpenSettings}
+             className="text-[10px] text-[#5b9bd5]/80 hover:text-[#7eb8e0] transition-colors"
             >
               Change in Settings
             </button>
@@ -1999,7 +2173,7 @@ const VerdictSection: React.FC<{
       </div>
 
       {/* Pay Today display for Max Value mode - UX FIX NEW-7 */}
-      {tabMode === 'max_value' && (
+      {showEffectiveCost && (
         <motion.div
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2011,15 +2185,15 @@ const VerdictSection: React.FC<{
               ? 'bg-emerald-500/10 border-emerald-500/30'
               : 'bg-white/[0.04] border-white/[0.08]'
           )}>
-            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Portal</div>
+            <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Portal</div>
             <div className={cn(
               'text-lg font-bold',
               portalOOP < directOOP ? 'text-emerald-400' : 'text-white/80'
             )}>
               ${Math.round(portalOOP).toLocaleString()}
             </div>
-            <div className="text-[9px] text-white/60 font-medium mb-0.5">Pay Today</div>
-            <div className="text-[9px] text-white/40">
+            <div className="text-xs text-white/60 font-medium mb-0.5">Pay Today</div>
+            <div className="text-xs text-white/50">
               Effective: ${Math.round(portalEffectiveCost).toLocaleString()}
             </div>
           </div>
@@ -2029,15 +2203,15 @@ const VerdictSection: React.FC<{
               ? 'bg-emerald-500/10 border-emerald-500/30'
               : 'bg-white/[0.04] border-white/[0.08]'
           )}>
-            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Direct</div>
+            <div className="text-xs text-white/50 uppercase tracking-wider mb-1">Direct</div>
             <div className={cn(
               'text-lg font-bold',
               directOOP < portalOOP ? 'text-emerald-400' : 'text-white/80'
             )}>
               ${Math.round(directOOP).toLocaleString()}
             </div>
-            <div className="text-[9px] text-white/60 font-medium mb-0.5">Pay Today</div>
-            <div className="text-[9px] text-white/40">
+            <div className="text-xs text-white/60 font-medium mb-0.5">Pay Today</div>
+            <div className="text-xs text-white/50">
               Effective: ${Math.round(directEffectiveCost).toLocaleString()}
             </div>
           </div>
@@ -2051,14 +2225,14 @@ const VerdictSection: React.FC<{
           animate={{ opacity: 1, y: 0 }}
           className="relative rounded-2xl overflow-hidden"
         >
-          <div className="relative bg-gradient-to-br from-violet-500/10 via-indigo-500/10 to-purple-500/10 backdrop-blur-xl rounded-2xl border border-white/[0.10] p-5">
+          <div className="relative bg-gradient-to-br from-[#2d4a63]/10 via-[#4a90d9]/10 to-[#1e3048]/10 backdrop-blur-xl rounded-2xl border border-white/[0.10] p-5">
             
             {/* Phase: ASK */}
             {maxValuePhase === 'ask' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-violet-400" />
+                  <div className="w-10 h-10 rounded-xl bg-[#2d4a63]/20 border border-[#2d4a63]/30 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-[#5b9bd5]" />
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-white">Want to explore other options?</h3>
@@ -2099,8 +2273,8 @@ const VerdictSection: React.FC<{
             {maxValuePhase === 'searching' && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-indigo-400" />
+                  <div className="w-10 h-10 rounded-xl bg-[#4a90d9]/20 border border-[#4a90d9]/30 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-[#5b9bd5]" />
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-white">PointsYeah opened</h3>
@@ -2109,7 +2283,7 @@ const VerdictSection: React.FC<{
                 </div>
 
                 {/* R8: Collapsed search tips — expanded on tap */}
-                <div className="px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                <div className="px-3 py-2 rounded-xl bg-[#4a90d9]/10 border border-[#4a90d9]/20">
                   <ExpandableInfo
                     summary="What to look for on PointsYeah"
                     detail={<>• Miles required (e.g., &quot;42,900 pts&quot;)<br />• Taxes/fees (e.g., &quot;+ $258&quot;)</>}
@@ -2154,52 +2328,306 @@ const VerdictSection: React.FC<{
                     <Sparkles className="w-5 h-5 text-emerald-400" />
                   </div>
                   <div>
-                    <h3 className="text-base font-semibold text-white">Confirm award numbers</h3>
-                    <p className="text-sm text-white/60">Just 2 fields from PointsYeah</p>
+                    <h3 className="text-base font-semibold text-white">Enter award details</h3>
+                    <p className="text-sm text-white/60">From PointsYeah search results</p>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] space-y-4">
-                  {/* Miles required */}
-                  <div>
-                    <label className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-white font-medium">Miles required</span>
-                      <span className="text-[10px] text-white/40">from Capital One row</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={milesInput}
-                        onChange={(e) => setMilesInput(e.target.value)}
-                        placeholder="37,000"
-                        className="w-full px-4 py-3 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-lg font-semibold placeholder:text-white/30 focus:outline-none focus:border-violet-500/40"
-                        autoFocus
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-white/40">pts</span>
-                    </div>
-                  </div>
-
-                  {/* Taxes & fees */}
-                  <div>
-                    <label className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-white/70">Taxes & fees</span>
-                      <span className="text-[10px] text-white/40 bg-white/[0.06] px-2 py-0.5 rounded">optional</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base text-white/40">$</span>
-                      <input
-                        type="text"
-                        value={taxesInput}
-                        onChange={(e) => setTaxesInput(e.target.value)}
-                        placeholder="e.g., 85.80"
-                        className="w-full pl-8 pr-4 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-base placeholder:text-white/25 focus:outline-none focus:border-white/15"
-                      />
-                    </div>
-                    <p className="text-[10px] text-white/40 mt-1.5">
-                      💡 Leave blank to estimate (~10% of cash price)
-                    </p>
-                  </div>
+                {/* Entry mode toggle */}
+                <div className="flex rounded-lg bg-white/[0.04] border border-white/[0.08] p-0.5">
+                  <button
+                    onClick={() => setAwardEntryMode('separate')}
+                    className={cn(
+                      'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                      awardEntryMode === 'separate'
+                        ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                        : 'text-white/50 hover:text-white/70 border border-transparent'
+                    )}
+                  >
+                    Separate legs
+                  </button>
+                  <button
+                    onClick={() => setAwardEntryMode('roundtrip')}
+                    className={cn(
+                      'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                      awardEntryMode === 'roundtrip'
+                        ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                        : 'text-white/50 hover:text-white/70 border border-transparent'
+                    )}
+                  >
+                    Round-trip combined
+                  </button>
                 </div>
+
+                {awardEntryMode === 'separate' ? (
+                  <>
+                    {/* ✈️ Outbound leg */}
+                    <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] space-y-3">
+                      <div className="text-xs font-medium text-white/70">
+                        ✈️ Outbound{itinerary?.origin && itinerary?.destination ? ` (${itinerary.origin} → ${itinerary.destination})` : ''}
+                      </div>
+
+                      {/* Program dropdown */}
+                      <div>
+                        <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
+                        <select
+                          value={obProgram}
+                          onChange={(e) => setObProgram(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                        >
+                          <option value="" className="bg-[#1a1a2e]">Select program…</option>
+                          <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
+                            {partnerGroups.airlines1to1.map(p => (
+                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
+                            {partnerGroups.airlinesNon1to1.map(p => (
+                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Hotels" className="bg-[#1a1a2e]">
+                            {partnerGroups.hotels.map(p => (
+                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                            ))}
+                          </optgroup>
+                        </select>
+                      </div>
+
+                      {/* Miles input */}
+                      <div>
+                        <label className="text-[10px] text-white/50 mb-1 block">Miles required</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={obMiles}
+                            onChange={(e) => setObMiles(e.target.value)}
+                            placeholder="37,000"
+                            className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                            autoFocus
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                        </div>
+                        {/* Ratio indicator */}
+                        {obProgram && obMiles && (() => {
+                          const partner = getPartnerById(obProgram);
+                          if (partner && partner.effectiveRate !== 1.0) {
+                            const pMiles = parseInt(obMiles.replace(/,/g, ''), 10);
+                            if (!isNaN(pMiles) && pMiles > 0) {
+                              const needed = c1MilesNeeded(obProgram, pMiles);
+                              return (
+                                <p className="text-[10px] text-[#7eb8e0] mt-1">
+                                  {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
+                                </p>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
+                      </div>
+
+                      {/* Taxes input */}
+                      <div>
+                        <label className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-white/50">Taxes & fees</span>
+                          <span className="text-[9px] text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded">optional</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">$</span>
+                          <input
+                            type="text"
+                            value={obTaxes}
+                            onChange={(e) => setObTaxes(e.target.value)}
+                            placeholder="e.g., 85"
+                            className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-white/15"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ✈️ Return leg */}
+                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-medium text-white/70">
+                          ✈️ Return{itinerary?.origin && itinerary?.destination ? ` (${itinerary.destination} → ${itinerary.origin})` : ''}
+                        </div>
+                        <button
+                          onClick={() => { setRtProgram(obProgram); }}
+                          className="text-[9px] text-[#5b9bd5]/80 hover:text-[#7eb8e0] transition-colors"
+                        >
+                          Same as outbound
+                        </button>
+                      </div>
+
+                      {/* Program dropdown */}
+                      <div>
+                        <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
+                        <select
+                          value={rtProgram}
+                          onChange={(e) => setRtProgram(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                        >
+                          <option value="" className="bg-[#1a1a2e]">Select program… (optional)</option>
+                          <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
+                            {partnerGroups.airlines1to1.map(p => (
+                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
+                            {partnerGroups.airlinesNon1to1.map(p => (
+                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Hotels" className="bg-[#1a1a2e]">
+                            {partnerGroups.hotels.map(p => (
+                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                            ))}
+                          </optgroup>
+                        </select>
+                      </div>
+
+                      {/* Miles input */}
+                      <div>
+                        <label className="text-[10px] text-white/50 mb-1 block">Miles required</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={rtMiles}
+                            onChange={(e) => setRtMiles(e.target.value)}
+                            placeholder="37,000"
+                            className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                        </div>
+                        {/* Ratio indicator */}
+                        {rtProgram && rtMiles && (() => {
+                          const partner = getPartnerById(rtProgram);
+                          if (partner && partner.effectiveRate !== 1.0) {
+                            const pMiles = parseInt(rtMiles.replace(/,/g, ''), 10);
+                            if (!isNaN(pMiles) && pMiles > 0) {
+                              const needed = c1MilesNeeded(rtProgram, pMiles);
+                              return (
+                                <p className="text-[10px] text-[#7eb8e0] mt-1">
+                                  {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
+                                </p>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
+                      </div>
+
+                      {/* Taxes input */}
+                      <div>
+                        <label className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-white/50">Taxes & fees</span>
+                          <span className="text-[9px] text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded">optional</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">$</span>
+                          <input
+                            type="text"
+                            value={rtTaxes}
+                            onChange={(e) => setRtTaxes(e.target.value)}
+                            placeholder="e.g., 85"
+                            className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-white/15"
+                          />
+                        </div>
+                      </div>
+
+                      <p className="text-[9px] text-white/30">
+                        Leave return blank if you only found one direction
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  /* Round-trip combined mode */
+                  <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] space-y-3">
+                    <div className="text-xs font-medium text-white/70">
+                      🔄 Round-trip combined
+                    </div>
+
+                    {/* Program dropdown */}
+                    <div>
+                      <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
+                      <select
+                        value={combinedProgram}
+                        onChange={(e) => setCombinedProgram(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                      >
+                        <option value="" className="bg-[#1a1a2e]">Select program…</option>
+                        <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
+                          {partnerGroups.airlines1to1.map(p => (
+                            <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
+                          {partnerGroups.airlinesNon1to1.map(p => (
+                            <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Hotels" className="bg-[#1a1a2e]">
+                          {partnerGroups.hotels.map(p => (
+                            <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    {/* Miles input */}
+                    <div>
+                      <label className="text-[10px] text-white/50 mb-1 block">Total miles required</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={combinedMiles}
+                          onChange={(e) => setCombinedMiles(e.target.value)}
+                          placeholder="74,000"
+                          className="w-full px-3 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-lg font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                          autoFocus
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                      </div>
+                      {/* Ratio indicator */}
+                      {combinedProgram && combinedMiles && (() => {
+                        const partner = getPartnerById(combinedProgram);
+                        if (partner && partner.effectiveRate !== 1.0) {
+                          const pMiles = parseInt(combinedMiles.replace(/,/g, ''), 10);
+                          if (!isNaN(pMiles) && pMiles > 0) {
+                            const needed = c1MilesNeeded(combinedProgram, pMiles);
+                            return (
+                              <p className="text-[10px] text-[#7eb8e0] mt-1">
+                                {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
+                              </p>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
+                    </div>
+
+                    {/* Taxes input */}
+                    <div>
+                      <label className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] text-white/50">Total taxes & fees</span>
+                        <span className="text-[9px] text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded">optional</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40">$</span>
+                        <input
+                          type="text"
+                          value={combinedTaxes}
+                          onChange={(e) => setCombinedTaxes(e.target.value)}
+                          placeholder="e.g., 170"
+                          className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-white/15"
+                        />
+                      </div>
+                      <p className="text-[9px] text-white/30 mt-1">
+                        💡 Leave blank to estimate (~10% of cash price)
+                      </p>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Award baseline selector */}
                 <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
@@ -2218,32 +2646,11 @@ const VerdictSection: React.FC<{
                         className={cn(
                           'px-2 py-1.5 rounded text-[10px] transition-colors border',
                           awardBaseline === opt.key
-                            ? 'bg-indigo-500/20 border-indigo-500/30 text-white'
+                            ? 'bg-[#4a90d9]/20 border-[#4a90d9]/30 text-white'
                             : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06]'
                         )}
                       >
                         {opt.label}: ${opt.value}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Program selection */}
-                <div>
-                  <div className="text-xs text-white/50 mb-2">Transfer program:</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {TRANSFER_PARTNERS.map((p) => (
-                      <button
-                        key={p.code}
-                        onClick={() => setSelectedProgram(p.name)}
-                        className={cn(
-                          'px-2 py-1 rounded text-[10px] transition-colors border',
-                          selectedProgram === p.name
-                            ? 'bg-violet-500/20 border-violet-500/30 text-white'
-                            : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06]'
-                        )}
-                      >
-                        {p.name}
                       </button>
                     ))}
                   </div>
@@ -2259,10 +2666,14 @@ const VerdictSection: React.FC<{
                   variant="primary"
                   className="w-full"
                   onClick={handleCalculateAward}
-                  disabled={!selectedProgram || !milesInput}
+                  disabled={
+                    awardEntryMode === 'separate'
+                      ? !obProgram || !obMiles
+                      : !combinedProgram || !combinedMiles
+                  }
                 >
                   <Sparkles className="w-4 h-4" />
-                  Compare All 3 Options
+                  Compare All Options
                 </GlassButton>
 
                 <button
@@ -2278,17 +2689,17 @@ const VerdictSection: React.FC<{
       )}
 
       {/* Main Verdict Card (show when not in Max Value pre-flow) */}
-      {(!showMaxValueFlow || tabMode !== 'max_value') && (
+      {!showMaxValueFlow && (
         <>
           {/* 3-way comparison header if award data exists */}
-          {awardData && tabMode === 'max_value' && (
+          {awardData && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 mb-2"
+              className="p-3 rounded-xl bg-[#2d4a63]/10 border border-[#2d4a63]/20 mb-2"
             >
               <div className="flex items-center justify-between">
-                <div className="text-xs text-violet-300 font-medium">
+                <div className="text-xs text-[#7eb8e0] font-medium">
                   3-Way Comparison: Portal vs Direct vs Award
                 </div>
                 <button
@@ -2346,7 +2757,7 @@ const VerdictSection: React.FC<{
                   'p-2 rounded-lg text-center transition-all',
                   finalWinner === 'award'
                     ? 'bg-emerald-500/15 border-2 border-emerald-500/40'
-                    : awardData && awardData.cpp < 1.0
+                    : awardData && awardData.totalCpp < 1.0
                       ? 'bg-amber-500/10 border border-amber-500/20 opacity-80'
                       : 'bg-white/[0.03] border border-white/[0.06] opacity-70'
                 )}>
@@ -2361,25 +2772,25 @@ const VerdictSection: React.FC<{
                     "text-sm font-semibold",
                     finalWinner === 'award' ? "text-white" : "text-white/70"
                   )}>
-                    ${awardOOP} + {awardData ? (awardData.miles / 1000).toFixed(1) : 0}k mi
+                    ${awardOOP} + {awardData ? (awardData.totalC1Miles / 1000).toFixed(1) : 0}k mi
                   </div>
                   {awardData && (
                     <div className={cn(
                       "text-[9px]",
-                      awardData.cpp < 1.0 ? "text-amber-400" : finalWinner === 'award' ? "text-emerald-300" : "text-white/50"
+                      awardData.totalCpp < 1.0 ? "text-amber-400" : finalWinner === 'award' ? "text-emerald-300" : "text-white/50"
                     )}>
-                      {awardData.cpp.toFixed(2)}¢/mi
+                      {awardData.totalCpp.toFixed(2)}¢/mi
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Low value warning */}
-              {awardData && awardData.cpp < 1.0 && (
+              {awardData && awardData.totalCpp < 1.0 && (
                 <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
                   <div className="text-[10px] text-amber-300 font-medium flex items-start gap-1.5">
                     <span>⚠️</span>
-                    <span>Award value ({awardData.cpp.toFixed(2)}¢/mi) is below Travel Eraser baseline (1¢/mi)</span>
+                    <span>Award value ({awardData.totalCpp.toFixed(2)}¢/mi) is below Travel Eraser baseline (1¢/mi)</span>
                   </div>
                   <div className="text-[9px] text-amber-200/70 mt-1.5">
                     Good award redemptions are typically &gt;1.3–1.5¢/mi. Consider portal or direct instead.
@@ -2392,6 +2803,9 @@ const VerdictSection: React.FC<{
           <ProgressiveVerdictCard
             verdict={progressiveVerdict}
             tabMode={tabMode}
+            milesBalance={milesBalance}
+            showEffectiveCost={showEffectiveCost}
+            mileValuationCpp={mileValueCpp}
             onContinue={() => {
               // P2-21: Trigger success celebration instead of just logging
               const rec = progressiveVerdict.recommendation === 'tie'
@@ -2409,7 +2823,7 @@ const VerdictSection: React.FC<{
       )}
 
       {/* Post-verdict: Option to search PointsYeah */}
-      {tabMode === 'max_value' && !showMaxValueFlow && !awardData && itinerary?.origin && (
+      {!showMaxValueFlow && !awardData && itinerary?.origin && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -2417,7 +2831,7 @@ const VerdictSection: React.FC<{
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-400" />
+              <Sparkles className="w-4 h-4 text-[#5b9bd5]" />
               <span className="text-xs text-white/60">Want to check transfer partner awards?</span>
             </div>
             <button
@@ -2532,7 +2946,7 @@ const ChatTabContent: React.FC<{
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-gradient-to-r from-emerald-500/10 to-indigo-500/10"
+          className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-gradient-to-r from-emerald-500/10 to-[#4a90d9]/10"
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -2602,6 +3016,7 @@ const CompareTabContent: React.FC<{
   onAskQuestion?: (question: string, context: VerdictContext) => void;
   tabMode?: UITabMode;
   onTabModeChange?: (mode: UITabMode) => void;
+  showEffectiveCost?: boolean;
   onOpenSettings?: () => void;
   mileValuationCpp?: number;  // User's mile valuation preference (default 0.015 = 1.5¢)
   milesBalance?: number;  // User's current miles balance for Travel Eraser calculation
@@ -2631,6 +3046,7 @@ const CompareTabContent: React.FC<{
   onAskQuestion,
   tabMode,
   onTabModeChange,
+  showEffectiveCost,
   onOpenSettings,
   mileValuationCpp,
   milesBalance,
@@ -2640,15 +3056,27 @@ const CompareTabContent: React.FC<{
   const isStay = bookingType === 'stay';
   const isUnsupportedPage = detectedSite === 'capital-one-unsupported';
   
-  // For stays
-  const showWaitingForStayCapture = isStay && !stayCapture && (contextStatus.type === 'detected');
+  // Phase 3: Out-of-order step detection (computed first so downstream flags can suppress spinners)
+  // Flights: On Google Flights (step 2) without portal data
+  const showOutOfOrderFlightWarning = !isStay && !portalCapture && detectedSite === 'google-flights' && currentStep === 2;
+  // Stays: On Google Hotels (step 2) without stay portal data
+  const showOutOfOrderStayWarning = isStay && !stayCapture && detectedSite === 'google-hotels' && currentStep === 2;
+  // Verdict (step 3) without both data sources
+  const showOutOfOrderVerdictWarning = currentStep === 3 && (
+    isStay ? (!stayCapture || !directStayCapture) : (!portalCapture || !directCapture)
+  );
+  // Unified flag for any out-of-order state
+  const showOutOfOrderWarning = showOutOfOrderFlightWarning || showOutOfOrderStayWarning || showOutOfOrderVerdictWarning;
+
+  // For stays — suppress waiting spinner when out-of-order warning is active
+  const showWaitingForStayCapture = isStay && !stayCapture && (contextStatus.type === 'detected') && !showOutOfOrderStayWarning;
   const showStayPortalCapture = isStay && stayCapture && currentStep === 1;
   const showStayDirectCapture = isStay && directStayCapture && stayCapture && currentStep === 2;
   const showWaitingForStayDirect = isStay && stayCapture && !directStayCapture && currentStep === 2;
   const showStayVerdict = isStay && stayCapture && directStayCapture && currentStep === 3;
-  
-  // For flights
-  const showWaitingForCapture = !isStay && !portalCapture && (contextStatus.type === 'detected');
+
+  // For flights — suppress waiting spinner when out-of-order warning is active
+  const showWaitingForCapture = !isStay && !portalCapture && (contextStatus.type === 'detected') && !showOutOfOrderFlightWarning;
   const showNoBooking = (!isStay ? !portalCapture : !stayCapture) && contextStatus.type === 'none' && !isUnsupportedPage;
   const showPortalCapture = !isStay && portalCapture && currentStep === 1;
   const showDirectCapture = !isStay && directCapture && portalCapture && currentStep === 2;
@@ -2733,8 +3161,8 @@ const CompareTabContent: React.FC<{
               className="w-full max-w-xs bg-[#1a1a2e] rounded-2xl border border-white/10 p-5 shadow-2xl"
             >
               <div className="text-center mb-4">
-                <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mx-auto mb-3">
-                  <Info className="w-6 h-6 text-indigo-400" />
+                <div className="w-12 h-12 rounded-full bg-[#4a90d9]/20 border border-[#4a90d9]/30 flex items-center justify-center mx-auto mb-3">
+                   <Info className="w-6 h-6 text-[#5b9bd5]" />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">
                   {showNavConfirm.isReset ? 'Start New Comparison?' : 'View Current Booking'}
@@ -2800,7 +3228,7 @@ const CompareTabContent: React.FC<{
           animate={{ opacity: 1, y: 0 }}
           className="text-center py-8"
         >
-          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-white/[0.08] flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-[#4a90d9]/10 to-[#1e3048]/10 border border-white/[0.08] flex items-center justify-center">
             <Plane className="w-10 h-10 text-white/25" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Booking Detected</h3>
@@ -2908,6 +3336,45 @@ const CompareTabContent: React.FC<{
         </motion.div>
       )}
 
+      {/* Phase 3: Out-of-order step warning — replaces confusing "Waiting..." spinner */}
+      {showOutOfOrderWarning && (
+        <OutOfOrderStepWarning
+          currentStep={currentStep}
+          completedSteps={(() => {
+            const completed: number[] = [];
+            if (isStay) {
+              if (stayCapture) completed.push(1);
+              if (directStayCapture) completed.push(2);
+            } else {
+              if (portalCapture) completed.push(1);
+              if (directCapture) completed.push(2);
+            }
+            return completed;
+          })()}
+          onGoToStep={(step) => {
+            if (step === 1) {
+              // Navigate to Capital One Travel Portal
+              if (typeof chrome !== 'undefined' && chrome.tabs) {
+                const url = isStay
+                  ? 'https://travel.capitalone.com/stays'
+                  : 'https://travel.capitalone.com/flights';
+                chrome.tabs.create({ url });
+              }
+              if (onStepChange) onStepChange(1 as FlowStep);
+            } else if (step === 2) {
+              // Navigate to Google Flights / Hotels
+              if (typeof chrome !== 'undefined' && chrome.tabs) {
+                const url = isStay
+                  ? 'https://www.google.com/travel/hotels'
+                  : 'https://www.google.com/travel/flights';
+                chrome.tabs.create({ url });
+              }
+              if (onStepChange) onStepChange(2 as FlowStep);
+            }
+          }}
+        />
+      )}
+
       {/* Waiting for portal capture - handles BOTH flights and stays */}
       {/* IMPORTANT: Don't show this when on unsupported page (Coming Soon takes precedence) */}
       {(showWaitingForCapture || showWaitingForStayCapture) && !isUnsupportedPage && (
@@ -2916,7 +3383,7 @@ const CompareTabContent: React.FC<{
           animate={{ opacity: 1, y: 0 }}
           className="text-center py-8"
         >
-          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 border border-emerald-500/20 flex items-center justify-center relative">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-[#4a90d9]/10 border border-emerald-500/20 flex items-center justify-center relative">
             {/* Show different icon based on detected site */}
             {contextStatus.site?.includes('Stays') || contextStatus.site?.includes('Hotels') ? (
               <Building2 className="w-10 h-10 text-emerald-400/70" />
@@ -2941,7 +3408,7 @@ const CompareTabContent: React.FC<{
           {/* Loading spinner */}
           <div className="flex items-center justify-center gap-2 text-white/40">
             <motion.div
-              className="w-4 h-4 border-2 border-white/20 border-t-indigo-400 rounded-full"
+              className="w-4 h-4 border-2 border-white/20 border-t-[#5b9bd5] rounded-full"
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
             />
@@ -3058,8 +3525,8 @@ const CompareTabContent: React.FC<{
           {/* Portal Flight Details Card - FULL INFO */}
           <GlassCard variant="elevated" className="mb-4">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-                <Plane className="w-4 h-4 text-indigo-300" />
+              <div className="w-8 h-8 rounded-lg bg-[#4a90d9]/20 border border-[#4a90d9]/30 flex items-center justify-center">
+                <Plane className="w-4 h-4 text-[#7eb8e0]" />
               </div>
               <span className="font-semibold text-white">Portal Flight Details</span>
             </div>
@@ -3215,6 +3682,7 @@ const CompareTabContent: React.FC<{
             }}
             tabMode={tabMode}
             onTabModeChange={onTabModeChange}
+            showEffectiveCost={showEffectiveCost}
             bookingType="flight"
             // NEW-8: Pass seller info from Google Flights booking page
             sellerType={directCapture.sellerType}
@@ -3299,6 +3767,7 @@ const CompareTabContent: React.FC<{
             itinerary={undefined} // No flight itinerary for stays
             tabMode={tabMode}
             onTabModeChange={onTabModeChange}
+            showEffectiveCost={showEffectiveCost}
             bookingType={stayCapture.stayType === 'vacation_rental' ? 'vacation_rental' : 'hotel'}
             // Allow "Tap to change" on assumptions to open Settings
             onOpenSettings={onOpenSettings}
@@ -3369,7 +3838,8 @@ export function SidePanelApp() {
   const [hasAskedAboutVerdict, setHasAskedAboutVerdict] = useState(false);
   
   // Tab mode state (persisted across tab switches)
-  const [verdictTabMode, setVerdictTabMode] = useState<UITabMode>('cheapest');
+  // Default to 'max_value' to match showEffectiveCost defaulting to true (toggle ON)
+  const [verdictTabMode, setVerdictTabMode] = useState<UITabMode>('max_value');
   
   // Compare state
   const [currentStep, setCurrentStep] = useState<FlowStep>(1);
@@ -3388,12 +3858,89 @@ export function SidePanelApp() {
     message: string;
   } | null>(null);
   
+  // Step change confirmation dialog state (guards backward step navigation)
+  const [pendingStepChange, setPendingStepChange] = useState<{
+    targetStep: number;
+    title: string;
+    description: string;
+    confirmLabel: string;
+    cancelLabel: string;
+  } | null>(null);
+  const currentStepRef = useRef<FlowStep>(1);
+  const isStepDialogOpenRef = useRef(false);
+
   // UI state
   const [showSettings, setShowSettings] = useState(false);
   const [showPasteDetails, setShowPasteDetails] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [userPrefs, setUserPrefs] = useState<UserPrefs | null>(null);
+
+  // Keep currentStepRef in sync with React state (avoids stale closures in listeners)
+  useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
+
+  // ============================================
+  // GUARDED STEP CHANGE
+  // Shows a confirmation dialog when navigation would regress the step.
+  // Forward / same-step transitions pass through immediately.
+  // ============================================
+  const guardedSetStep = (newStep: FlowStep) => {
+    const current = currentStepRef.current;
+
+    // Forward or same — allow immediately
+    if (newStep >= current) {
+      setCurrentStep(newStep);
+      return;
+    }
+
+    // A dialog is already visible — suppress duplicate
+    if (isStepDialogOpenRef.current) {
+      return;
+    }
+
+    // Build contextual dialog content based on the transition
+    let title = '';
+    let description = '';
+    let confirmLabel = '';
+    let cancelLabel = '';
+
+    if (current === 3 && newStep === 2) {
+      title = 'Return to Google Flights?';
+      description =
+        'You already have a verdict. Going back will let you recapture the direct price. Your current verdict data will be preserved.';
+      confirmLabel = 'Go Back to Step 2';
+      cancelLabel = 'Stay on Verdict';
+    } else if (current === 3 && newStep === 1) {
+      title = 'Return to Portal?';
+      description =
+        'You already have a verdict. Going back will let you recapture the portal price. This will start a new comparison.';
+      confirmLabel = 'Go Back to Step 1';
+      cancelLabel = 'Stay on Verdict';
+    } else if (current === 2 && newStep === 1) {
+      title = 'Return to Portal?';
+      description =
+        "You've already captured the portal price. Going back will let you recapture it.";
+      confirmLabel = 'Go Back to Step 1';
+      cancelLabel = 'Stay on Step 2';
+    } else {
+      // Unknown transition — allow without dialog
+      setCurrentStep(newStep);
+      return;
+    }
+
+    isStepDialogOpenRef.current = true;
+    setPendingStepChange({ targetStep: newStep, title, description, confirmLabel, cancelLabel });
+  };
+
+  // FIX: Listen for storage changes so the parent re-renders when VerdictSection
+  // persists showEffectiveCost (or any other pref) via the storage module.
+  // Inside this component, setUserPrefs refers to the React state setter (shadows import).
+  useEffect(() => {
+    const unsubscribe = onPrefsChange((newPrefs) => {
+      setUserPrefs(newPrefs);
+    });
+    return unsubscribe;
+  }, []);
   
   // P2-21: Success state celebration after user confirms verdict
   const [showBookingSuccess, setShowBookingSuccess] = useState(false);
@@ -3651,7 +4198,7 @@ export function SidePanelApp() {
           setBookingType('stay');
           setDetectedSite('capital-one-stays');
           // IMPORTANT: Reset to step 1 and clear stale direct capture
-          setCurrentStep(1);
+          guardedSetStep(1);
           setDirectStayCapture(null);
           console.log('[SidePanelApp] 🏨 New stay portal snapshot - reset to step 1');
           setActiveTab('compare');
@@ -3661,7 +4208,7 @@ export function SidePanelApp() {
         if (changes.vx_stay_direct_snapshot?.newValue) {
           console.log('[SidePanelApp] 🏨 Stay direct snapshot changed in storage!');
           processStayDirectSnapshot(changes.vx_stay_direct_snapshot.newValue);
-          setCurrentStep(2);
+          guardedSetStep(2);
         }
         
         // Watch for flight portal capture changes
@@ -3670,7 +4217,7 @@ export function SidePanelApp() {
           processPortalSnapshot(changes.vx_portal_snapshot.newValue);
           setBookingType('flight');
           // IMPORTANT: Reset to step 1 and clear stale direct capture
-          setCurrentStep(1);
+          guardedSetStep(1);
           setDirectCapture(null);
           console.log('[SidePanelApp] ✈️ New flight portal snapshot - reset to step 1');
         }
@@ -3854,10 +4401,10 @@ export function SidePanelApp() {
         // This prevents showing step 2 when user is on the portal page
         if (isOnCapitalOnePortal) {
           console.log('[SidePanelApp] ✈️ On portal - setting step to 1');
-          setCurrentStep(1);
+          guardedSetStep(1);
         } else if (isOnGoogleFlights && data.vx_portal_snapshot) {
           console.log('[SidePanelApp] ✈️ On Google Flights with portal data - setting step to 2');
-          setCurrentStep(2);
+          guardedSetStep(2);
         }
         
         setBookingType('flight');
@@ -3911,10 +4458,10 @@ export function SidePanelApp() {
         // This prevents showing step 2 when user is on the portal stays page
         if (isOnCapitalOneStays) {
           console.log('[SidePanelApp] 🏨 On portal stays - setting step to 1');
-          setCurrentStep(1);
+          guardedSetStep(1);
         } else if (isOnGoogleHotels && data.vx_stay_portal_snapshot) {
           console.log('[SidePanelApp] 🏨 On Google Hotels with portal data - setting step to 2');
-          setCurrentStep(2);
+          guardedSetStep(2);
         }
         
         return;
@@ -4346,7 +4893,7 @@ export function SidePanelApp() {
         setDetectedSite(newDetectedSite);
         setBookingType(newBookingType);
         if (newStep !== 1) {
-          setCurrentStep(newStep);
+          guardedSetStep(newStep);
         }
         
         // ============================================
@@ -4670,7 +5217,17 @@ export function SidePanelApp() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, { type: 'FORCE_CAPTURE_PORTAL' });
+        chrome.tabs.sendMessage(tab.id, { type: 'FORCE_CAPTURE_PORTAL' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.log('[SidePanelApp] Force capture failed:', chrome.runtime.lastError.message);
+            return;
+          }
+          if (response?.success) {
+            console.log('[SidePanelApp] Force capture succeeded, snapshot:', response.snapshot);
+          } else {
+            console.log('[SidePanelApp] Force capture returned failure:', response?.error);
+          }
+        });
       }
     } catch (e) {
       console.log('[SidePanelApp] Recapture error:', e);
@@ -4865,7 +5422,7 @@ export function SidePanelApp() {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-            className="w-6 h-6 border-2 border-[rgba(99,102,241,0.20)] border-t-[rgba(99,102,241,0.70)] rounded-full mx-auto mb-3"
+            className="w-6 h-6 border-2 border-[rgba(74,144,217,0.20)] border-t-[rgba(74,144,217,0.70)] rounded-full mx-auto mb-3"
           />
           <p className="text-[rgba(255,255,255,0.40)] text-xs">Loading...</p>
         </div>
@@ -4889,8 +5446,8 @@ export function SidePanelApp() {
   return (
     <div className="h-full min-h-screen w-full bg-black text-white flex flex-col relative overflow-hidden">
       {/* Subtle gradient background - minimal, not overwhelming */}
-      <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/15 via-transparent to-transparent pointer-events-none" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-indigo-500/[0.03] blur-[100px] rounded-full pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0f1923]/15 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-[#4a90d9]/[0.03] blur-[100px] rounded-full pointer-events-none" />
       <AuroraBackground />
 
       {/* Settings Modal */}
@@ -5115,6 +5672,7 @@ export function SidePanelApp() {
                 onAskQuestion={handleAskAboutVerdict}
                 tabMode={verdictTabMode}
                 onTabModeChange={setVerdictTabMode}
+                showEffectiveCost={userPrefs?.showEffectiveCost ?? true}
                 onOpenSettings={() => setShowSettings(true)}
                 mileValuationCpp={userPrefs?.mileValuationCpp}  // Pass user's mile valuation preference
                 milesBalance={userPrefs?.milesBalance}  // Pass user's miles balance for Travel Eraser
@@ -5125,6 +5683,27 @@ export function SidePanelApp() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Step Change Confirmation Dialog */}
+      <StepChangeDialog
+        isOpen={pendingStepChange !== null}
+        title={pendingStepChange?.title ?? ''}
+        description={pendingStepChange?.description ?? ''}
+        confirmLabel={pendingStepChange?.confirmLabel ?? ''}
+        cancelLabel={pendingStepChange?.cancelLabel ?? ''}
+        onConfirm={() => {
+          if (pendingStepChange) {
+            setCurrentStep(pendingStepChange.targetStep as FlowStep);
+          }
+          setPendingStepChange(null);
+          isStepDialogOpenRef.current = false;
+        }}
+        onCancel={() => {
+          setPendingStepChange(null);
+          isStepDialogOpenRef.current = false;
+        }}
+        icon="⚠️"
+      />
 
       {/* Bottom Navigation */}
       <BottomNav

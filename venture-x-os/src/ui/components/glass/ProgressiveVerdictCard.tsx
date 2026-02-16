@@ -20,9 +20,11 @@
  */
 
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../lib/utils';
 import { GlassButton } from './index';
+import { SavingsWaterfall } from './SavingsWaterfall';
 import {
   ChevronDown,
   TrendingDown,
@@ -133,6 +135,17 @@ export interface VerdictDataProgressive {
       awardTaxes?: number;
       awardTaxesEstimated?: boolean;
       awardCpp?: number;
+      // Per-leg award breakdown (optional, when multi-leg award data exists)
+      awardLegs?: {
+        direction: 'outbound' | 'return' | 'roundtrip';
+        program: string;
+        partnerMiles: number;
+        c1Miles: number;
+        taxes: number;
+        taxesEstimated: boolean;
+        ratio: string; // e.g., "1:1" or "2:1.5"
+        cpp: number;
+      }[];
     };
     notes: string[];
   };
@@ -164,7 +177,13 @@ interface ProgressiveVerdictCardProps {
   tabMode?: RankingMode;
   onAssumptionEdit?: (label: string) => void;
   onContinue?: () => void;
-  onCompareOthers?: () => void; // New: link to other options
+  onCompareOthers?: () => void;
+  /** User's existing miles balance (undefined = not entered) */
+  milesBalance?: number;
+  /** Whether "Factor in miles value" toggle is ON */
+  showEffectiveCost?: boolean;
+  /** User's mile valuation in cpp (e.g., 0.01 = 1¢/mi) */
+  mileValuationCpp?: number;
   className?: string;
 }
 
@@ -181,7 +200,7 @@ const DetailChip: React.FC<{
 }> = ({ type, icon, children, onClick, checked }) => {
   const colors = {
     success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-    neutral: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300',
+    neutral: 'bg-[#4a90d9]/10 border-[#4a90d9]/20 text-[#7eb8e0]',
     warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
     // 'tie' type: close-call situation - uses amber/yellow for "uncertain"
     tie: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
@@ -316,6 +335,56 @@ const InfoTooltip: React.FC<{
 };
 
 // ============================================
+// INFO TIP — Simple hover tooltip for key terms
+// ============================================
+
+const InfoTip = ({ text }: { text: string }) => {
+  const [show, setShow] = useState(false);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = React.useState({ top: 0, right: 0 });
+
+  const handleShow = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.top - 4,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setShow(true);
+  };
+
+  return (
+    <span className="inline-flex items-center ml-1">
+      <button
+        ref={buttonRef}
+        onClick={(e) => { e.stopPropagation(); show ? setShow(false) : handleShow(); }}
+        onMouseEnter={handleShow}
+        onMouseLeave={() => setShow(false)}
+        className="text-white/40 hover:text-white/70 text-xs cursor-help transition-colors"
+      >
+        ⓘ
+      </button>
+      {show && ReactDOM.createPortal(
+        <div
+          className="fixed px-2.5 py-1.5 text-[11px] leading-tight text-white/90 bg-gray-900/95 border border-white/10 rounded-lg shadow-xl pointer-events-none"
+          style={{
+            zIndex: 99999,
+            top: pos.top,
+            right: pos.right,
+            maxWidth: Math.min(200, window.innerWidth - 16),
+            transform: 'translateY(-100%)',
+          }}
+        >
+          {text}
+        </div>,
+        document.body
+      )}
+    </span>
+  );
+};
+
+// ============================================
 // R8: EXPANDABLE INFO — Progressive disclosure helper
 // Hides detailed explanations behind a tap-to-reveal ⓘ button
 // ============================================
@@ -419,6 +488,212 @@ const Accordion: React.FC<{
 };
 
 // ============================================
+// CPP VALUE COLOR HELPER
+// ============================================
+
+const getCppColor = (cpp: number): string => {
+  if (cpp >= 2.0) return 'text-emerald-300'; // excellent
+  if (cpp >= 1.5) return 'text-emerald-400'; // good
+  if (cpp >= 1.0) return 'text-amber-300';   // decent
+  return 'text-red-400';                     // poor
+};
+
+const getCppBgColor = (cpp: number): string => {
+  if (cpp >= 2.0) return 'bg-emerald-500/10 border-emerald-500/20';
+  if (cpp >= 1.5) return 'bg-emerald-500/10 border-emerald-500/15';
+  if (cpp >= 1.0) return 'bg-amber-500/10 border-amber-500/15';
+  return 'bg-red-500/10 border-red-500/15';
+};
+
+const getCppLabel = (cpp: number): string => {
+  if (cpp >= 2.0) return 'Excellent';
+  if (cpp >= 1.5) return 'Good';
+  if (cpp >= 1.0) return 'Decent';
+  return 'Low';
+};
+
+// ============================================
+// PER-LEG AWARD BREAKDOWN COMPONENT
+// ============================================
+
+type AwardLegData = NonNullable<VerdictDataProgressive['auditTrail']['fullBreakdown']['awardLegs']>[number];
+
+const AwardLegRow: React.FC<{
+  leg: AwardLegData;
+  isLast: boolean;
+}> = ({ leg, isLast }) => {
+  const directionLabel = leg.direction === 'outbound' ? 'Outbound' : leg.direction === 'return' ? 'Return' : 'Roundtrip';
+  const isNonOneToOne = leg.ratio !== '1:1';
+
+  return (
+    <div className={cn(
+      'px-3 py-2.5',
+      !isLast && 'border-b border-white/[0.06]'
+    )}>
+      {/* Direction + Program */}
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="text-xs">✈️</span>
+        <span className="text-xs font-medium text-white/80">
+          {directionLabel}: {leg.program}
+        </span>
+      </div>
+
+      {/* Miles conversion */}
+      <div className="pl-5 space-y-1 text-[11px]">
+        <div className="text-white/50">
+          {leg.partnerMiles.toLocaleString()} partner pts × {leg.ratio} ratio
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-white/70">
+            = {leg.c1Miles.toLocaleString()} Capital One miles
+          </span>
+          {isNonOneToOne && (
+            <span className="text-amber-400 text-[10px]">⚠️</span>
+          )}
+        </div>
+        {isNonOneToOne && (
+          <div className="text-amber-400/70 text-[10px]">
+            (non-1:1 conversion)
+          </div>
+        )}
+        <div className="text-white/50">
+          + ${leg.taxes.toLocaleString()} taxes/fees
+          {leg.taxesEstimated && (
+            <span className="text-white/30"> (estimated)</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-white/40">Value:</span>
+          <span className={cn('font-medium', getCppColor(leg.cpp))}>
+            {leg.cpp.toFixed(1)}¢/mile
+          </span>
+          <span className={cn(
+            'text-[9px] px-1.5 py-0.5 rounded-full border',
+            getCppBgColor(leg.cpp)
+          )}>
+            {getCppLabel(leg.cpp)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AwardTransferBreakdown: React.FC<{
+  awardLegs: AwardLegData[];
+  totalC1Miles?: number;
+  totalTaxes?: number;
+  totalTaxesEstimated?: boolean;
+  totalCpp?: number;
+  baselineLabel?: string;
+  baselineAmount?: number;
+}> = ({ awardLegs, totalC1Miles, totalTaxes, totalTaxesEstimated: totalTaxesEstimatedProp, totalCpp, baselineLabel, baselineAmount }) => {
+  if (!awardLegs || awardLegs.length === 0) return null;
+
+  const isSingleLeg = awardLegs.length === 1;
+
+  // Compute totals from legs if not provided
+  const computedTotalMiles = totalC1Miles ?? awardLegs.reduce((s, l) => s + l.c1Miles, 0);
+  const computedTotalTaxes = totalTaxes ?? awardLegs.reduce((s, l) => s + l.taxes, 0);
+  const computedTotalCpp = totalCpp ?? (awardLegs.length > 0
+    ? awardLegs.reduce((s, l) => s + l.cpp, 0) / awardLegs.length
+    : 0);
+
+  return (
+    <div className="mt-4 pt-4 border-t border-white/[0.08]">
+      <div className="text-[10px] font-semibold text-[#5b9bd5] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <span>📊</span>
+        <span>Award Transfer Breakdown</span>
+      </div>
+
+      <div className="rounded-lg border border-white/[0.08] overflow-hidden bg-white/[0.02]">
+        {/* Per-leg rows (only show individual legs if multi-leg) */}
+        {!isSingleLeg && awardLegs.map((leg, i) => (
+          <AwardLegRow
+            key={`${leg.direction}-${i}`}
+            leg={leg}
+            isLast={false}
+          />
+        ))}
+
+        {/* Single leg: show just the one program inline */}
+        {isSingleLeg && (
+          <div className="px-3 py-2.5 border-b border-white/[0.06]">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-xs">✈️</span>
+              <span className="text-xs font-medium text-white/80">
+                via {awardLegs[0].program}
+              </span>
+            </div>
+            <div className="pl-5 space-y-1 text-[11px]">
+              <div className="text-white/50">
+                {awardLegs[0].partnerMiles.toLocaleString()} partner pts × {awardLegs[0].ratio} ratio
+              </div>
+              {awardLegs[0].ratio !== '1:1' && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/70">
+                    = {awardLegs[0].c1Miles.toLocaleString()} Capital One miles
+                  </span>
+                  <span className="text-amber-400 text-[10px]">⚠️</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TOTAL row */}
+        <div className="px-3 py-2.5 bg-white/[0.03]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="text-xs">📌</span>
+            <span className="text-[10px] font-semibold text-white/60 uppercase tracking-wider">
+              {isSingleLeg ? 'Summary' : 'Total'}
+            </span>
+          </div>
+          <div className="pl-5 space-y-1 text-[11px]">
+            <div className="text-white/70 font-medium">
+              {computedTotalMiles.toLocaleString()} Capital One miles
+            </div>
+            <div className="text-white/50">
+              + ${computedTotalTaxes.toLocaleString()} taxes/fees
+              {(totalTaxesEstimatedProp || awardLegs.some(l => l.taxesEstimated)) && (
+                <span className="text-white/30"> (some estimated)</span>
+              )}
+            </div>
+            {computedTotalCpp > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/40">Overall value:</span>
+                <span className={cn('font-semibold', getCppColor(computedTotalCpp))}>
+                  {computedTotalCpp.toFixed(1)}¢/mile
+                </span>
+              </div>
+            )}
+            {baselineLabel && baselineAmount !== undefined && (
+              <div className="text-white/40 mt-1">
+                vs baseline: ${baselineAmount.toLocaleString()} ({baselineLabel})
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper to derive a baseline label from the comparison baseline type
+const getBaselineLabel = (baseline?: string): string => {
+  switch (baseline) {
+    case 'portal_credit': return 'Portal after credit';
+    case 'portal_no_credit': return 'Portal price';
+    case 'direct': return 'Direct price';
+    default: return 'Baseline';
+  }
+};
+
+// Variable to track whether totalTaxes might be estimated
+const computedTotalTaxesEstimated = (legs: AwardLegData[]): boolean =>
+  legs.some(l => l.taxesEstimated);
+
+// ============================================
 // DETAILS MODAL COMPONENT (Summary-First with Accordions)
 // ============================================
 
@@ -431,7 +706,12 @@ const DetailsModal: React.FC<{
   // P0 #3 FIX: Add onContinue callback to provide booking CTA instead of dead-end
   onContinue?: () => void;
   recommendation?: 'portal' | 'direct' | 'tie';
-}> = ({ isOpen, onClose, auditTrail, tabMode, onAssumptionEdit, onContinue, recommendation }) => {
+  /** Props for rendering SavingsWaterfall inside the modal */
+  milesBalance?: number;
+  showEffectiveCost?: boolean;
+  mileValuationCpp?: number;
+  doubleDipStrategy?: DoubleDipStrategyInfo;
+}> = ({ isOpen, onClose, auditTrail, tabMode, onAssumptionEdit, onContinue, recommendation, milesBalance, showEffectiveCost, mileValuationCpp, doubleDipStrategy }) => {
   if (!isOpen) return null;
 
   const { assumptions, couldFlipIf, fullBreakdown, notes } = auditTrail;
@@ -456,39 +736,19 @@ const DetailsModal: React.FC<{
   // Portal 5x max on $10k = 50,000 miles; 10x on $10k = 100,000 miles
   // Anything over 200,000 miles on a single booking is almost certainly a bug
   const MAX_REASONABLE_MILES = 200000;
-  const MAX_REASONABLE_EFFECTIVE_COST = 50000; // $50k max for any booking
-  const MIN_REASONABLE_EFFECTIVE_COST = -5000; // Can't save more than ~$5k on typical bookings
   
   const portalMilesSafe = rawPortalMiles > MAX_REASONABLE_MILES ? 0 : rawPortalMiles;
   const directMilesSafe = rawDirectMiles > MAX_REASONABLE_MILES ? 0 : rawDirectMiles;
   
-  // Calculate effective costs (after valuing miles earned)
-  // Use user's preference if available, otherwise default 1.5¢/mi (conservative)
-  const MILE_VALUE = 0.015; // 1.5¢/mi conservative default
-  const portalEffectiveRaw = fullBreakdown.portalOutOfPocket - portalMilesSafe * MILE_VALUE;
-  const directEffectiveRaw = fullBreakdown.directOutOfPocket - directMilesSafe * MILE_VALUE;
-  
-  // Apply bounds to effective costs
-  const portalEffective = Math.round(
-    Math.min(MAX_REASONABLE_EFFECTIVE_COST, Math.max(MIN_REASONABLE_EFFECTIVE_COST, portalEffectiveRaw))
-  );
-  const directEffective = Math.round(
-    Math.min(MAX_REASONABLE_EFFECTIVE_COST, Math.max(MIN_REASONABLE_EFFECTIVE_COST, directEffectiveRaw))
-  );
-  
   // Detect if values seem wrong (for UI warning)
+  // (Effective cost computation removed — handled by SavingsWaterfall)
   const hasMathError =
     rawPortalMiles > MAX_REASONABLE_MILES ||
-    rawDirectMiles > MAX_REASONABLE_MILES ||
-    portalEffectiveRaw < MIN_REASONABLE_EFFECTIVE_COST ||
-    portalEffectiveRaw > MAX_REASONABLE_EFFECTIVE_COST ||
-    directEffectiveRaw < MIN_REASONABLE_EFFECTIVE_COST ||
-    directEffectiveRaw > MAX_REASONABLE_EFFECTIVE_COST;
+    rawDirectMiles > MAX_REASONABLE_MILES;
   
   // Determine winner and savings
   const portalWins = fullBreakdown.portalOutOfPocket <= fullBreakdown.directOutOfPocket;
   const winner = portalWins ? 'Portal' : 'Direct';
-  const winnerEffective = portalWins ? portalEffective : directEffective;
   const savings = Math.abs(fullBreakdown.portalOutOfPocket - fullBreakdown.directOutOfPocket);
   const milesDiff = Math.abs(portalMilesSafe - directMilesSafe);
 
@@ -511,12 +771,12 @@ const DetailsModal: React.FC<{
       >
         <div className="relative bg-[#0A0A0F] rounded-2xl border border-white/[0.10] overflow-hidden">
           {/* Subtle gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/[0.03] to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#4a90d9]/[0.03] to-transparent pointer-events-none" />
           
           {/* Header */}
           <div className="relative flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
             <h3 className="text-base font-semibold text-white flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-indigo-400" />
+              <Calculator className="w-5 h-5 text-[#5b9bd5]" />
               Math & Assumptions
             </h3>
             <button
@@ -530,7 +790,7 @@ const DetailsModal: React.FC<{
           <div className="relative p-5 space-y-5">
             {/* ===== HERO SUMMARY (Always Visible) ===== */}
             {/* UX FIX P0-1: Show actual out-of-pocket as PRIMARY, effective cost as SECONDARY */}
-            <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 via-indigo-500/5 to-purple-500/10 border border-emerald-500/20">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 via-[#4a90d9]/5 to-[#1e3048]/10 border border-emerald-500/20">
               {/* Winner Badge */}
               <div className="flex items-center gap-2 mb-3">
                 <Crown className="w-4 h-4 text-amber-400" />
@@ -549,24 +809,6 @@ const DetailsModal: React.FC<{
                 ${(portalWins ? fullBreakdown.portalOutOfPocket : fullBreakdown.directOutOfPocket).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
               
-              {/* SECONDARY: Effective Cost (after valuing miles) - smaller, with explanation */}
-              <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] mb-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-white/40">
-                    <InfoTooltip
-                      term="Effective cost"
-                      definition="Your out-of-pocket minus the value of miles you'll earn (at your mile valuation). This is NOT real savings — it's what your cost looks like IF you value those miles. You can adjust the mile value in settings."
-                    />
-                  </span>
-                  <span className="text-sm font-semibold text-white/70">
-                    ${winnerEffective.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                </div>
-                <div className="text-[9px] text-white/30 mt-1">
-                  = ${(portalWins ? fullBreakdown.portalOutOfPocket : fullBreakdown.directOutOfPocket).toLocaleString()} out-of-pocket − ${Math.round((portalWins ? portalMilesSafe : directMilesSafe) * MILE_VALUE).toLocaleString()} miles value
-                </div>
-              </div>
-              
               {/* Savings vs alternative */}
               <div className="flex items-center gap-3 text-sm">
                 {savings > 0 ? (
@@ -574,7 +816,7 @@ const DetailsModal: React.FC<{
                     'flex items-center gap-1.5 px-2.5 py-1 rounded-full',
                     portalWins
                       ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-indigo-500/15 text-indigo-300'
+                      : 'bg-[#4a90d9]/15 text-[#7eb8e0]'
                   )}>
                     <TrendingDown className="w-3.5 h-3.5" />
                     Save <span className="font-semibold">${savings}</span> vs {portalWins ? 'Direct' : 'Portal'}
@@ -584,18 +826,13 @@ const DetailsModal: React.FC<{
                 )}
               </div>
               
-              {/* Miles delta (smaller text) */}
-              {/* FIX: Miles winner is determined by who earns more miles, NOT by who wins the price comparison */}
+              {/* Miles delta (smaller text, no dollar conversion — handled by SavingsWaterfall) */}
               {milesDiff > 100 && !hasMathError && (
                 <div className="mt-3 pt-3 border-t border-white/[0.08]">
                   <div className="text-xs text-white/50">
-                    {/* portalMilesSafe > directMilesSafe = portal earns more */}
                     {portalMilesSafe > directMilesSafe ? 'Portal' : 'Direct'} earns{' '}
-                    <span className="text-indigo-300 font-medium">
+                    <span className="text-[#7eb8e0] font-medium">
                       +{milesDiff.toLocaleString()} more miles
-                    </span>
-                    <span className="text-white/30 ml-1">
-                      (~${Math.round(milesDiff * MILE_VALUE).toLocaleString()} value at {(MILE_VALUE * 100).toFixed(1)}¢/mi)
                     </span>
                   </div>
                 </div>
@@ -622,10 +859,37 @@ const DetailsModal: React.FC<{
               </div>
             )}
 
+            {/* ===== SAVINGS WATERFALL (in modal) ===== */}
+            {(() => {
+              const fb = fullBreakdown;
+              const parseMilesStrModal = (s: string): number => {
+                const clean = s.replace(/[^0-9–-]/g, '');
+                const first = clean.split(/[–-]/)[0];
+                return parseInt(first, 10) || 0;
+              };
+              const portalMilesModal = doubleDipStrategy?.milesEarned
+                ?? parseMilesStrModal(fb.portalMilesEarned);
+
+              return (
+                <SavingsWaterfall
+                  listedPrice={fb.portalSticker}
+                  creditApplied={fb.creditApplied}
+                  payToday={fb.portalOutOfPocket}
+                  directPrice={fb.directOutOfPocket}
+                  milesEarned={portalMilesModal}
+                  existingMilesBalance={milesBalance}
+                  eraserCpp={0.01}
+                  recommendation={recommendation ?? 'portal'}
+                  mileValuationCpp={mileValuationCpp}
+                  showEffectiveCost={showEffectiveCost}
+                />
+              );
+            })()}
+
             {/* ===== ACCORDION 1: Key Assumptions ===== */}
             <Accordion
               title="Key assumptions"
-              icon={<Sparkles className="w-4 h-4 text-violet-400" />}
+              icon={<Sparkles className="w-4 h-4 text-[#5b9bd5]" />}
             >
               <div className="space-y-2">
                 {/* Assumption rows - improved visual affordance for editable items */}
@@ -637,7 +901,7 @@ const DetailsModal: React.FC<{
                     className={cn(
                       'w-full flex items-center justify-between py-2.5 px-3 rounded-xl transition-all',
                       assumption.editable
-                        ? 'bg-indigo-500/10 hover:bg-indigo-500/15 border border-indigo-500/20 hover:border-indigo-500/30 cursor-pointer group'
+                        ? 'bg-[#4a90d9]/10 hover:bg-[#4a90d9]/15 border border-[#4a90d9]/20 hover:border-[#4a90d9]/30 cursor-pointer group'
                         : 'bg-white/[0.02] border border-transparent cursor-default'
                     )}
                   >
@@ -651,14 +915,14 @@ const DetailsModal: React.FC<{
                         ) : assumption.label === 'Travel credit' ? (
                           <InfoTooltip
                             term={assumption.label}
-                            definition="Annual $300 travel credit for Venture X cardholders. Only applies to portal bookings."
+                            definition="Annual $300 Venture X travel credit. Click to edit if you've already used part of it."
                           />
                         ) : (
                           assumption.label
                         )}
                       </span>
                       {assumption.editable && (
-                        <span className="text-[9px] text-indigo-400/60 group-hover:text-indigo-400/80 transition-colors">
+                        <span className="text-[9px] text-[#5b9bd5]/60 group-hover:text-[#5b9bd5]/80 transition-colors">
                           Click to edit
                         </span>
                       )}
@@ -666,13 +930,13 @@ const DetailsModal: React.FC<{
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         'text-sm font-semibold text-right',
-                        assumption.editable ? 'text-indigo-300 group-hover:text-indigo-200' : 'text-white/70'
+                        assumption.editable ? 'text-[#7eb8e0] group-hover:text-[#a3c9e8]' : 'text-white/70'
                       )}>
                         {assumption.value}
                       </span>
                       {assumption.editable && (
-                        <span className="w-6 h-6 rounded-md bg-indigo-500/20 group-hover:bg-indigo-500/30 flex items-center justify-center transition-colors">
-                          <span className="text-indigo-300 text-xs">✎</span>
+                        <span className="w-6 h-6 rounded-md bg-[#4a90d9]/20 group-hover:bg-[#4a90d9]/30 flex items-center justify-center transition-colors">
+                          <span className="text-[#7eb8e0] text-xs">✎</span>
                         </span>
                       )}
                     </div>
@@ -703,7 +967,7 @@ const DetailsModal: React.FC<{
             {!hasMathError && (
             <Accordion
               title="Full calculation details"
-              icon={<Calculator className="w-4 h-4 text-indigo-400" />}
+              icon={<Calculator className="w-4 h-4 text-[#5b9bd5]" />}
             >
               <div className="space-y-4">
                 {/* Portal vs Direct vs Award Grid */}
@@ -713,12 +977,12 @@ const DetailsModal: React.FC<{
                 )}>
                   {/* Portal Column */}
                   <div className="space-y-3">
-                    <div className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider pb-2 border-b border-white/[0.06]">
+                    <div className="text-[10px] font-semibold text-[#5b9bd5] uppercase tracking-wider pb-2 border-b border-white/[0.06]">
                       Portal
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40">Listed Price</span>
+                        <span className="text-[10px] text-white/40">Listed Price<InfoTip text="The price shown on the booking site before any credits or rewards." /></span>
                         <span className="text-xs font-semibold text-white text-right">
                           ${fullBreakdown.portalSticker.toLocaleString()}
                         </span>
@@ -752,8 +1016,8 @@ const DetailsModal: React.FC<{
                         </div>
                       )}
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40">Miles earned</span>
-                        <span className="text-xs font-semibold text-indigo-300 text-right">
+                        <span className="text-[10px] text-white/40">Miles earned<InfoTip text="Portal earns 5x miles on flights, 10x on hotels. Direct earns 2x on all travel." /></span>
+                        <span className="text-xs font-semibold text-[#7eb8e0] text-right">
                           {(() => {
                             const milesStr = fullBreakdown.portalMilesEarned.toString();
                             // Don't add prefix if already has one (–, +) or contains range notation
@@ -805,7 +1069,7 @@ const DetailsModal: React.FC<{
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] text-white/40">Miles earned</span>
-                        <span className="text-xs font-semibold text-indigo-300 text-right">
+                        <span className="text-xs font-semibold text-[#7eb8e0] text-right">
                           +{fullBreakdown.directMilesEarned.toLocaleString()}
                         </span>
                       </div>
@@ -820,7 +1084,7 @@ const DetailsModal: React.FC<{
                           "text-[10px] font-semibold uppercase tracking-wider",
                           fullBreakdown.awardCpp !== undefined && fullBreakdown.awardCpp < 1.0
                             ? "text-amber-400"
-                            : "text-violet-400"
+                            : "text-[#5b9bd5]"
                         )}>Award</span>
                         {fullBreakdown.awardCpp !== undefined && fullBreakdown.awardCpp < 1.0 && (
                           <span className="text-[8px] text-amber-400">⚠️</span>
@@ -838,7 +1102,7 @@ const DetailsModal: React.FC<{
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] text-white/40">Miles cost</span>
-                          <span className="text-xs font-semibold text-violet-300 text-right">
+                          <span className="text-xs font-semibold text-[#7eb8e0] text-right">
                             {fullBreakdown.awardMiles.toLocaleString()}
                           </span>
                         </div>
@@ -852,7 +1116,7 @@ const DetailsModal: React.FC<{
                             </span>
                             <span className={cn(
                               "text-sm font-bold text-right",
-                              fullBreakdown.awardCpp < 1.0 ? "text-amber-400" : "text-violet-300"
+                              getCppColor(fullBreakdown.awardCpp)
                             )}>
                               {fullBreakdown.awardCpp.toFixed(2)}¢
                             </span>
@@ -868,6 +1132,79 @@ const DetailsModal: React.FC<{
                   )}
                 </div>
 
+                {/* ===== PER-LEG AWARD TRANSFER BREAKDOWN ===== */}
+                {fullBreakdown.awardLegs && fullBreakdown.awardLegs.length > 0 && (
+                  <AwardTransferBreakdown
+                    awardLegs={fullBreakdown.awardLegs}
+                    totalC1Miles={fullBreakdown.awardMiles}
+                    totalTaxes={fullBreakdown.awardTaxes}
+                    totalTaxesEstimated={fullBreakdown.awardTaxesEstimated || computedTotalTaxesEstimated(fullBreakdown.awardLegs)}
+                    totalCpp={fullBreakdown.awardCpp}
+                    baselineLabel={getBaselineLabel(undefined)}
+                    baselineAmount={fullBreakdown.directOutOfPocket}
+                  />
+                )}
+
+                {/* Travel Eraser Breakdown — hidden when "Factor in miles value" toggle is OFF */}
+                {showEffectiveCost && (() => {
+                  const parseMilesStr2 = (s: string): number => {
+                    const clean = s.replace(/[^0-9–-]/g, '');
+                    const first = clean.split(/[–-]/)[0];
+                    return parseInt(first, 10) || 0;
+                  };
+                  const earnedMiles = doubleDipStrategy?.milesEarned ?? parseMilesStr2(fullBreakdown.portalMilesEarned);
+                  const existingBal = milesBalance ?? 0;
+                  const totalMiles = existingBal + earnedMiles;
+                  const maxErase = Math.floor(totalMiles * 0.01);
+                  const eraserAmt = Math.min(maxErase, fullBreakdown.portalOutOfPocket);
+                  const afterEraser = fullBreakdown.portalOutOfPocket - eraserAmt;
+                  const totalSavings = fullBreakdown.directOutOfPocket - afterEraser;
+
+                  if (earnedMiles <= 0) return null;
+
+                  return (
+                    <div className="mt-4 pt-4 border-t border-white/[0.08]">
+                      <div className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-3">
+                        ── TRAVEL ERASER BREAKDOWN ──
+                      </div>
+                      <div className="space-y-1.5 font-mono text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-white/50">Existing miles balance<InfoTip text="Your current Capital One miles balance as entered in Settings." /></span>
+                          <span className="text-white/70">{existingBal.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-white/50">+ Miles earned (portal)<InfoTip text="Miles earned from this portal booking at 5x on flights." /></span>
+                          <span className="text-emerald-400">+{earnedMiles.toLocaleString()}</span>
+                        </div>
+                        <div className="border-t border-white/[0.08] my-1" />
+                        <div className="flex justify-between">
+                          <span className="text-white/60 font-medium">Total miles available</span>
+                          <span className="text-white font-medium">{totalMiles.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-white/50">Eraser rate</span>
+                          <span className="text-white/70">1¢/mi</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-white/50">Max eraser amount</span>
+                          <span className="text-white/70">${maxErase.toLocaleString()}</span>
+                        </div>
+                        <div className="border-t border-white/[0.08] my-1" />
+                        <div className="flex justify-between font-semibold">
+                          <span className="text-white/80">After Eraser</span>
+                          <span className="text-white">${afterEraser.toLocaleString()}</span>
+                        </div>
+                        {totalSavings > 0 && (
+                          <div className="flex justify-between font-semibold">
+                            <span className="text-emerald-400/80">Total savings vs Direct</span>
+                            <span className="text-emerald-400">${totalSavings.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Portal Premium % */}
                 {fullBreakdown.portalPremiumPercent !== undefined && fullBreakdown.portalPremiumPercent > 0 && (
                   <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10">
@@ -879,8 +1216,8 @@ const DetailsModal: React.FC<{
 
                 {/* Break-even CPP (for Max Value) */}
                 {tabMode === 'max_value' && fullBreakdown.breakEvenCpp && (
-                  <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                    <div className="text-xs text-indigo-300">
+                  <div className="p-2.5 rounded-lg bg-[#4a90d9]/10 border border-[#4a90d9]/20">
+                    <div className="text-xs text-[#7eb8e0]">
                       Portal beats direct if you value miles at{' '}
                       <span className="font-semibold">≥{fullBreakdown.breakEvenCpp.toFixed(2)}¢/mi</span>
                     </div>
@@ -890,7 +1227,7 @@ const DetailsModal: React.FC<{
                 {/* Notes */}
                 {notes.length > 0 && (
                   <div className="pt-3 border-t border-white/[0.06]">
-                    <div className="text-[10px] text-white/30 space-y-1.5">
+                    <div className="text-xs text-white/40 space-y-1.5">
                       {notes.map((note, i) => (
                         <p key={i}>• {note}</p>
                       ))}
@@ -1133,6 +1470,9 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
   onAssumptionEdit,
   onContinue,
   onCompareOthers,
+  milesBalance,
+  showEffectiveCost = false,
+  mileValuationCpp = 0.01,
   className,
 }) => {
   // R4: Collapse "Why This Wins" by default for a 5-second decision viewport.
@@ -1142,7 +1482,6 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
   // Auto-open math for low confidence verdicts
   const [showDetails, setShowDetails] = useState(verdict.confidence === 'low');
   const [warningConfirmed, setWarningConfirmed] = useState(false);
-  const [powerUserExpanded, setPowerUserExpanded] = useState(false);
 
   const getRecommendationEmoji = () => {
     // Show tie emoji for close calls
@@ -1185,7 +1524,7 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
           className="absolute inset-0 rounded-2xl"
           style={{
             padding: '1.5px',
-            background: 'conic-gradient(from 0deg, rgba(99, 102, 241, 0.4), rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.25), rgba(99, 102, 241, 0.4))',
+            background: 'conic-gradient(from 0deg, rgba(74, 144, 217, 0.4), rgba(45, 106, 163, 0.25), rgba(51, 78, 104, 0.2), rgba(45, 106, 163, 0.25), rgba(74, 144, 217, 0.4))',
             WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
             WebkitMaskComposite: 'xor',
             maskComposite: 'exclude',
@@ -1311,7 +1650,7 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
                 onClick={() => setShowWhy(!showWhy)}
                 className="flex items-center gap-1.5 py-2 text-sm text-white/60 hover:text-white/80 transition-colors"
               >
-                <span>{showWhy ? 'Show less' : 'Why?'}</span>
+                <span>{showWhy ? 'Show less' : 'See your savings breakdown ↓'}</span>
                 <motion.div
                   animate={{ rotate: showWhy ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
@@ -1354,7 +1693,7 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
                   {/* Why this wins - Tight 3-bullet format */}
                   <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] mb-4">
                     <div className="text-[11px] text-white/50 uppercase tracking-wider font-medium mb-3">
-                      Why this wins
+                      💰 HOW YOU SAVE
                     </div>
                     <div className="space-y-3">
                       {verdict.whyBullets.slice(0, 3).map((bullet, i) => (
@@ -1368,112 +1707,34 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
                     </div>
                   </div>
 
-                  {/* Power User Strategy: Portal + Eraser "Double-Dip" */}
-                  {verdict.doubleDipStrategy && verdict.recommendation === 'portal' && !powerUserExpanded && verdict.doubleDipStrategy.eraseLater > 0 && (
-                    <div className="text-xs text-emerald-400/80 mb-1.5 pl-1">
-                      💡 You could save an extra ${verdict.doubleDipStrategy.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })} with the double-dip strategy →
-                    </div>
-                  )}
-                  {verdict.doubleDipStrategy && verdict.recommendation === 'portal' && (
-                    <Accordion
-                      title="Power User Strategy"
-                      icon={<Sparkles className="w-4 h-4 text-emerald-400" />}
-                      defaultOpen={false}
-                      onToggle={setPowerUserExpanded}
-                    >
-                      <div className="space-y-4">
-                        {/* Strategy Steps */}
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3">
-                            <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs text-emerald-300 font-bold flex-shrink-0">1</div>
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-white">Book via Capital One Portal</div>
-                              <div className="text-xs text-white/50 mt-0.5">
-                                Pay ${verdict.doubleDipStrategy.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} → Earn <span className="text-emerald-300 font-semibold">{verdict.doubleDipStrategy.milesEarned.toLocaleString()}</span> miles at 5x
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-3">
-                            <div className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-xs text-cyan-300 font-bold flex-shrink-0">2</div>
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-white">Use Travel Eraser (within 90 days)</div>
-                              <div className="text-xs text-white/50 mt-0.5">
-                                Redeem miles at 1¢/mi — <span className="text-cyan-300">no minimum, partial OK!</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Value breakdown */}
-                        <div className="p-3 rounded-lg bg-black/20 border border-white/[0.08]">
-                          <div className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Your Options</div>
-                          
-                          {/* Option A: Keep miles */}
-                          <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 mb-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-emerald-300 font-medium">🅰️ Keep Miles for Transfers</span>
-                              <span className="text-xs text-emerald-300 font-semibold">
-                                ${verdict.doubleDipStrategy.milesValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} value
-                              </span>
-                            </div>
-                            <div className="text-[9px] text-white/40 mt-1">
-                              At {(verdict.doubleDipStrategy.mileValueCpp * 100).toFixed(1)}¢/mi for premium awards
-                            </div>
-                          </div>
-                          
-                          {/* Option B: Use Eraser */}
-                          {verdict.doubleDipStrategy.eraseLater > 0 && (
-                            <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/20">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs text-cyan-300 font-medium">🅱️ Use Travel Eraser</span>
-                                <span className="text-xs text-cyan-300 font-semibold">
-                                  −${verdict.doubleDipStrategy.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                </span>
-                              </div>
-                              <div className="text-[9px] text-white/40 mt-1">
-                                Reduce out-of-pocket (1¢/mi)
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Cash savings vs direct */}
-                          {verdict.doubleDipStrategy.savingsVsDirect > 0 && (
-                            <div className="flex justify-between items-center pt-3 mt-3 border-t border-white/[0.08]">
-                              <span className="text-xs text-white/60">Cash savings vs Direct</span>
-                              <span className="text-sm font-bold text-emerald-400">
-                                ${verdict.doubleDipStrategy.savingsVsDirect.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {/* Effective Total Cost - if using Travel Eraser */}
-                          {verdict.doubleDipStrategy.eraseLater > 0 && (
-                            <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/[0.05]">
-                              <div className="flex items-center gap-1">
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] text-white/50">Effective Total Cost</span>
-                                  <span className="text-[9px] text-white/30">After using all miles via Eraser</span>
-                                </div>
-                                <InfoTooltip
-                                  term=""
-                                  definition={`$${verdict.doubleDipStrategy.payToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} pay today − $${verdict.doubleDipStrategy.eraseLater.toLocaleString(undefined, { maximumFractionDigits: 0 })} erased (${Math.round(verdict.doubleDipStrategy.eraseLater * 100).toLocaleString()} miles @ 1¢/mi) = $${Math.max(0, verdict.doubleDipStrategy.payToday - verdict.doubleDipStrategy.eraseLater).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-                                />
-                              </div>
-                              <span className="text-sm font-bold text-cyan-400">
-                                ${Math.max(0, verdict.doubleDipStrategy.payToday - verdict.doubleDipStrategy.eraseLater).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Fine print */}
-                        <div className="text-[9px] text-white/40 leading-relaxed">
-                          💡 Earn miles on the cash purchase AND redeem later. Travel Eraser applies to any travel in last 90 days.
-                        </div>
-                      </div>
-                    </Accordion>
-                  )}
+                  {/* ===== SAVINGS WATERFALL ===== */}
+                  {/* Unified progressive savings breakdown: Listed → Credit → Pay Today → Eraser → After Eraser */}
+                  {(() => {
+                    const fb = verdict.auditTrail.fullBreakdown;
+                    // Parse portal miles from string (could be range "2,605–4,105")
+                    const parseMilesStr = (s: string): number => {
+                      const clean = s.replace(/[^0-9–-]/g, '');
+                      const first = clean.split(/[–-]/)[0];
+                      return parseInt(first, 10) || 0;
+                    };
+                    const portalMiles = verdict.doubleDipStrategy?.milesEarned
+                      ?? parseMilesStr(fb.portalMilesEarned);
+
+                    return (
+                      <SavingsWaterfall
+                        listedPrice={fb.portalSticker}
+                        creditApplied={fb.creditApplied}
+                        payToday={fb.portalOutOfPocket}
+                        directPrice={fb.directOutOfPocket}
+                        milesEarned={portalMiles}
+                        existingMilesBalance={milesBalance}
+                        eraserCpp={0.01}
+                        recommendation={verdict.recommendation}
+                        mileValuationCpp={mileValuationCpp}
+                        showEffectiveCost={showEffectiveCost}
+                      />
+                    );
+                  })()}
 
                   {/* Show math button */}
                   <button
@@ -1493,9 +1754,9 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
             className="absolute inset-0 rounded-2xl pointer-events-none"
             animate={{
               boxShadow: [
-                '0 0 20px rgba(99, 102, 241, 0.05)',
-                '0 0 35px rgba(99, 102, 241, 0.1)',
-                '0 0 20px rgba(99, 102, 241, 0.05)',
+                '0 0 20px rgba(74, 144, 217, 0.05)',
+                '0 0 35px rgba(74, 144, 217, 0.1)',
+                '0 0 20px rgba(74, 144, 217, 0.05)',
               ],
             }}
             transition={{
@@ -1519,6 +1780,10 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
             onAssumptionEdit={onAssumptionEdit}
             onContinue={onContinue}
             recommendation={verdict.recommendation}
+            milesBalance={milesBalance}
+            showEffectiveCost={showEffectiveCost}
+            mileValuationCpp={mileValuationCpp}
+            doubleDipStrategy={verdict.doubleDipStrategy}
           />
         )}
       </AnimatePresence>

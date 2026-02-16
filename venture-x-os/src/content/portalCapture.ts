@@ -1913,6 +1913,33 @@ export function setupPortalCaptureListeners(): void {
       
       return true;
     }
+
+    if (message.type === 'FORCE_CAPTURE_PORTAL') {
+      console.log('[PortalCapture] Received FORCE_CAPTURE_PORTAL request');
+      
+      const snapshot = capturePortalSnapshot();
+      
+      if (snapshot) {
+        const payload: PortalCapturedPayload = {
+          portalSnapshot: snapshot,
+          tabId: 0, // Will be filled by background
+          url: window.location.href,
+        };
+        
+        // Also send to background so flow state updates
+        chrome.runtime.sendMessage({
+          type: 'VX_COMPARE_PORTAL_CAPTURED',
+          sessionId: message.sessionId,
+          payload,
+        });
+        
+        sendResponse({ success: true, snapshot });
+      } else {
+        sendResponse({ success: false, error: 'Could not capture portal snapshot' });
+      }
+      
+      return true;
+    }
     
     if (message.type === 'VX_GET_PORTAL_PREVIEW') {
       // Quick preview without full capture

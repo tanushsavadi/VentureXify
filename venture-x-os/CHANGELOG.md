@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-02-17
+
+### 🐛 Bug Fixes
+
+#### Airline Program URL Filtering
+- Fixed PointsYeah redirect URL missing 8 of 18 Capital One airline transfer partners (BA, CX, AF, QR, TP, BR, JL, AM)
+- Root cause: `AppRedesigned.tsx` had a local `buildPointsYeahUrl()` with hardcoded 12-airline string, bypassing the centralized `transferPartnerRegistry.ts`
+- Replaced local function with import from `engine/pointsyeah.ts` which dynamically derives all 18 IATA codes from registry
+- Fixed `TransferPartnersCard.tsx` hardcoded 8-partner array — now uses `getAirlinePartners()` from registry
+
+### ✨ UX Improvements
+
+#### 3 Booking Methods Guidance
+- Added collapsible "📋 What to look for on PointsYeah" guide in ASK phase with ✅/⚠️/❌ indicators per method
+- Added step-by-step "📋 What to copy from PointsYeah" instructions in SEARCHING phase
+- Added "⚠️ Don't enter 'Buy Points' prices" warning banner + helper text in INPUT phase
+
+#### Dual Entry Mode
+- Added ✈️ Airline Miles / 💳 Capital One Miles toggle to award entry sections
+- Airline Miles mode: existing flow with added helper text
+- Capital One Miles mode: simplified 2-field form (C1 miles + taxes) — bypasses transfer ratio conversion
+- Updated `POINTSYEAH_TIPS` with method-specific guidance
+
+### 🔬 New Comparison Features
+- **Portal-Cheaper Callout**: Amber warning when booking through Capital One Travel portal is cheaper than award transfer, showing side-by-side cost comparison with savings amount
+- **Buy-Miles Comparison Baseline**: Collapsible section showing the cash cost of buying airline miles directly vs transferring Capital One miles, including best-bonus pricing
+- **Buy-Miles Registry Data**: Added base pricing, bonus ranges, and promotion frequency data for all 18 airline transfer partners
+- **Two new engine functions**: `computeBuyMilesComparison()` and `computePortalCheaperCallout()` with TPG 1.85¢/mile valuation
+
+### 📝 Files Changed
+- `src/ui/sidepanel/AppRedesigned.tsx`
+- `src/ui/components/glass/TransferPartnersCard.tsx`
+- `src/engine/pointsyeah.ts`
+- `src/engine/transferPartnerRegistry.ts` (BuyMilesData interface + 18 partner pricing)
+- `src/engine/pointsyeah.ts` (comparison functions + updated tips)
+
+### 📄 New Documentation
+- `docs/POINTSYEAH_BOOKING_METHODS_DESIGN.md`
+
+---
+
 ## [2.0.0] - 2026-01-20
 
 ### 🏨 Major: Full Stays (Hotels/Vacation Rentals) Support

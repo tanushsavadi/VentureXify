@@ -990,3 +990,141 @@ Hotels (4):
 
 Total: 22 partners (18 airlines + 4 hotels)
 ```
+
+---
+
+## Phase 2: URL Fix & Booking Methods UX (2026-02-17)
+
+> **Status:** ✅ Complete
+> **Date:** 2026-02-17
+> **Scope:** Fix airline URL filtering bug, add 3 booking methods instructional guidance, add dual-entry mode
+
+---
+
+### Changes Completed
+
+#### Bug Fix: Airline Program URL Filtering
+
+- **Problem**: The PointsYeah redirect URL in [`AppRedesigned.tsx`](../src/ui/sidepanel/AppRedesigned.tsx) was hardcoded with only 12 airline codes (`AR,AC,AV,EK,EY,AY,B6,QF,SQ,TK,VS,VA`), missing 8 Capital One transfer partners (BA, CX, AF, QR, TP, BR, JL, AM).
+- **Root cause**: [`AppRedesigned.tsx:1635`](../src/ui/sidepanel/AppRedesigned.tsx:1635) had a local `buildPointsYeahUrl()` function with a hardcoded string, bypassing the centralized [`transferPartnerRegistry.ts`](../src/engine/transferPartnerRegistry.ts).
+- **Fix**: Replaced the local function with an import of `buildPointsYeahUrl()` from [`engine/pointsyeah.ts`](../src/engine/pointsyeah.ts), which dynamically derives all 18 airline IATA codes from the registry.
+- **Also fixed**: [`TransferPartnersCard.tsx`](../src/ui/components/glass/TransferPartnersCard.tsx) had a hardcoded 8-partner array — replaced with dynamic derivation from `getAirlinePartners()`.
+- **Files changed**: `src/ui/sidepanel/AppRedesigned.tsx`, `src/ui/components/glass/TransferPartnersCard.tsx`
+
+#### UX Enhancement: 3 Booking Methods Guidance
+
+- **Problem**: PointsYeah shows 3 "ways to book" (direct airline miles, transfer from credit card, buy points) which confused users. Extension only handled method 1.
+- **Solution**: Added comprehensive instructional guidance and a dual-entry mode system.
+
+**Instructional Guidance:**
+
+- ASK phase: Added collapsible "📋 What to look for on PointsYeah" guide with ✅/⚠️/❌ indicators for each method
+- SEARCHING phase: Added step-by-step "📋 What to copy from PointsYeah" instructions
+- INPUT phase: Added "⚠️ Don't enter 'Buy Points' prices" warning banner + helper text under all input fields
+
+**Dual Entry Mode:**
+
+- Added ✈️ Airline Miles / 💳 Capital One Miles toggle to award entry sections
+- Airline Miles mode: existing flow with added helper text
+- Capital One Miles mode: simplified 2-field form (C1 miles + taxes) for users who grab the Capital One cost directly from PointsYeah's "Transfer from credit card" section
+- C1 direct entry bypasses transfer ratio conversion since user already has the C1 cost
+
+**Updated Tips:**
+
+- `POINTSYEAH_TIPS` in [`engine/pointsyeah.ts`](../src/engine/pointsyeah.ts) updated with method-specific guidance
+
+**Files changed:** `src/ui/sidepanel/AppRedesigned.tsx`, `src/engine/pointsyeah.ts`
+
+**Design document:** [`docs/POINTSYEAH_BOOKING_METHODS_DESIGN.md`](./POINTSYEAH_BOOKING_METHODS_DESIGN.md)
+
+---
+
+### Remaining Work (Future Phases)
+
+- **Phase 3**: Auto-capture content script for `pointsyeah.com` (architecture planned in [BOOKING_METHODS_DESIGN.md](./POINTSYEAH_BOOKING_METHODS_DESIGN.md))
+- **Phase 4**: Portal-cheaper callout when award CPP is below user's mile valuation
+- **Phase 4**: "Buy Points" comparison showing cash cost of buying miles as a baseline
+
+---
+
+## Phase 4: Portal-Cheaper Callout & Buy-Miles Comparison (2026-02-17)
+
+**Status:** ✅ IMPLEMENTATION COMPLETE
+
+### Changes Completed
+
+#### 4a: Buy-Miles Pricing Data & Comparison Engine
+
+**Registry Extension (`src/engine/transferPartnerRegistry.ts`):**
+- Added `BuyMilesData` interface with fields: `baseCostCentsPerMile`, `typicalBonusRange`, `frequentPromotions`, `annualMaxMiles`, `minPurchaseMiles`
+- Extended `RegistryPartner` with optional `buyMiles` field
+- Added buy-miles pricing data to all 18 airline partners (sourced from TPG, NerdWallet, industry data as of Feb 2026)
+- New export: `getBuyMilesData(partnerId)` helper
+
+**Comparison Engine (`src/engine/pointsyeah.ts`):**
+- New `BuyMilesComparison` interface and `computeBuyMilesComparison()` function
+  - Compares base buy cost vs best-bonus buy cost vs C1 transfer value
+  - Detects when buy-with-bonus is cheaper than transferring
+  - Uses TPG 1.85¢/mile valuation as default
+- New `PortalCheaperResult` interface and `computePortalCheaperCallout()` function
+  - Determines if portal booking (cash + 5x earning) beats award transfer
+  - Factors in: travel credit remaining, 5x earning differential, mile valuation
+  - Uses 1.5¢ CPP threshold for triggering callout
+  - Returns detailed breakdown with savings amount and reason string
+- Updated POINTSYEAH_TIPS tip #4 from "Ignore buy points" to comparison-aware message
+
+#### 4b: UI — Portal-Cheaper Callout & Buy-Miles Comparison Display
+
+**Sidepanel UI (`src/ui/sidepanel/AppRedesigned.tsx`):**
+- Added `buyMilesData` and `portalCallout` state variables
+- Computation triggers after `handleCalculateAward()` — filters airline-sourced legs for buy-miles, uses captured cash price for portal comparison
+- **Portal-Cheaper Callout**: Amber/yellow card shown above award results when `isPortalCheaper` is true. Displays:
+  - Award CPP vs threshold warning
+  - Side-by-side portal net cost vs award total value
+  - Savings amount with portal recommendation
+- **Buy-Miles Comparison**: Collapsible `<details>` section below verdict showing:
+  - Base buy cost for required miles
+  - Best-bonus buy cost (with bonus %)
+  - C1 transfer value comparison
+  - Verdict: buy-with-bonus cheaper warning OR transfer savings confirmation
+  - Frequent promotions watch note for programs like Avianca LifeMiles
+- Clear button resets both new state variables
+- C1 direct entry mode gracefully skips buy-miles (no partner ID)
+
+### Buy-Miles Pricing Data (as of Feb 2026)
+
+| Partner | Base ¢/mi | Bonus Range | Frequent Promos |
+|---------|-----------|-------------|-----------------|
+| JetBlue TrueBlue | 2.50 | 25-75% | No |
+| Turkish Miles&Smiles | 3.00 | 25-50% | No |
+| Avianca LifeMiles | 3.25 | 100-200% | **Yes** |
+| British Airways Avios | 2.86 | 25-100% | No |
+| Singapore KrisFlyer | 3.50 | 15-25% | No |
+| Air France-KLM Flying Blue | 3.00 | 50-100% | No |
+| Etihad Guest | 3.50 | 25-50% | No |
+| Emirates Skywards | 3.00 | 30-100% | No |
+| EVA Air | 3.25 | 10-30% | No |
+| Japan Airlines | 3.00 | 10-50% | No |
+| Air Canada Aeroplan | 3.00 | 50-100% | No |
+| Aeromexico | 3.25 | 15-50% | No |
+| Cathay Pacific | 3.50 | 10-50% | No |
+| Finnair Plus | 2.86 | 25-100% | No |
+| TAP Miles&Go | 3.00 | 25-50% | No |
+| Qatar Privilege Club | 3.25 | 25-100% | No |
+| Virgin Red | 2.50 | 25-50% | No |
+
+### Valuation Benchmarks Used
+- **TPG Capital One mile valuation**: 1.85¢ (Feb 2026)
+- **NerdWallet range**: 1.0-1.6¢
+- **Portal-cheaper CPP threshold**: 1.5¢
+- **Portal earning rate**: 5x on flights, 10x on hotels
+
+### Files Changed
+- `src/engine/transferPartnerRegistry.ts` — BuyMilesData interface + data for 18 partners
+- `src/engine/pointsyeah.ts` — Two comparison functions + updated tips
+- `src/ui/sidepanel/AppRedesigned.tsx` — Portal callout + buy-miles comparison UI
+
+### Remaining Work
+- Phase 3 (Auto-capture content script for pointsyeah.com) — deferred
+- Promotion tracking integration (auto-fetch current buy-miles bonuses)
+- User preference for mile valuation and travel credit remaining

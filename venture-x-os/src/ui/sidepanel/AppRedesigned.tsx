@@ -6,6 +6,7 @@
 // ============================================
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send,
@@ -88,6 +89,7 @@ import {
   getPartnerById,
   c1MilesNeeded,
 } from '../../engine/transferPartnerRegistry';
+import { buildPointsYeahUrl, computeBuyMilesComparison, computePortalCheaperCallout, type AwardSearchParams, type BuyMilesComparison, type PortalCheaperResult } from '../../engine/pointsyeah';
 
 // ============================================
 // TYPES
@@ -123,6 +125,8 @@ interface FlightLeg {
   duration?: string;
   stops?: number;
   stopAirports?: string[];
+  layoverDurations?: string[];
+  totalLayoverTime?: string;
 }
 
 interface PortalCapture {
@@ -459,6 +463,7 @@ const CitationsDropdown: React.FC<{ citations: CitationSource[] }> = ({ citation
 
 // ============================================
 // FORMAT MESSAGE WITH INLINE CITATIONS
+// Legacy: kept for reference — replaced by MarkdownMessage
 // ============================================
 
 const formatMessageWithCitations = (content: string): React.ReactNode => {
@@ -489,6 +494,90 @@ const formatMessageWithCitations = (content: string): React.ReactNode => {
 };
 
 // ============================================
+// MARKDOWN MESSAGE - Renders markdown + inline citations
+// ============================================
+
+const MarkdownMessage: React.FC<{
+  content: string;
+  onCitationClick?: (idx: number) => void;
+}> = ({ content, onCitationClick }) => {
+  // Recursively walk React children to replace [N] citation markers with CitationBadge
+  const processCitations = (children: React.ReactNode): React.ReactNode => {
+    return React.Children.map(children, (child) => {
+      if (typeof child === 'string') {
+        const parts = child.split(/(\[\d+\])/g);
+        if (parts.length === 1) return child;
+        return parts.map((part, i) => {
+          const m = part.match(/^\[(\d+)\]$/);
+          if (m) {
+            const idx = parseInt(m[1], 10);
+            return (
+              <CitationBadge
+                key={`cite-${idx}-${i}`}
+                number={idx}
+                onClick={() => onCitationClick?.(idx)}
+              />
+            );
+          }
+          return <span key={i}>{part}</span>;
+        });
+      }
+      if (React.isValidElement<{ children?: React.ReactNode }>(child) && child.props?.children) {
+        return React.cloneElement(child, {}, processCitations(child.props.children));
+      }
+      return child;
+    });
+  };
+
+  // Helper: wraps an HTML tag with citation processing and a className
+  const wrapWithCitations = (Tag: keyof JSX.IntrinsicElements, className: string) => {
+    return ({ children, ...props }: any) => {
+      const Comp = Tag as any;
+      return <Comp className={className} {...props}>{processCitations(children)}</Comp>;
+    };
+  };
+
+  return (
+    <ReactMarkdown
+      components={{
+        p: wrapWithCitations('p', 'mb-2 last:mb-0'),
+        strong: wrapWithCitations('strong', 'font-semibold text-white'),
+        em: wrapWithCitations('em', 'italic text-white/80'),
+        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+        li: wrapWithCitations('li', 'text-gray-200'),
+        h1: wrapWithCitations('h1', 'font-bold text-white text-base mb-2'),
+        h2: wrapWithCitations('h2', 'font-bold text-white text-sm mb-1.5'),
+        h3: wrapWithCitations('h3', 'font-semibold text-white text-sm mb-1'),
+        h4: wrapWithCitations('h4', 'font-semibold text-white text-xs mb-1'),
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#5b9bd5] hover:text-[#7eb8e0] underline">
+            {children}
+          </a>
+        ),
+        code: ({ children, className }) => {
+          const isBlock = className?.includes('language-');
+          if (isBlock) {
+            return (
+              <pre className="bg-black/30 rounded-lg p-2 mb-2 overflow-x-auto text-xs">
+                <code className={className}>{children}</code>
+              </pre>
+            );
+          }
+          return <code className="bg-white/10 rounded px-1 py-0.5 text-[12px] text-emerald-300">{children}</code>;
+        },
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-2 border-white/20 pl-3 my-2 text-white/70 italic">{children}</blockquote>
+        ),
+        hr: () => <hr className="border-white/10 my-3" />,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+};
+
+// ============================================
 // MESSAGE BUBBLE (Enhanced for Chat with Citations)
 // ============================================
 
@@ -516,7 +605,7 @@ const MessageBubble: React.FC<{
               : 'bg-white/[0.06] border border-white/[0.10] text-white/90 rounded-bl-md'
           )}
         >
-          {isUser ? message.content : formatMessageWithCitations(message.content)}
+          {isUser ? message.content : <MarkdownMessage content={message.content} />}
         </div>
         
         {/* Citations dropdown for assistant messages */}
@@ -626,7 +715,7 @@ const FlightLegDisplay: React.FC<{ leg: FlightLeg; label: string; date?: string 
         </div>
         <span className="text-base font-bold text-white">{formatTimeConsistent(leg.arrivalTime)}</span>
       </div>
-      <div className="flex gap-2 mt-2">
+      <div className="flex flex-wrap gap-2 mt-2">
         {typeof leg.stops === 'number' && (
           <GlassBadge variant={leg.stops === 0 ? 'success' : 'default'} size="sm">
             {leg.stops === 0 ? 'Nonstop' : `${leg.stops} stop${leg.stops > 1 ? 's' : ''}`}
@@ -636,6 +725,23 @@ const FlightLegDisplay: React.FC<{ leg: FlightLeg; label: string; date?: string 
           <GlassBadge variant="muted" size="sm">
             via {leg.stopAirports.join(', ')}
           </GlassBadge>
+        )}
+        {leg.stops && leg.stops > 0 && leg.layoverDurations && leg.layoverDurations.length > 0 && (
+          leg.layoverDurations.map((dur, i) => (
+            <span
+              key={`layover-${i}`}
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/20 text-amber-300"
+            >
+              {leg.stopAirports && leg.stopAirports[i]
+                ? `${dur} in ${leg.stopAirports[i]}`
+                : `${dur} layover`}
+            </span>
+          ))
+        )}
+        {leg.stops && leg.stops > 0 && !leg.layoverDurations?.length && leg.totalLayoverTime && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/20 text-amber-300">
+            {leg.totalLayoverTime} total layover
+          </span>
         )}
       </div>
     </div>
@@ -1346,7 +1452,11 @@ interface AwardLeg {
   transferRatio: number;  // e.g., 1.0, 0.75, 0.6
   ratioLabel: string;     // e.g., "1:1", "2:1.5", "5:3"
   cpp: number;            // CPP for this leg
+  /** How the user entered this data */
+  entrySource?: 'airline_miles' | 'c1_miles_direct';
 }
+
+type EntrySource = 'airline_miles' | 'c1_miles_direct';
 
 interface AwardData {
   legs: AwardLeg[];
@@ -1437,6 +1547,8 @@ const VerdictSection: React.FC<{
   const [awardData, setAwardData] = useState<AwardData | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [awardBaseline, setAwardBaseline] = useState<'portal_with_credit' | 'portal_no_credit' | 'direct'>('portal_with_credit');
+  const [buyMilesData, setBuyMilesData] = useState<BuyMilesComparison | null>(null);
+  const [portalCallout, setPortalCallout] = useState<PortalCheaperResult | null>(null);
 
   // Award entry mode: separate legs (default — PointsYeah requires one-way) or roundtrip combined
   const [awardEntryMode, setAwardEntryMode] = useState<'roundtrip' | 'separate'>('separate');
@@ -1455,6 +1567,16 @@ const VerdictSection: React.FC<{
   const [combinedProgram, setCombinedProgram] = useState('');
   const [combinedMiles, setCombinedMiles] = useState('');
   const [combinedTaxes, setCombinedTaxes] = useState('');
+
+  // Entry source toggle: airline miles (default) vs Capital One miles direct
+  const [obEntrySource, setObEntrySource] = useState<EntrySource>('airline_miles');
+  const [rtEntrySource, setRtEntrySource] = useState<EntrySource>('airline_miles');
+  const [combinedEntrySource, setCombinedEntrySource] = useState<EntrySource>('airline_miles');
+
+  // Capital One miles direct entry (Mode B - quick entry)
+  const [obC1Miles, setObC1Miles] = useState('');
+  const [rtC1Miles, setRtC1Miles] = useState('');
+  const [combinedC1Miles, setCombinedC1Miles] = useState('');
   
   // R5: Credit is now always read from persisted userPrefs (passed via props).
   // No more inline toggle — users change this in Settings or Onboarding.
@@ -1526,36 +1648,25 @@ const VerdictSection: React.FC<{
   const portalEffectiveCost = (portalPriceUSD - creditRemaining) - (comparison.portalDetails.milesEarned * MILES_VALUE_CPP);
   const directEffectiveCost = directPriceUSD - (comparison.directDetails.milesEarned * MILES_VALUE_CPP);
 
-  // Build PointsYeah URL
-  const buildPointsYeahUrl = () => {
+  // Build PointsYeah URL – delegates to engine/pointsyeah.ts which derives
+  // airline codes dynamically from the transfer partner registry.
+  const getPointsYeahUrl = (): string => {
     if (!itinerary?.origin || !itinerary?.destination || !itinerary?.departDate) return '';
-    const tripType = itinerary.returnDate ? '2' : '1';
-    const capitalOnePartners = 'AR,AC,AV,EK,EY,AY,B6,QF,SQ,TK,VS,VA';
-    
-    const params = new URLSearchParams({
-      cabins: '',
-      banks: 'Capital One',
-      airlineProgram: capitalOnePartners,
-      tripType,
-      adults: '1',
-      children: '0',
-      departure: itinerary.origin,
-      arrival: itinerary.destination,
-      departDate: itinerary.departDate,
-      departDateSec: itinerary.departDate,
-      multiday: 'false',
-    });
-    
-    if (itinerary.returnDate) {
-      params.set('returnDate', itinerary.returnDate);
-      params.set('returnDateSec', itinerary.returnDate);
-    }
-    
-    return `https://www.pointsyeah.com/search?${params.toString()}`;
+    return buildPointsYeahUrl(
+      {
+        departure: itinerary.origin,
+        arrival: itinerary.destination,
+        departDate: itinerary.departDate,
+        returnDate: itinerary.returnDate,
+        cabin: (itinerary.cabin as AwardSearchParams['cabin']) || '',
+        adults: 1,
+      },
+      { capitalOneOnly: true },
+    );
   };
 
   const handleSearchPointsYeah = () => {
-    const url = buildPointsYeahUrl();
+    const url = getPointsYeahUrl();
     if (url) {
       if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.create({ url });
@@ -1574,12 +1685,49 @@ const VerdictSection: React.FC<{
     return Math.min(150, Math.max(75, baseCashPrice * 0.1));
   };
 
+  // Helper: build a C1 direct entry leg (Mode B)
+  const buildC1DirectLeg = (
+    direction: 'outbound' | 'return' | 'roundtrip',
+    c1MilesInput: string,
+    taxesInput: string,
+  ): AwardLeg | null => {
+    const c1MilesVal = parseInt(c1MilesInput.replace(/,/g, ''), 10);
+    if (isNaN(c1MilesVal) || c1MilesVal < 1000) {
+      const prefix = direction === 'roundtrip' ? '' : direction === 'outbound' ? 'Outbound: ' : 'Return: ';
+      setInputError(`${prefix}Enter valid Capital One miles (at least 1,000)`);
+      return null;
+    }
+    const taxesRaw = taxesInput.replace(/[^0-9.]/g, '').trim();
+    const parsedTaxes = parseFloat(taxesRaw);
+    const hasValidTax = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
+    const taxes = hasValidTax ? parsedTaxes : estimateTaxes(direction);
+    return {
+      direction,
+      program: 'c1_direct',
+      programName: 'Award (via PointsYeah)',
+      partnerMiles: c1MilesVal,
+      c1Miles: c1MilesVal,
+      taxes,
+      taxesEstimated: !hasValidTax,
+      transferRatio: 1.0,
+      ratioLabel: 'direct',
+      cpp: 0,
+      entrySource: 'c1_miles_direct',
+    };
+  };
+
   const handleCalculateAward = () => {
     const legs: AwardLeg[] = [];
 
     if (awardEntryMode === 'separate') {
-      // Build outbound leg if filled
-      if (obProgram && obMiles) {
+      // Build outbound leg — check entry source
+      if (obEntrySource === 'c1_miles_direct') {
+        if (obC1Miles) {
+          const leg = buildC1DirectLeg('outbound', obC1Miles, obTaxes);
+          if (!leg) return;
+          legs.push(leg);
+        }
+      } else if (obProgram && obMiles) {
         const partner = getPartnerById(obProgram);
         if (partner) {
           const partnerMiles = parseInt(obMiles.replace(/,/g, ''), 10);
@@ -1592,24 +1740,23 @@ const VerdictSection: React.FC<{
           const parsedTaxes = parseFloat(taxesRaw);
           const hasValidTax = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
           const taxes = hasValidTax ? parsedTaxes : estimateTaxes('outbound');
-
           legs.push({
-            direction: 'outbound',
-            program: partner.id,
-            programName: partner.name,
-            partnerMiles,
-            c1Miles,
-            taxes,
-            taxesEstimated: !hasValidTax,
-            transferRatio: partner.effectiveRate,
-            ratioLabel: partner.c1Ratio,
-            cpp: 0,
+            direction: 'outbound', program: partner.id, programName: partner.name,
+            partnerMiles, c1Miles, taxes, taxesEstimated: !hasValidTax,
+            transferRatio: partner.effectiveRate, ratioLabel: partner.c1Ratio, cpp: 0,
+            entrySource: 'airline_miles',
           });
         }
       }
 
-      // Build return leg if filled
-      if (rtProgram && rtMiles) {
+      // Build return leg — check entry source
+      if (rtEntrySource === 'c1_miles_direct') {
+        if (rtC1Miles) {
+          const leg = buildC1DirectLeg('return', rtC1Miles, rtTaxes);
+          if (!leg) return;
+          legs.push(leg);
+        }
+      } else if (rtProgram && rtMiles) {
         const partner = getPartnerById(rtProgram);
         if (partner) {
           const partnerMiles = parseInt(rtMiles.replace(/,/g, ''), 10);
@@ -1622,24 +1769,23 @@ const VerdictSection: React.FC<{
           const parsedTaxes = parseFloat(taxesRaw);
           const hasValidTax = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
           const taxes = hasValidTax ? parsedTaxes : estimateTaxes('return');
-
           legs.push({
-            direction: 'return',
-            program: partner.id,
-            programName: partner.name,
-            partnerMiles,
-            c1Miles,
-            taxes,
-            taxesEstimated: !hasValidTax,
-            transferRatio: partner.effectiveRate,
-            ratioLabel: partner.c1Ratio,
-            cpp: 0,
+            direction: 'return', program: partner.id, programName: partner.name,
+            partnerMiles, c1Miles, taxes, taxesEstimated: !hasValidTax,
+            transferRatio: partner.effectiveRate, ratioLabel: partner.c1Ratio, cpp: 0,
+            entrySource: 'airline_miles',
           });
         }
       }
     } else {
-      // Round-trip combined entry
-      if (combinedProgram && combinedMiles) {
+      // Round-trip combined entry — check entry source
+      if (combinedEntrySource === 'c1_miles_direct') {
+        if (combinedC1Miles) {
+          const leg = buildC1DirectLeg('roundtrip', combinedC1Miles, combinedTaxes);
+          if (!leg) return;
+          legs.push(leg);
+        }
+      } else if (combinedProgram && combinedMiles) {
         const partner = getPartnerById(combinedProgram);
         if (partner) {
           const partnerMiles = parseInt(combinedMiles.replace(/,/g, ''), 10);
@@ -1652,18 +1798,11 @@ const VerdictSection: React.FC<{
           const parsedTaxes = parseFloat(taxesRaw);
           const hasValidTax = taxesRaw.length > 0 && !isNaN(parsedTaxes) && parsedTaxes >= 0;
           const taxes = hasValidTax ? parsedTaxes : estimateTaxes('roundtrip');
-
           legs.push({
-            direction: 'roundtrip',
-            program: partner.id,
-            programName: partner.name,
-            partnerMiles,
-            c1Miles,
-            taxes,
-            taxesEstimated: !hasValidTax,
-            transferRatio: partner.effectiveRate,
-            ratioLabel: partner.c1Ratio,
-            cpp: 0,
+            direction: 'roundtrip', program: partner.id, programName: partner.name,
+            partnerMiles, c1Miles, taxes, taxesEstimated: !hasValidTax,
+            transferRatio: partner.effectiveRate, ratioLabel: partner.c1Ratio, cpp: 0,
+            entrySource: 'airline_miles',
           });
         }
       }
@@ -1718,6 +1857,38 @@ const VerdictSection: React.FC<{
       comparisonBaseline: awardBaseline,
       baselineAmount,
     });
+
+    // Phase 4b: Compute buy-miles comparison (skip for C1 direct entry legs)
+    const airlineLegs = legs.filter(l => l.entrySource !== 'c1_miles_direct' && l.program !== 'c1_direct');
+    if (airlineLegs.length > 0) {
+      // Use the first airline-sourced leg for buy-miles comparison
+      const primaryLeg = airlineLegs[0];
+      const buyResult = computeBuyMilesComparison(
+        primaryLeg.program,
+        primaryLeg.partnerMiles,
+        primaryLeg.c1Miles,
+        mileValueCpp * 100  // convert from decimal (0.018) to cents (1.8)
+      );
+      setBuyMilesData(buyResult);
+    } else {
+      setBuyMilesData(null);
+    }
+
+    // Phase 4b: Portal-cheaper callout — compare award transfer vs portal booking
+    if (portalPriceUSD > 0) {
+      const portalResult = computePortalCheaperCallout({
+        cashPrice: portalPriceUSD,
+        awardC1Miles: totalC1Miles,
+        awardTaxesFees: totalTaxes,
+        mileValuationCents: mileValueCpp * 100,
+        portalMultiplier: 5,
+        travelCreditRemaining: creditRemaining,
+      });
+      setPortalCallout(portalResult);
+    } else {
+      setPortalCallout(null);
+    }
+
     setMaxValuePhase('verdict');
   };
 
@@ -2127,7 +2298,7 @@ const VerdictSection: React.FC<{
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-[#5b9bd5]" />
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-white/80">Factor in miles value</span>
+              <span className="text-sm text-white/80">Factor in miles value (recommended)</span>
               <span className="text-xs text-white/50">
                 {showEffectiveCost ? 'Showing effective cost after subtracting miles value' : 'Comparing out-of-pocket prices only'}
               </span>
@@ -2240,10 +2411,41 @@ const VerdictSection: React.FC<{
                   </div>
                 </div>
 
-                {/* R8: Collapsed explanation — full text revealed on tap */}
+                {/* R8: PointsYeah 3-method guide — collapsed by default */}
                 <ExpandableInfo
-                  summary="How do transfer partners work?"
-                  detail="Transfer partners can sometimes beat both portal and direct prices. Takes ~2 min to check on PointsYeah."
+                  summary="📋 What to look for on PointsYeah"
+                  detail={
+                    <div className="space-y-2">
+                      <p className="text-white/50">When you click a flight on PointsYeah, you'll see 3 ways to book:</p>
+                      <div className="space-y-1.5">
+                        <div className="flex items-start gap-1.5">
+                          <span className="text-emerald-400 flex-shrink-0">✅</span>
+                          <div>
+                            <span className="text-white/70 font-medium">Method 1 — "Book directly with airline program"</span>
+                            <br /><span className="text-white/50">Copy the program name, miles required, and taxes/fees. We'll calculate your Capital One cost.</span>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-1.5">
+                          <span className="text-amber-400 flex-shrink-0">⚠️</span>
+                          <div>
+                            <span className="text-white/70 font-medium">Method 2 — "Transfer from credit card"</span>
+                            <br /><span className="text-white/50">Look for the "Capital One" row — that shows your exact C1 miles cost. You can enter this directly using "Capital One Miles" mode below.</span>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-1.5">
+                          <span className="text-red-400 flex-shrink-0">❌</span>
+                          <div>
+                            <span className="text-white/70 font-medium">Method 3 — "Buy points"</span>
+                            <br /><span className="text-white/50">Skip this — buying miles is almost never good value.</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 p-2 rounded-lg bg-[#4a90d9]/10 border border-[#4a90d9]/15">
+                        <span className="text-[#7eb8e0]">💡 Tip:</span>{' '}
+                        <span className="text-white/50">Methods 1 and 2 show the same flight. Method 1 shows airline miles, Method 2 shows what it costs in your bank's points. Either works for entry below.</span>
+                      </div>
+                    </div>
+                  }
                   className="px-1"
                 />
 
@@ -2282,11 +2484,34 @@ const VerdictSection: React.FC<{
                   </div>
                 </div>
 
-                {/* R8: Collapsed search tips — expanded on tap */}
+                {/* R8: Step-by-step copy instructions — expanded on tap */}
                 <div className="px-3 py-2 rounded-xl bg-[#4a90d9]/10 border border-[#4a90d9]/20">
                   <ExpandableInfo
-                    summary="What to look for on PointsYeah"
-                    detail={<>• Miles required (e.g., &quot;42,900 pts&quot;)<br />• Taxes/fees (e.g., &quot;+ $258&quot;)</>}
+                    summary="📋 What to copy from PointsYeah"
+                    detail={
+                      <div className="space-y-2">
+                        <p className="text-white/50">1. Find your flight, tap to expand</p>
+                        <p className="text-white/50">2. Under <strong className="text-white/70">"Book directly with airline program"</strong>:</p>
+                        <ul className="list-disc list-inside text-white/50 ml-2 space-y-0.5">
+                          <li>Program name (e.g., "JetBlue TrueBlue")</li>
+                          <li>Miles required (e.g., "46,000")</li>
+                          <li>Taxes/fees (e.g., "$44.20")</li>
+                        </ul>
+                        <div className="my-1.5 flex items-center gap-2">
+                          <div className="flex-1 h-px bg-white/10" />
+                          <span className="text-[10px] text-white/30">OR quick alternative</span>
+                          <div className="flex-1 h-px bg-white/10" />
+                        </div>
+                        <p className="text-white/50">Under <strong className="text-white/70">"Transfer from credit card"</strong>:</p>
+                        <ul className="list-disc list-inside text-white/50 ml-2 space-y-0.5">
+                          <li>Capital One row → points needed (e.g., "76,700 pts")</li>
+                          <li>Same taxes/fees as above</li>
+                        </ul>
+                        <div className="mt-1.5 p-1.5 rounded bg-amber-500/10 border border-amber-500/15">
+                          <span className="text-amber-300 text-[10px]">⚠️ IGNORE "Buy points" — almost never worth it for Venture X users</span>
+                        </div>
+                      </div>
+                    }
                   />
                 </div>
 
@@ -2333,6 +2558,14 @@ const VerdictSection: React.FC<{
                   </div>
                 </div>
 
+                {/* "Don't enter Buy Points" warning banner */}
+                <ExpandableInfo
+                  summary="⚠️ Don't enter 'Buy Points' prices"
+                  detail="Buying airline miles typically costs 1.4–2.5¢ each — worse than your Capital One miles which are worth 1.5–2.0¢ via transfers."
+                  variant="amber"
+                  className="px-1"
+                />
+
                 {/* Entry mode toggle */}
                 <div className="flex rounded-lg bg-white/[0.04] border border-white/[0.08] p-0.5">
                   <button
@@ -2367,66 +2600,115 @@ const VerdictSection: React.FC<{
                         ✈️ Outbound{itinerary?.origin && itinerary?.destination ? ` (${itinerary.origin} → ${itinerary.destination})` : ''}
                       </div>
 
-                      {/* Program dropdown */}
-                      <div>
-                        <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
-                        <select
-                          value={obProgram}
-                          onChange={(e) => setObProgram(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                      {/* Entry source toggle: Airline Miles vs Capital One Miles */}
+                      <div className="flex rounded-lg bg-white/[0.03] border border-white/[0.06] p-0.5">
+                        <button
+                          onClick={() => setObEntrySource('airline_miles')}
+                          className={cn(
+                            'flex-1 py-1.5 rounded-md text-[10px] font-medium transition-colors',
+                            obEntrySource === 'airline_miles'
+                              ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                              : 'text-white/50 hover:text-white/70 border border-transparent'
+                          )}
                         >
-                          <option value="" className="bg-[#1a1a2e]">Select program…</option>
-                          <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
-                            {partnerGroups.airlines1to1.map(p => (
-                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
-                            {partnerGroups.airlinesNon1to1.map(p => (
-                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Hotels" className="bg-[#1a1a2e]">
-                            {partnerGroups.hotels.map(p => (
-                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
-                            ))}
-                          </optgroup>
-                        </select>
+                          ✈️ Airline Miles
+                        </button>
+                        <button
+                          onClick={() => setObEntrySource('c1_miles_direct')}
+                          className={cn(
+                            'flex-1 py-1.5 rounded-md text-[10px] font-medium transition-colors',
+                            obEntrySource === 'c1_miles_direct'
+                              ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                              : 'text-white/50 hover:text-white/70 border border-transparent'
+                          )}
+                        >
+                          💳 Capital One Miles
+                        </button>
                       </div>
 
-                      {/* Miles input */}
-                      <div>
-                        <label className="text-[10px] text-white/50 mb-1 block">Miles required</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={obMiles}
-                            onChange={(e) => setObMiles(e.target.value)}
-                            placeholder="37,000"
-                            className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
-                            autoFocus
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                      {obEntrySource === 'airline_miles' ? (
+                        <>
+                          {/* Program dropdown */}
+                          <div>
+                            <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
+                            <select
+                              value={obProgram}
+                              onChange={(e) => setObProgram(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                            >
+                              <option value="" className="bg-[#1a1a2e]">Select program…</option>
+                              <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
+                                {partnerGroups.airlines1to1.map(p => (
+                                  <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
+                                {partnerGroups.airlinesNon1to1.map(p => (
+                                  <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Hotels" className="bg-[#1a1a2e]">
+                                {partnerGroups.hotels.map(p => (
+                                  <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                                ))}
+                              </optgroup>
+                            </select>
+                            <p className="text-[9px] text-white/30 mt-1">Select the airline program shown in Method 1 on PointsYeah</p>
+                          </div>
+
+                          {/* Miles input */}
+                          <div>
+                            <label className="text-[10px] text-white/50 mb-1 block">Miles required</label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={obMiles}
+                                onChange={(e) => setObMiles(e.target.value)}
+                                placeholder="37,000"
+                                className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                                autoFocus
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                            </div>
+                            <p className="text-[9px] text-white/30 mt-1">The miles/points shown next to the airline program</p>
+                            {/* Ratio indicator */}
+                            {obProgram && obMiles && (() => {
+                              const partner = getPartnerById(obProgram);
+                              if (partner && partner.effectiveRate !== 1.0) {
+                                const pMiles = parseInt(obMiles.replace(/,/g, ''), 10);
+                                if (!isNaN(pMiles) && pMiles > 0) {
+                                  const needed = c1MilesNeeded(obProgram, pMiles);
+                                  return (
+                                    <p className="text-[10px] text-[#7eb8e0] mt-1">
+                                      {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
+                                    </p>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        </>
+                      ) : (
+                        /* Capital One Miles direct entry (Mode B) */
+                        <div>
+                          <label className="text-[10px] text-white/50 mb-1 block">Capital One Miles needed</label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={obC1Miles}
+                              onChange={(e) => setObC1Miles(e.target.value)}
+                              placeholder="76,700"
+                              className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                              autoFocus
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">C1 miles</span>
+                          </div>
+                          <p className="text-[9px] text-white/30 mt-1">Find this in the Capital One row under "Transfer from credit card"</p>
                         </div>
-                        {/* Ratio indicator */}
-                        {obProgram && obMiles && (() => {
-                          const partner = getPartnerById(obProgram);
-                          if (partner && partner.effectiveRate !== 1.0) {
-                            const pMiles = parseInt(obMiles.replace(/,/g, ''), 10);
-                            if (!isNaN(pMiles) && pMiles > 0) {
-                              const needed = c1MilesNeeded(obProgram, pMiles);
-                              return (
-                                <p className="text-[10px] text-[#7eb8e0] mt-1">
-                                  {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
-                                </p>
-                              );
-                            }
-                          }
-                          return null;
-                        })()}
-                      </div>
+                      )}
 
-                      {/* Taxes input */}
+                      {/* Taxes input (shared by both modes) */}
                       <div>
                         <label className="flex items-center justify-between mb-1">
                           <span className="text-[10px] text-white/50">Taxes & fees</span>
@@ -2442,7 +2724,15 @@ const VerdictSection: React.FC<{
                             className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-white/15"
                           />
                         </div>
+                        <p className="text-[9px] text-white/30 mt-1">The cash amount shown (e.g., "$44.20 tax")</p>
                       </div>
+
+                      {/* Quick entry caveat */}
+                      {obEntrySource === 'c1_miles_direct' && (
+                        <p className="text-[9px] text-amber-300/60 bg-amber-500/5 p-2 rounded">
+                          ⚠️ Quick entry: we won't show per-program breakdowns or verify the transfer ratio. For full details, use "Airline Miles" mode.
+                        </p>
+                      )}
                     </div>
 
                     {/* ✈️ Return leg */}
@@ -2452,72 +2742,120 @@ const VerdictSection: React.FC<{
                           ✈️ Return{itinerary?.origin && itinerary?.destination ? ` (${itinerary.destination} → ${itinerary.origin})` : ''}
                         </div>
                         <button
-                          onClick={() => { setRtProgram(obProgram); }}
+                          onClick={() => { setRtProgram(obProgram); setRtEntrySource(obEntrySource); }}
                           className="text-[9px] text-[#5b9bd5]/80 hover:text-[#7eb8e0] transition-colors"
                         >
                           Same as outbound
                         </button>
                       </div>
 
-                      {/* Program dropdown */}
-                      <div>
-                        <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
-                        <select
-                          value={rtProgram}
-                          onChange={(e) => setRtProgram(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                      {/* Entry source toggle for return */}
+                      <div className="flex rounded-lg bg-white/[0.03] border border-white/[0.06] p-0.5">
+                        <button
+                          onClick={() => setRtEntrySource('airline_miles')}
+                          className={cn(
+                            'flex-1 py-1.5 rounded-md text-[10px] font-medium transition-colors',
+                            rtEntrySource === 'airline_miles'
+                              ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                              : 'text-white/50 hover:text-white/70 border border-transparent'
+                          )}
                         >
-                          <option value="" className="bg-[#1a1a2e]">Select program… (optional)</option>
-                          <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
-                            {partnerGroups.airlines1to1.map(p => (
-                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
-                            {partnerGroups.airlinesNon1to1.map(p => (
-                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Hotels" className="bg-[#1a1a2e]">
-                            {partnerGroups.hotels.map(p => (
-                              <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
-                            ))}
-                          </optgroup>
-                        </select>
+                          ✈️ Airline Miles
+                        </button>
+                        <button
+                          onClick={() => setRtEntrySource('c1_miles_direct')}
+                          className={cn(
+                            'flex-1 py-1.5 rounded-md text-[10px] font-medium transition-colors',
+                            rtEntrySource === 'c1_miles_direct'
+                              ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                              : 'text-white/50 hover:text-white/70 border border-transparent'
+                          )}
+                        >
+                          💳 Capital One Miles
+                        </button>
                       </div>
 
-                      {/* Miles input */}
-                      <div>
-                        <label className="text-[10px] text-white/50 mb-1 block">Miles required</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={rtMiles}
-                            onChange={(e) => setRtMiles(e.target.value)}
-                            placeholder="37,000"
-                            className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                      {rtEntrySource === 'airline_miles' ? (
+                        <>
+                          {/* Program dropdown */}
+                          <div>
+                            <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
+                            <select
+                              value={rtProgram}
+                              onChange={(e) => setRtProgram(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                            >
+                              <option value="" className="bg-[#1a1a2e]">Select program… (optional)</option>
+                              <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
+                                {partnerGroups.airlines1to1.map(p => (
+                                  <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
+                                {partnerGroups.airlinesNon1to1.map(p => (
+                                  <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Hotels" className="bg-[#1a1a2e]">
+                                {partnerGroups.hotels.map(p => (
+                                  <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                                ))}
+                              </optgroup>
+                            </select>
+                            <p className="text-[9px] text-white/30 mt-1">Select the airline program shown in Method 1 on PointsYeah</p>
+                          </div>
+
+                          {/* Miles input */}
+                          <div>
+                            <label className="text-[10px] text-white/50 mb-1 block">Miles required</label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={rtMiles}
+                                onChange={(e) => setRtMiles(e.target.value)}
+                                placeholder="37,000"
+                                className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                            </div>
+                            <p className="text-[9px] text-white/30 mt-1">The miles/points shown next to the airline program</p>
+                            {/* Ratio indicator */}
+                            {rtProgram && rtMiles && (() => {
+                              const partner = getPartnerById(rtProgram);
+                              if (partner && partner.effectiveRate !== 1.0) {
+                                const pMiles = parseInt(rtMiles.replace(/,/g, ''), 10);
+                                if (!isNaN(pMiles) && pMiles > 0) {
+                                  const needed = c1MilesNeeded(rtProgram, pMiles);
+                                  return (
+                                    <p className="text-[10px] text-[#7eb8e0] mt-1">
+                                      {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
+                                    </p>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        </>
+                      ) : (
+                        /* Capital One Miles direct entry for return */
+                        <div>
+                          <label className="text-[10px] text-white/50 mb-1 block">Capital One Miles needed</label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={rtC1Miles}
+                              onChange={(e) => setRtC1Miles(e.target.value)}
+                              placeholder="76,700"
+                              className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-base font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">C1 miles</span>
+                          </div>
+                          <p className="text-[9px] text-white/30 mt-1">Find this in the Capital One row under "Transfer from credit card"</p>
                         </div>
-                        {/* Ratio indicator */}
-                        {rtProgram && rtMiles && (() => {
-                          const partner = getPartnerById(rtProgram);
-                          if (partner && partner.effectiveRate !== 1.0) {
-                            const pMiles = parseInt(rtMiles.replace(/,/g, ''), 10);
-                            if (!isNaN(pMiles) && pMiles > 0) {
-                              const needed = c1MilesNeeded(rtProgram, pMiles);
-                              return (
-                                <p className="text-[10px] text-[#7eb8e0] mt-1">
-                                  {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
-                                </p>
-                              );
-                            }
-                          }
-                          return null;
-                        })()}
-                      </div>
+                      )}
 
-                      {/* Taxes input */}
+                      {/* Taxes input (shared) */}
                       <div>
                         <label className="flex items-center justify-between mb-1">
                           <span className="text-[10px] text-white/50">Taxes & fees</span>
@@ -2533,7 +2871,14 @@ const VerdictSection: React.FC<{
                             className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-white/15"
                           />
                         </div>
+                        <p className="text-[9px] text-white/30 mt-1">The cash amount shown (e.g., "$44.20 tax")</p>
                       </div>
+
+                      {rtEntrySource === 'c1_miles_direct' && (
+                        <p className="text-[9px] text-amber-300/60 bg-amber-500/5 p-2 rounded">
+                          ⚠️ Quick entry: we won't show per-program breakdowns or verify the transfer ratio.
+                        </p>
+                      )}
 
                       <p className="text-[9px] text-white/30">
                         Leave return blank if you only found one direction
@@ -2547,64 +2892,113 @@ const VerdictSection: React.FC<{
                       🔄 Round-trip combined
                     </div>
 
-                    {/* Program dropdown */}
-                    <div>
-                      <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
-                      <select
-                        value={combinedProgram}
-                        onChange={(e) => setCombinedProgram(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                    {/* Entry source toggle for combined */}
+                    <div className="flex rounded-lg bg-white/[0.03] border border-white/[0.06] p-0.5">
+                      <button
+                        onClick={() => setCombinedEntrySource('airline_miles')}
+                        className={cn(
+                          'flex-1 py-1.5 rounded-md text-[10px] font-medium transition-colors',
+                          combinedEntrySource === 'airline_miles'
+                            ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                            : 'text-white/50 hover:text-white/70 border border-transparent'
+                        )}
                       >
-                        <option value="" className="bg-[#1a1a2e]">Select program…</option>
-                        <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
-                          {partnerGroups.airlines1to1.map(p => (
-                            <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
-                          {partnerGroups.airlinesNon1to1.map(p => (
-                            <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="Hotels" className="bg-[#1a1a2e]">
-                          {partnerGroups.hotels.map(p => (
-                            <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
-                          ))}
-                        </optgroup>
-                      </select>
+                        ✈️ Airline Miles
+                      </button>
+                      <button
+                        onClick={() => setCombinedEntrySource('c1_miles_direct')}
+                        className={cn(
+                          'flex-1 py-1.5 rounded-md text-[10px] font-medium transition-colors',
+                          combinedEntrySource === 'c1_miles_direct'
+                            ? 'bg-[#4a90d9]/20 text-white border border-[#4a90d9]/30'
+                            : 'text-white/50 hover:text-white/70 border border-transparent'
+                        )}
+                      >
+                        💳 Capital One Miles
+                      </button>
                     </div>
 
-                    {/* Miles input */}
-                    <div>
-                      <label className="text-[10px] text-white/50 mb-1 block">Total miles required</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={combinedMiles}
-                          onChange={(e) => setCombinedMiles(e.target.value)}
-                          placeholder="74,000"
-                          className="w-full px-3 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-lg font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
-                          autoFocus
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                    {combinedEntrySource === 'airline_miles' ? (
+                      <>
+                        {/* Program dropdown */}
+                        <div>
+                          <label className="text-[10px] text-white/50 mb-1 block">Transfer program</label>
+                          <select
+                            value={combinedProgram}
+                            onChange={(e) => setCombinedProgram(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-sm focus:outline-none focus:border-[#4a90d9]/40 appearance-none"
+                          >
+                            <option value="" className="bg-[#1a1a2e]">Select program…</option>
+                            <optgroup label="Airlines (1:1)" className="bg-[#1a1a2e]">
+                              {partnerGroups.airlines1to1.map(p => (
+                                <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Airlines (non-1:1)" className="bg-[#1a1a2e]">
+                              {partnerGroups.airlinesNon1to1.map(p => (
+                                <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Hotels" className="bg-[#1a1a2e]">
+                              {partnerGroups.hotels.map(p => (
+                                <option key={p.id} value={p.id} className="bg-[#1a1a2e]">{p.name} ({p.c1Ratio})</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                          <p className="text-[9px] text-white/30 mt-1">Select the airline program shown in Method 1 on PointsYeah</p>
+                        </div>
+
+                        {/* Miles input */}
+                        <div>
+                          <label className="text-[10px] text-white/50 mb-1 block">Total miles required</label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={combinedMiles}
+                              onChange={(e) => setCombinedMiles(e.target.value)}
+                              placeholder="74,000"
+                              className="w-full px-3 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-lg font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                              autoFocus
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">pts</span>
+                          </div>
+                          <p className="text-[9px] text-white/30 mt-1">The miles/points shown next to the airline program</p>
+                          {/* Ratio indicator */}
+                          {combinedProgram && combinedMiles && (() => {
+                            const partner = getPartnerById(combinedProgram);
+                            if (partner && partner.effectiveRate !== 1.0) {
+                              const pMiles = parseInt(combinedMiles.replace(/,/g, ''), 10);
+                              if (!isNaN(pMiles) && pMiles > 0) {
+                                const needed = c1MilesNeeded(combinedProgram, pMiles);
+                                return (
+                                  <p className="text-[10px] text-[#7eb8e0] mt-1">
+                                    {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
+                                  </p>
+                                );
+                              }
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      </>
+                    ) : (
+                      /* Capital One Miles direct entry for combined */
+                      <div>
+                        <label className="text-[10px] text-white/50 mb-1 block">Capital One Miles needed</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={combinedC1Miles}
+                            onChange={(e) => setCombinedC1Miles(e.target.value)}
+                            placeholder="153,400"
+                            className="w-full px-3 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.12] text-white text-lg font-semibold placeholder:text-white/30 focus:outline-none focus:border-[#4a90d9]/40"
+                            autoFocus
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40">C1 miles</span>
+                        </div>
+                        <p className="text-[9px] text-white/30 mt-1">Find this in the Capital One row under "Transfer from credit card"</p>
                       </div>
-                      {/* Ratio indicator */}
-                      {combinedProgram && combinedMiles && (() => {
-                        const partner = getPartnerById(combinedProgram);
-                        if (partner && partner.effectiveRate !== 1.0) {
-                          const pMiles = parseInt(combinedMiles.replace(/,/g, ''), 10);
-                          if (!isNaN(pMiles) && pMiles > 0) {
-                            const needed = c1MilesNeeded(combinedProgram, pMiles);
-                            return (
-                              <p className="text-[10px] text-[#7eb8e0] mt-1">
-                                {pMiles.toLocaleString()} {partner.name} pts = {needed.toLocaleString()} Capital One miles ({partner.c1Ratio})
-                              </p>
-                            );
-                          }
-                        }
-                        return null;
-                      })()}
-                    </div>
+                    )}
 
                     {/* Taxes input */}
                     <div>
@@ -2623,9 +3017,15 @@ const VerdictSection: React.FC<{
                         />
                       </div>
                       <p className="text-[9px] text-white/30 mt-1">
-                        💡 Leave blank to estimate (~10% of cash price)
+                        {combinedEntrySource === 'c1_miles_direct' ? 'Shown next to the miles amount' : '💡 Leave blank to estimate (~10% of cash price)'}
                       </p>
                     </div>
+
+                    {combinedEntrySource === 'c1_miles_direct' && (
+                      <p className="text-[9px] text-amber-300/60 bg-amber-500/5 p-2 rounded">
+                        ⚠️ Quick entry: we won't show per-program breakdowns or verify the transfer ratio. For full details, use "Airline Miles" mode.
+                      </p>
+                    )}
                   </div>
                 )}
                 
@@ -2668,8 +3068,8 @@ const VerdictSection: React.FC<{
                   onClick={handleCalculateAward}
                   disabled={
                     awardEntryMode === 'separate'
-                      ? !obProgram || !obMiles
-                      : !combinedProgram || !combinedMiles
+                      ? (obEntrySource === 'c1_miles_direct' ? !obC1Miles : (!obProgram || !obMiles))
+                      : (combinedEntrySource === 'c1_miles_direct' ? !combinedC1Miles : (!combinedProgram || !combinedMiles))
                   }
                 >
                   <Sparkles className="w-4 h-4" />
@@ -2691,6 +3091,38 @@ const VerdictSection: React.FC<{
       {/* Main Verdict Card (show when not in Max Value pre-flow) */}
       {!showMaxValueFlow && (
         <>
+          {/* Phase 4b: Portal-Cheaper Callout — shown when award transfer gives low CPP */}
+          {awardData && portalCallout?.isPortalCheaper && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 mb-3"
+            >
+              <div className="flex items-start gap-2">
+                <span className="text-amber-400 text-lg">⚠️</span>
+                <div>
+                  <p className="text-amber-200 font-medium text-sm">Portal may be better here</p>
+                  <p className="text-amber-200/70 text-xs mt-1">
+                    Your award redemption is only {portalCallout.awardCPP.toFixed(1)}¢/mile — below the {portalCallout.threshold}¢ threshold.
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white/5 rounded p-2">
+                      <p className="text-white/50">Portal (cash + earn 5x)</p>
+                      <p className="text-white font-medium">${portalCallout.portalNetCostUSD.toFixed(0)} net</p>
+                    </div>
+                    <div className="bg-white/5 rounded p-2">
+                      <p className="text-white/50">Award transfer</p>
+                      <p className="text-white font-medium">${portalCallout.awardTotalValueUSD.toFixed(0)} value used</p>
+                    </div>
+                  </div>
+                  <p className="text-amber-300/80 text-xs mt-2 font-medium">
+                    💡 Save ~${Math.abs(portalCallout.savingsIfPortal).toFixed(0)} by using the Capital One Travel portal instead
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* 3-way comparison header if award data exists */}
           {awardData && (
             <motion.div
@@ -2705,6 +3137,8 @@ const VerdictSection: React.FC<{
                 <button
                   onClick={() => {
                     setAwardData(null);
+                    setBuyMilesData(null);
+                    setPortalCallout(null);
                     setMaxValuePhase('ask');
                   }}
                   className="text-[10px] text-white/40 hover:text-white/60"
@@ -2809,7 +3243,7 @@ const VerdictSection: React.FC<{
             onContinue={() => {
               // P2-21: Trigger success celebration instead of just logging
               const rec = progressiveVerdict.recommendation === 'tie'
-                ? (portalOOP <= directOOP ? 'portal' : 'direct')
+                ? 'portal' as const  // Portal wins ties — more miles, travel credit benefits
                 : (progressiveVerdict.recommendation as 'portal' | 'direct');
               const savings = outOfPocketDiff > 5 ? outOfPocketDiff : undefined;
               onVerdictContinue?.(rec, savings);
@@ -2819,6 +3253,45 @@ const VerdictSection: React.FC<{
               onOpenSettings?.();
             }}
           />
+
+          {/* Phase 4b: Buy-Miles Cost Comparison — collapsible section */}
+          {awardData && buyMilesData && (
+            <details className="mt-3 rounded-lg border border-white/10 bg-white/5">
+              <summary className="cursor-pointer p-3 text-sm text-white/70 hover:text-white/90 transition-colors">
+                📊 Buy-Miles Cost Comparison
+              </summary>
+              <div className="p-3 pt-0 text-xs space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-white/50">Buy {buyMilesData.milesRequired.toLocaleString()} {buyMilesData.programName} miles (base rate)</span>
+                  <span className="text-red-400 font-medium">${buyMilesData.baseBuyCostUSD.toFixed(0)}</span>
+                </div>
+                {buyMilesData.bestBonusPercent > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Buy with best typical bonus ({buyMilesData.bestBonusPercent}%)</span>
+                    <span className={cn('font-medium', buyMilesData.buyIsCheaperWithBonus ? 'text-amber-400' : 'text-red-400')}>
+                      ${buyMilesData.bestBonusBuyCostUSD.toFixed(0)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-white/50">Transfer from Capital One ({buyMilesData.c1MilesNeeded.toLocaleString()} C1 miles)</span>
+                  <span className="text-emerald-400 font-medium">${buyMilesData.c1TransferValueUSD.toFixed(0)} value</span>
+                </div>
+                <div className="border-t border-white/10 pt-2 mt-2">
+                  {buyMilesData.buyIsCheaperWithBonus ? (
+                    <p className="text-amber-300">
+                      ⚠️ With a {buyMilesData.bestBonusPercent}% buy bonus, purchasing miles (${buyMilesData.bestBonusBuyCostUSD.toFixed(0)}) may be cheaper than transferring (${buyMilesData.c1TransferValueUSD.toFixed(0)} in C1 miles value)
+                    </p>
+                  ) : (
+                    <p className="text-emerald-300">
+                      ✅ Transferring from C1 saves ${buyMilesData.transferSavingsUSD.toFixed(0)} vs buying miles at base rate
+                      {buyMilesData.hasFrequentPromos && ' — but watch for buy-miles promotions on this program!'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </details>
+          )}
         </>
       )}
 
@@ -4539,9 +5012,11 @@ export function SidePanelApp() {
         origin?: string; destination?: string; departDate?: string; returnDate?: string;
         cabin?: string; departureTime?: string; arrivalTime?: string; duration?: string;
         stops?: number; stopAirports?: string[]; airlines?: string[];
+        layoverDurations?: string[]; totalLayoverTime?: string;
         // Return flight data (from original AppPremium.tsx)
         returnDepartureTime?: string; returnArrivalTime?: string; returnDuration?: string;
         returnStops?: number; returnStopAirports?: string[]; returnAirlines?: string[];
+        returnLayoverDurations?: string[]; returnTotalLayoverTime?: string;
       };
       providerName?: string;
     };
@@ -4568,6 +5043,8 @@ export function SidePanelApp() {
           duration: itinerary?.duration,
           stops: itinerary?.stops,
           stopAirports: itinerary?.stopAirports,
+          layoverDurations: itinerary?.layoverDurations,
+          totalLayoverTime: itinerary?.totalLayoverTime,
         },
         // Include return flight data (from original AppPremium.tsx)
         returnFlight: itinerary?.returnDepartureTime ? {
@@ -4577,6 +5054,8 @@ export function SidePanelApp() {
           duration: itinerary?.returnDuration,
           stops: itinerary?.returnStops,
           stopAirports: itinerary?.returnStopAirports,
+          layoverDurations: itinerary?.returnLayoverDurations,
+          totalLayoverTime: itinerary?.returnTotalLayoverTime,
         } : undefined,
         airline: s.providerName || itinerary?.airlines?.[0],
         stops: itinerary?.stops,
@@ -5028,14 +5507,31 @@ export function SidePanelApp() {
                            userInput.toLowerCase().includes('price') ||
                            userInput.toLowerCase().includes('this flight');
         
-        // Step 3: Attach citations to the response
+        // Step 3: Filter and rank citations before attaching to the response
+        // Only show sources above a minimum relevance threshold to avoid noise
+        const MIN_SOURCE_DISPLAY_THRESHOLD = 0.5;
+        const relevantSources = (citations || []).filter(
+          (s: any) => (s.relevanceScore || s.similarity || 0) >= MIN_SOURCE_DISPLAY_THRESHOLD
+        );
+
+        // Score and sort: boost official sources, deprioritize Reddit comments
+        const scoredSources = relevantSources.map((s: any) => ({
+          ...s,
+          displayScore: (s.relevanceScore || s.similarity || 0) +
+            (s.source === 'capitalone' ? 0.1 : 0) +
+            (s.source === 'reddit-comment' ? -0.05 : 0)
+        })).sort((a: any, b: any) => b.displayScore - a.displayScore).slice(0, 3);
+
+        // Clean up temporary displayScore before attaching
+        const finalCitations: CitationSource[] = scoredSources.map(({ displayScore, ...rest }: any) => rest);
+
         setMessages(prev => prev.map(m =>
           m.id === thinkingId
             ? {
                 ...m,
                 content: result.response || 'I can help you with Capital One Venture X questions!',
                 isContextPrompt: needsContext && contextStatus.type === 'none',
-                citations: citations.length > 0 ? citations : undefined,
+                citations: finalCitations.length > 0 ? finalCitations : undefined,
               }
             : m
         ));
@@ -5173,13 +5669,30 @@ export function SidePanelApp() {
         // Step 3: Send to LLM with full context and RAG
         const result = await sendChatViaSupabase(question, fullContext, ragContext);
         
-        // Update with response and citations
+        // Filter and rank citations before attaching to the response
+        const MIN_SOURCE_DISPLAY_THRESHOLD = 0.5;
+        const relevantSources = (citations || []).filter(
+          (s: any) => (s.relevanceScore || s.similarity || 0) >= MIN_SOURCE_DISPLAY_THRESHOLD
+        );
+
+        // Score and sort: boost official sources, deprioritize Reddit comments
+        const scoredSources = relevantSources.map((s: any) => ({
+          ...s,
+          displayScore: (s.relevanceScore || s.similarity || 0) +
+            (s.source === 'capitalone' ? 0.1 : 0) +
+            (s.source === 'reddit-comment' ? -0.05 : 0)
+        })).sort((a: any, b: any) => b.displayScore - a.displayScore).slice(0, 3);
+
+        // Clean up temporary displayScore before attaching
+        const finalCitations: CitationSource[] = scoredSources.map(({ displayScore, ...rest }: any) => rest);
+
+        // Update with response and filtered citations
         setMessages(prev => prev.map(m =>
           m.id === thinkingId
             ? {
                 ...m,
                 content: result.response || 'I can help you with your booking decision!',
-                citations: citations.length > 0 ? citations : undefined,
+                citations: finalCitations.length > 0 ? finalCitations : undefined,
               }
             : m
         ));

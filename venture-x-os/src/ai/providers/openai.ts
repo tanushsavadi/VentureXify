@@ -27,7 +27,7 @@ export async function openaiGenerate(
   const {
     model = DEFAULT_MODEL,
     temperature = 0.7,
-    maxTokens = 400,
+    maxTokens = 800,
   } = options;
 
   const response = await fetch(OPENAI_API_URL, {

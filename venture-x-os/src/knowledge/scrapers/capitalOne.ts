@@ -373,6 +373,70 @@ HOW TO TRANSFER:
       domain: 'capitalone.com',
     },
   },
+  {
+    id: 'capitalone-static-benefits-comprehensive',
+    source: 'capitalone',
+    title: 'Capital One Venture X - Comprehensive Benefits Guide',
+    content: `
+Capital One Venture X Rewards Credit Card — Comprehensive Benefits
+
+VISA INFINITE BENEFITS:
+- Visa Infinite Luxury Hotel Collection — automatic room upgrades when available, late checkout, complimentary breakfast for two, and a $25 food & beverage credit at 900+ luxury hotels worldwide
+- Visa Infinite Concierge — 24/7 personal concierge service for travel bookings, dining reservations, entertainment tickets, and special requests
+- Access to the Visa Infinite benefits portal for exclusive offers and experiences
+
+RENTAL CAR BENEFITS:
+- Primary auto rental collision damage waiver (CDW) — covers theft and collision damage on eligible rental vehicles when you decline the rental company's CDW
+- Coverage for rentals up to 15 consecutive days in the US and most countries internationally
+- Must decline the rental company's CDW/LDW to activate benefit
+- Does NOT cover liability, personal injury, or personal belongings
+- Complimentary Hertz President's Circle elite status — top-tier status with upgrades, preferred vehicles, and expedited service
+- Preferred rental car programs with Avis, National, and other major providers
+
+TRAVEL PROTECTION:
+- Trip cancellation/interruption insurance — up to $5,000 per trip and $10,000 per year per covered person for prepaid, non-refundable travel expenses
+- Trip delay reimbursement — up to $500 per ticket for meals, lodging, and essential expenses after a delay of 6 or more hours
+- Lost luggage reimbursement — up to $3,000 per passenger for checked or carry-on luggage lost by the carrier
+- Baggage delay insurance — up to $500 for essential purchases (clothing, toiletries) after luggage is delayed 6 or more hours
+
+PURCHASE PROTECTION:
+- Extended warranty — extends the original manufacturer's warranty by up to 1 additional year on eligible items valued up to $10,000
+- Purchase security — covers eligible new purchases against damage or theft for 120 days from the date of purchase, up to $10,000 per claim and $50,000 per year
+- Note: Price protection was a previous benefit but has been discontinued on most Capital One cards as of recent policy updates
+
+LOUNGE ACCESS (COMPREHENSIVE):
+- Priority Pass Select membership — access to 1,300+ airport lounges worldwide
+- Capital One Lounges — premium owned-and-operated lounges at DFW (Dallas-Fort Worth), DEN (Denver), IAD (Washington Dulles), and DCA (Ronald Reagan Washington National)
+- Plaza Premium Lounge access included
+- Guest policy (as of February 2025): Primary cardholder + 2 guests admitted free; authorized users can enter themselves but no longer receive free guest access
+- Capital One Lounge amenities: hot meals, craft cocktails and premium beverages, shower suites, relaxation rooms, nursing/mother's rooms, high-speed Wi-Fi, and premium workspaces
+
+CELL PHONE PROTECTION:
+- Up to $800 per claim for cell phone damage or theft (subject to a $25 deductible)
+- Up to 2 claims allowed per 12-month period
+- Must pay your monthly cell phone bill with the Venture X card to be eligible
+- Covers the primary account holder and any lines listed on the monthly bill
+
+GLOBAL ENTRY / TSA PRECHECK CREDIT:
+- Up to $100 statement credit every 4 years for Global Entry ($100) or TSA PreCheck (~$78) application fees
+- Also covers NEXUS ($50) enrollment fees
+- Statement credit applied automatically when the fee is charged to the card
+
+OTHER KEY BENEFITS:
+- No foreign transaction fees on any purchases made outside the United States
+- Complimentary authorized user cards — no additional annual fee for authorized users
+- 10,000 anniversary bonus miles each year on account anniversary (worth approximately $100 at 1cpp via Travel Eraser, or ~$180 at average transfer partner value)
+- $300 annual travel credit automatically applied to Capital One Travel bookings
+- Welcome bonus of 75,000 miles after meeting minimum spend (offer subject to change; check Capital One for current terms)
+    `.trim(),
+    url: 'https://www.capitalone.com/credit-cards/venture-x/',
+    scrapedAt: new Date().toISOString(),
+    createdAt: '2026-02-17',
+    metadata: {
+      type: 'official-static',
+      domain: 'capitalone.com',
+    },
+  },
 ];
 
 /**

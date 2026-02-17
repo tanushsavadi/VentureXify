@@ -453,7 +453,20 @@ function processHybridResults(
   const sources: CitedSource[] = [];
   const contextParts: string[] = [];
   
-  for (const result of hybridResult.results) {
+  // Filter to only include sufficiently relevant chunks in the RAG context
+  // This prevents low-quality results from polluting the LLM's context window
+  const MIN_HYBRID_CONTEXT_THRESHOLD = 0.4;
+  const filteredResults = hybridResult.results.filter(r => {
+    const score = r.fusedScore || r.denseScore || r.sparseScore || 0;
+    return score >= MIN_HYBRID_CONTEXT_THRESHOLD;
+  });
+  
+  // Fall back to top result if nothing passes threshold
+  const resultsToProcess = filteredResults.length > 0
+    ? filteredResults
+    : hybridResult.results.slice(0, 1);
+  
+  for (const result of resultsToProcess) {
     // Get trust tier
     const trustTier = getTrustTierForSource(result.source);
     

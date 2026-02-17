@@ -274,6 +274,20 @@ export function buildRAGContext(results: SearchResult[]): {
     return { context: '', sources: [] };
   }
 
+  // Filter to only include sufficiently relevant chunks in the RAG context
+  // We keep a lower bar here (0.4) than for source display (0.5) so the LLM
+  // has enough context to reason, but irrelevant noise is excluded.
+  const MIN_RAG_CONTEXT_THRESHOLD = 0.4;
+  const relevantResults = results.filter(
+    r => (r.score || 0) >= MIN_RAG_CONTEXT_THRESHOLD
+  );
+
+  // If nothing passes the threshold, fall back to the single best result
+  // so the LLM still has something to work with
+  const resultsToUse = relevantResults.length > 0
+    ? relevantResults
+    : results.slice(0, 1);
+
   const contextParts: string[] = [];
   const sources: Array<{
     title: string;
@@ -283,7 +297,7 @@ export function buildRAGContext(results: SearchResult[]): {
     relevanceScore: number;
   }> = [];
 
-  results.forEach((r, i) => {
+  resultsToUse.forEach((r, i) => {
     const citationNum = i + 1;
     contextParts.push(`[${citationNum}] ${r.title}: ${r.content.slice(0, 300)}...`);
     sources.push({

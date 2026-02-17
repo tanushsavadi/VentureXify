@@ -64,7 +64,7 @@ export async function groqGenerateWithMeta(
   const {
     model = DEFAULT_MODEL,
     temperature = 0.7,
-    maxTokens = 400,
+    maxTokens = 800,
     stripThinkBlocks: shouldStrip = model.includes('qwen'),
   } = options;
 

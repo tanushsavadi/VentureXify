@@ -219,7 +219,7 @@ ${ragContext}
         model: 'llama-3.1-8b-instant',
         messages,
         temperature: 0.5, // Lower temperature for more consistent math
-        max_tokens: 400,
+        max_tokens: 800,
       }),
     })
 

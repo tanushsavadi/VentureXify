@@ -213,6 +213,86 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     lastUpdated: '2024-01-01',
     source: 'Reddit r/VentureX'
   },
+
+  // Visa Infinite Benefits
+  {
+    id: 'visa-infinite-benefits',
+    category: 'card-basics',
+    title: 'Visa Infinite Benefits',
+    content: 'The Venture X is a Visa Infinite card, which includes access to the Visa Infinite Luxury Hotel Collection with automatic room upgrades, late checkout, complimentary breakfast for two, and a $25 food & beverage credit at 900+ luxury hotels. Cardholders also get a 24/7 Visa Infinite Concierge service for travel, dining, and entertainment assistance.',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
+
+  // Rental Car Benefits
+  {
+    id: 'rental-car-benefits',
+    category: 'card-basics',
+    title: 'Rental Car & CDW Benefits',
+    content: 'The Venture X provides primary auto rental collision damage waiver (CDW) covering theft and collision damage on eligible rentals up to 15 consecutive days in the US and most international countries. You must decline the rental company\'s CDW to be eligible. Coverage does NOT include liability, personal injury, or personal belongings. The card also includes complimentary Hertz President\'s Circle elite status.',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
+
+  // Travel Protection
+  {
+    id: 'travel-protection-insurance',
+    category: 'card-basics',
+    title: 'Travel Protection & Insurance',
+    content: 'Venture X travel protection includes trip cancellation/interruption insurance (up to $5,000 per trip, $10,000 per year), trip delay reimbursement (up to $500 per ticket after 6+ hour delay for meals, lodging, essentials), lost luggage reimbursement (up to $3,000 per passenger), and baggage delay insurance (up to $500 for essentials after a 6+ hour delay).',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
+
+  // Purchase Protection
+  {
+    id: 'purchase-protection',
+    category: 'card-basics',
+    title: 'Purchase Protection & Extended Warranty',
+    content: 'The Venture X extends the manufacturer\'s warranty by up to 1 additional year on eligible items valued up to $10,000. Purchase security covers new purchases against damage or theft for 120 days from the date of purchase, up to $10,000 per claim and $50,000 per year. Price protection has been discontinued on most Capital One cards.',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
+
+  // Cell Phone Protection
+  {
+    id: 'cell-phone-protection',
+    category: 'card-basics',
+    title: 'Cell Phone Protection',
+    content: 'When you pay your monthly cell phone bill with the Venture X card, you get cell phone protection covering damage or theft up to $800 per claim with a $25 deductible. You can file up to 2 claims per 12-month period. Coverage extends to the primary account holder and all lines listed on the monthly bill.',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
+
+  // Lounge Access Comprehensive
+  {
+    id: 'lounge-access-comprehensive',
+    category: 'lounges',
+    title: 'Lounge Access — Comprehensive Guide',
+    content: 'Venture X includes Priority Pass Select (1,300+ lounges worldwide) and Capital One Lounges at DFW, DEN, IAD, and DCA with hot meals, craft cocktails, showers, and relaxation rooms. Plaza Premium Lounge access is also included. As of February 2025, the primary cardholder plus 2 guests are admitted free; authorized users can enter but no longer receive free guest access.',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
+
+  // Authorized User Benefits
+  {
+    id: 'authorized-user-benefits',
+    category: 'card-basics',
+    title: 'Authorized User Benefits',
+    content: 'Authorized users on the Venture X card are free — there is no additional annual fee. Authorized users earn the same miles rates (2X/5X/10X) and receive their own Priority Pass membership. However, as of February 2025, authorized users no longer receive complimentary guest lounge access; they can enter lounges themselves but cannot bring guests for free.',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
+
+  // Global Entry / TSA PreCheck
+  {
+    id: 'global-entry-tsa-precheck',
+    category: 'card-basics',
+    title: 'Global Entry / TSA PreCheck Credit',
+    content: 'The Venture X provides up to $100 in statement credits every 4 years for Global Entry ($100), TSA PreCheck (~$78), or NEXUS ($50) application fees. The credit is applied automatically when the fee is charged to the card. This benefit helps offset the annual fee and speeds up airport security and customs.',
+    lastUpdated: '2026-02-17',
+    source: 'Capital One'
+  },
 ];
 
 // ============================================

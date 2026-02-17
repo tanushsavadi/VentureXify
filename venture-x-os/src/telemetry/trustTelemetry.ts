@@ -433,7 +433,7 @@ export class TrustTelemetryService {
         const storage = await chrome.storage.session.get(['anonymousSessionId']);
         if (storage.anonymousSessionId) {
           this.sessionId = storage.anonymousSessionId;
-          return this.sessionId;
+          return storage.anonymousSessionId;
         }
         
         // Create new session ID

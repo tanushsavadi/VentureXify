@@ -4,10 +4,12 @@
  * Handles:
  * - Deep link URL building for PointsYeah flight search
  * - Award option types and implied CPP calculation
+ * - Buy-miles vs. transfer comparison engine
+ * - Portal-cheaper callout engine
  * - Message passing for result parsing (optional import)
  */
 
-import { getAllAirlineIataCodes } from './transferPartnerRegistry';
+import { getAllAirlineIataCodes, getPartnerById, getBuyMilesData } from './transferPartnerRegistry';
 
 // ============================================
 // TYPES
@@ -177,6 +179,194 @@ export function isGoodAwardValue(
 }
 
 // ============================================
+// BUY-MILES COMPARISON ENGINE
+// ============================================
+
+export interface BuyMilesComparison {
+  programName: string;
+  milesRequired: number;
+  baseBuyCostUSD: number;
+  baseCostPerMileCents: number;
+  bestBonusBuyCostUSD: number;
+  bestBonusPercent: number;
+  hasFrequentPromos: boolean;
+  c1MilesNeeded: number;
+  c1TransferValueUSD: number;
+  transferSavingsUSD: number;
+  buyIsCheaperWithBonus: boolean;
+}
+
+/**
+ * Compare the cost of buying miles directly from an airline program
+ * versus transferring Capital One miles.
+ *
+ * @param partnerId   - Registry partner slug (e.g., `'lifemiles'`).
+ * @param milesRequired - Number of airline miles needed for the award.
+ * @param c1MilesNeeded - Number of Capital One miles required for the transfer.
+ * @param mileValuationCents - Assumed value of one C1 mile in cents (default 1.85).
+ * @returns A comparison object, or `null` if the partner has no buy-miles data.
+ */
+export function computeBuyMilesComparison(
+  partnerId: string,
+  milesRequired: number,
+  c1MilesNeeded: number,
+  mileValuationCents: number = 1.85
+): BuyMilesComparison | null {
+  const buyData = getBuyMilesData(partnerId);
+  if (!buyData) return null;
+
+  const partner = getPartnerById(partnerId);
+  const programName = partner?.name ?? partnerId;
+
+  // Base cost: buy miles at face rate (no bonus)
+  const baseBuyCostUSD = (milesRequired * buyData.baseCostCentsPerMile) / 100;
+
+  // Best-bonus effective cost: with the highest typical bonus, you receive
+  // (1 + bestBonus/100)× the miles you pay for, so you only need to purchase
+  // milesRequired / (1 + bestBonus/100) miles.
+  const bestBonusPercent = buyData.typicalBonusRange[1];
+  const bestBonusBuyCostUSD =
+    (milesRequired * buyData.baseCostCentsPerMile) / (100 + bestBonusPercent);
+
+  // Value of the C1 miles you would transfer instead
+  const c1TransferValueUSD = (c1MilesNeeded * mileValuationCents) / 100;
+
+  // Savings from transferring versus buying at base rate
+  const transferSavingsUSD = baseBuyCostUSD - c1TransferValueUSD;
+
+  // Is buying cheaper even at the best bonus?
+  const buyIsCheaperWithBonus = bestBonusBuyCostUSD < c1TransferValueUSD;
+
+  return {
+    programName,
+    milesRequired,
+    baseBuyCostUSD: Math.round(baseBuyCostUSD * 100) / 100,
+    baseCostPerMileCents: buyData.baseCostCentsPerMile,
+    bestBonusBuyCostUSD: Math.round(bestBonusBuyCostUSD * 100) / 100,
+    bestBonusPercent,
+    hasFrequentPromos: buyData.frequentPromotions,
+    c1MilesNeeded,
+    c1TransferValueUSD: Math.round(c1TransferValueUSD * 100) / 100,
+    transferSavingsUSD: Math.round(transferSavingsUSD * 100) / 100,
+    buyIsCheaperWithBonus,
+  };
+}
+
+// ============================================
+// PORTAL-CHEAPER CALLOUT ENGINE
+// ============================================
+
+export interface PortalCheaperResult {
+  isPortalCheaper: boolean;
+  portalCostMiles: number;
+  portalEarnedMiles: number;
+  portalNetCostMiles: number;
+  portalNetCostUSD: number;
+  awardCostC1Miles: number;
+  awardTaxesFees: number;
+  awardTotalValueUSD: number;
+  savingsIfPortal: number;
+  awardCPP: number;
+  threshold: number;
+  reason: string;
+}
+
+/**
+ * Determine whether booking through the Capital One travel portal
+ * (pay cash, earn miles) is cheaper than transferring miles for an
+ * award redemption.
+ *
+ * @param params.cashPrice            - Flight cash price in USD.
+ * @param params.awardC1Miles         - C1 miles needed for the award transfer.
+ * @param params.awardTaxesFees       - Award taxes/fees in USD.
+ * @param params.mileValuationCents   - Value of one C1 mile in cents (default 1.85).
+ * @param params.portalMultiplier     - Miles earned per dollar in portal (default 5).
+ * @param params.travelCreditRemaining - Remaining $300 travel credit (default 0).
+ * @returns A `PortalCheaperResult` with the verdict and supporting numbers.
+ */
+export function computePortalCheaperCallout(params: {
+  cashPrice: number;
+  awardC1Miles: number;
+  awardTaxesFees: number;
+  mileValuationCents?: number;
+  portalMultiplier?: number;
+  travelCreditRemaining?: number;
+}): PortalCheaperResult {
+  const {
+    cashPrice,
+    awardC1Miles,
+    awardTaxesFees,
+    mileValuationCents = 1.85,
+    portalMultiplier = 5,
+    travelCreditRemaining = 0,
+  } = params;
+
+  const threshold = 1.5; // CPP threshold below which award is flagged
+
+  // Portal: cost in miles if paying with miles via Erase (1 cpp)
+  const portalCostMiles = Math.round(cashPrice * 100);
+
+  // Portal: pay cash, earn miles
+  const portalOutOfPocket = Math.max(0, cashPrice - travelCreditRemaining);
+  const portalEarnedMiles = Math.round(cashPrice * portalMultiplier);
+  const portalNetCostUSD =
+    portalOutOfPocket - (portalEarnedMiles * mileValuationCents) / 100;
+
+  // Net miles impact — miles-equivalent of the net USD cost
+  const portalNetCostMiles =
+    mileValuationCents > 0
+      ? Math.round((portalNetCostUSD / mileValuationCents) * 100)
+      : portalCostMiles;
+
+  // Award: total effective cost (taxes + value of miles transferred)
+  const awardTotalValueUSD =
+    awardTaxesFees + (awardC1Miles * mileValuationCents) / 100;
+
+  // Is portal cheaper?
+  const isPortalCheaper = portalNetCostUSD < awardTotalValueUSD;
+
+  // Savings if portal is chosen (positive = portal saves money)
+  const savingsIfPortal = awardTotalValueUSD - portalNetCostUSD;
+
+  // Award CPP: value extracted per mile
+  const awardCPP =
+    awardC1Miles > 0
+      ? ((cashPrice - awardTaxesFees) / awardC1Miles) * 100
+      : 0;
+
+  // Build reason string
+  let reason: string;
+  if (isPortalCheaper) {
+    reason =
+      `Portal booking is cheaper by $${Math.abs(savingsIfPortal).toFixed(2)}. ` +
+      `You pay $${portalOutOfPocket.toFixed(2)} cash and earn ${portalEarnedMiles.toLocaleString()} miles back.`;
+  } else if (awardCPP < threshold) {
+    reason =
+      `Award CPP is ${awardCPP.toFixed(2)}¢ — below the ${threshold}¢ threshold. ` +
+      `Consider the portal for better value.`;
+  } else {
+    reason =
+      `Transferring miles yields ${awardCPP.toFixed(2)}¢ per point — ` +
+      `above the ${threshold}¢ threshold. Award is the better deal.`;
+  }
+
+  return {
+    isPortalCheaper,
+    portalCostMiles,
+    portalEarnedMiles,
+    portalNetCostMiles,
+    portalNetCostUSD: Math.round(portalNetCostUSD * 100) / 100,
+    awardCostC1Miles: awardC1Miles,
+    awardTaxesFees,
+    awardTotalValueUSD: Math.round(awardTotalValueUSD * 100) / 100,
+    savingsIfPortal: Math.round(savingsIfPortal * 100) / 100,
+    awardCPP: Math.round(awardCPP * 100) / 100,
+    threshold,
+    reason,
+  };
+}
+
+// ============================================
 // MESSAGE TYPES FOR CONTENT SCRIPT
 // ============================================
 
@@ -220,24 +410,25 @@ export interface PointsYeahTip {
 export const POINTSYEAH_TIPS: PointsYeahTip[] = [
   {
     number: 1,
-    text: 'Start with your exact date; if nothing shows, try ±1–2 days (free users can search multiple departure dates at once).',
+    text: 'PointsYeah shows 3 "ways to book" — focus on the first one: "Book directly with airline program."',
+    important: true,
   },
   {
     number: 2,
-    text: 'Filter to your cabin, then sort by lowest points (or best value if shown).',
+    text: 'Copy the program name, miles required, and taxes/fees. We handle the Capital One conversion.',
   },
   {
     number: 3,
-    text: 'Expand a result to see all ways to book + change/cancel fees.',
+    text: 'Quick alternative: find "Capital One" under "Transfer from credit card" and enter that number directly.',
   },
   {
     number: 4,
-    text: 'Verify availability on the airline/program site before transferring points.',
+    text: 'We compare buy-points pricing against your C1 transfer value — check the comparison below your verdict.',
     important: true,
   },
   {
     number: 5,
-    text: 'If two programs show the same flight, pick the one with better fees/rules (programs price and refund differently).',
+    text: 'PointsYeah shows one-way results. Search outbound and return separately, then enter both legs.',
   },
 ];
 
@@ -247,6 +438,8 @@ export default {
   enrichAwardOptions,
   findBestAward,
   isGoodAwardValue,
+  computeBuyMilesComparison,
+  computePortalCheaperCallout,
   requestPointsYeahParse,
   POINTSYEAH_TIPS,
   POINTSYEAH_MESSAGE_TYPES,

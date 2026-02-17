@@ -1640,8 +1640,13 @@ export const ProgressiveVerdictCard: React.FC<ProgressiveVerdictCardProps> = ({
               className="w-full mb-3"
               onClick={onContinue}
             >
-              Continue to {verdict.recommendation === 'portal' ? 'Portal' : 'Direct'}
+              Continue to {verdict.recommendation === 'direct' ? 'Direct' : 'Portal'}
             </GlassButton>
+            {verdict.recommendation === 'tie' && (
+              <p className="text-[11px] text-white/50 text-center mt-1">
+                💡 Portal recommended on ties — earns more miles + travel credit benefits
+              </p>
+            )}
 
             {/* Secondary actions row: Why? + Compare others */}
             {/* P1 FIX: Changed "Hide details" to "Show less" for better UX consistency */}

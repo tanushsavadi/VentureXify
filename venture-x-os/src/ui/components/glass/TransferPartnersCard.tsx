@@ -46,6 +46,7 @@ import {
   VENTURE_X_CONSTANTS,
   assessAwardValue,
 } from '../../../engine/types';
+import { getAirlinePartners, type RegistryPartner } from '../../../engine/transferPartnerRegistry';
 
 // ============================================
 // CPM THRESHOLDS FROM RESEARCH
@@ -118,80 +119,40 @@ interface TransferPartner {
   feeLevel: 'low' | 'moderate' | 'high';
 }
 
-const CAPITAL_ONE_PARTNERS: TransferPartner[] = [
-  {
-    code: 'TK',
-    name: 'Turkish Miles&Smiles',
-    alliance: 'star_alliance',
-    operatingAirlines: ['United', 'Lufthansa', 'Swiss', 'ANA', 'Turkish Airlines', 'Air Canada', 'Singapore Airlines'],
-    bestFor: ['North America to Europe', 'Business class sweet spots', 'Low fuel surcharges'],
-    transferTime: 'Instant–24hrs',
-    feeLevel: 'low',
-  },
-  {
-    code: 'AV',
-    name: 'Avianca LifeMiles',
-    alliance: 'star_alliance',
-    operatingAirlines: ['United', 'Lufthansa', 'Swiss', 'ANA', 'Avianca', 'Air Canada', 'Turkish Airlines'],
-    bestFor: ['Star Alliance redemptions', 'Mixed-cabin awards', 'No fuel surcharges on United'],
-    transferTime: 'Instant',
-    feeLevel: 'low',
-  },
-  {
-    code: 'SQ',
-    name: 'Singapore KrisFlyer',
-    alliance: 'star_alliance',
-    operatingAirlines: ['Singapore Airlines', 'United', 'Lufthansa', 'ANA', 'Air Canada', 'Star Alliance partners'],
-    bestFor: ['Singapore Suites', 'Asia routes', 'Premium cabin sweet spots'],
-    transferTime: '12–24hrs',
-    feeLevel: 'moderate',
-  },
-  {
-    code: 'BA',
-    name: 'British Airways',
-    alliance: 'oneworld',
-    operatingAirlines: ['American Airlines', 'British Airways', 'Cathay Pacific', 'Qantas', 'Japan Airlines', 'Alaska'],
-    bestFor: ['Short-haul flights', 'Off-peak awards', 'AA domestic flights'],
-    transferTime: 'Instant',
-    feeLevel: 'high', // BA has high fuel surcharges on BA metal
-  },
-  {
-    code: 'QF',
-    name: 'Qantas',
-    alliance: 'oneworld',
-    operatingAirlines: ['Qantas', 'American Airlines', 'British Airways', 'Cathay Pacific', 'Japan Airlines', 'Alaska'],
-    bestFor: ['Australia routes', 'oneworld awards', 'Partner awards'],
-    transferTime: '24–48hrs',
-    feeLevel: 'moderate',
-  },
-  {
-    code: 'AF',
-    name: 'Air France/KLM',
-    alliance: 'skyteam',
-    operatingAirlines: ['Air France', 'KLM', 'Delta', 'Korean Air', 'Virgin Atlantic'],
-    bestFor: ['Europe connections', 'Promo awards', 'SkyTeam redemptions'],
-    transferTime: '24–48hrs',
-    feeLevel: 'moderate',
-  },
-  {
-    code: 'EY',
-    name: 'Etihad Guest',
-    alliance: 'independent',
-    operatingAirlines: ['Etihad', 'American Airlines', 'Air France', 'Virgin Australia', 'Korean Air'],
-    bestFor: ['Etihad First/Business', 'AA awards without surcharges', 'Gulf routes'],
-    transferTime: '24–48hrs',
-    feeLevel: 'low',
-  },
-  {
-    code: 'EK',
-    name: 'Emirates Skywards',
-    alliance: 'independent',
-    operatingAirlines: ['Emirates', 'Qantas', 'JetBlue'],
-    bestFor: ['Emirates First Class', 'A380 routes', 'Dubai connections'],
-    transferTime: 'Instant–24hrs',
-    feeLevel: 'high',
-  },
-];
+/**
+ * Map a registry alliance string to the local Alliance union used by UI badges.
+ */
+function mapAlliance(registryAlliance: RegistryPartner['alliance']): Alliance {
+  switch (registryAlliance) {
+    case 'Star Alliance': return 'star_alliance';
+    case 'Oneworld':      return 'oneworld';
+    case 'SkyTeam':       return 'skyteam';
+    default:              return 'independent';
+  }
+}
+
+/**
+ * Derive fee-level heuristic from the registry's frictionScore.
+ */
+function deriveFeeLevel(frictionScore: number): TransferPartner['feeLevel'] {
+  if (frictionScore <= 30) return 'low';
+  if (frictionScore <= 35) return 'moderate';
+  return 'high';
+}
+
+/**
+ * Build the CAPITAL_ONE_PARTNERS array dynamically from the centralized
+ * transfer partner registry so that every airline partner is always included.
+ */
+const CAPITAL_ONE_PARTNERS: TransferPartner[] = getAirlinePartners().map((p) => ({
+  code: p.iata,
+  name: p.name,
+  alliance: mapAlliance(p.alliance),
+  operatingAirlines: [],        // detailed per-partner data not in registry
+  bestFor: [],                  // detailed per-partner data not in registry
+  transferTime: 'Instant–48hrs',
+  feeLevel: deriveFeeLevel(p.frictionScore),
+}));
 
 // Tie-breaker guidance for multiple partner options
 const TIE_BREAKER_GUIDANCE = "Prefer lowest miles if fees similar; prefer lowest fees if miles similar; consider change/cancel flexibility.";

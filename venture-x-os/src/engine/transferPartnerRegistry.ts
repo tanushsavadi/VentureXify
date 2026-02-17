@@ -10,6 +10,14 @@
 // Types
 // ---------------------------------------------------------------------------
 
+export interface BuyMilesData {
+  baseCostCentsPerMile: number;
+  typicalBonusRange: [number, number];
+  frequentPromotions: boolean;
+  annualMaxMiles: number;
+  minPurchaseMiles: number;
+}
+
 export interface RegistryPartner {
   /** Internal slug (e.g., 'turkish', 'emirates') */
   id: string;
@@ -29,6 +37,8 @@ export interface RegistryPartner {
   frictionScore: number;
   /** Optional notes about the program */
   notes?: string;
+  /** Buy-miles pricing data for this program */
+  buyMiles?: BuyMilesData;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +64,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 40,
+    buyMiles: {
+      baseCostCentsPerMile: 3.25,
+      typicalBonusRange: [15, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'aeroplan',
@@ -64,6 +81,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 25,
+    buyMiles: {
+      baseCostCentsPerMile: 3.00,
+      typicalBonusRange: [50, 100],
+      frequentPromotions: false,
+      annualMaxMiles: 250_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'lifemiles',
@@ -74,6 +98,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 30,
+    buyMiles: {
+      baseCostCentsPerMile: 3.25,
+      typicalBonusRange: [100, 200],
+      frequentPromotions: true,
+      annualMaxMiles: 400_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'avios',
@@ -84,6 +115,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 35,
+    buyMiles: {
+      baseCostCentsPerMile: 2.86,
+      typicalBonusRange: [25, 100],
+      frequentPromotions: false,
+      annualMaxMiles: 200_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'cathay',
@@ -94,6 +132,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 30,
+    buyMiles: {
+      baseCostCentsPerMile: 3.50,
+      typicalBonusRange: [10, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 200_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'etihad',
@@ -104,6 +149,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 35,
+    buyMiles: {
+      baseCostCentsPerMile: 3.50,
+      typicalBonusRange: [25, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'finnair',
@@ -114,6 +166,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 30,
+    buyMiles: {
+      baseCostCentsPerMile: 2.86,
+      typicalBonusRange: [25, 100],
+      frequentPromotions: false,
+      annualMaxMiles: 200_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'flyingblue',
@@ -124,6 +183,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 25,
+    buyMiles: {
+      baseCostCentsPerMile: 3.00,
+      typicalBonusRange: [50, 100],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 2_000,
+    },
   },
   {
     id: 'qantas',
@@ -134,6 +200,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 35,
+    buyMiles: {
+      baseCostCentsPerMile: 3.00,
+      typicalBonusRange: [15, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 150_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'qatar',
@@ -144,6 +217,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 30,
+    buyMiles: {
+      baseCostCentsPerMile: 3.25,
+      typicalBonusRange: [25, 100],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'krisflyer',
@@ -154,6 +234,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 30,
+    buyMiles: {
+      baseCostCentsPerMile: 3.50,
+      typicalBonusRange: [15, 25],
+      frequentPromotions: false,
+      annualMaxMiles: 200_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'tapmilesgo',
@@ -164,6 +251,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 35,
+    buyMiles: {
+      baseCostCentsPerMile: 3.00,
+      typicalBonusRange: [25, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'turkish',
@@ -174,6 +268,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 25,
+    buyMiles: {
+      baseCostCentsPerMile: 3.00,
+      typicalBonusRange: [25, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'virginred',
@@ -184,6 +285,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '1:1',
     effectiveRate: 1.0,
     frictionScore: 40,
+    buyMiles: {
+      baseCostCentsPerMile: 2.50,
+      typicalBonusRange: [25, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
 
   // ── Airlines (non-1:1) ──────────────────────────────────────────────────
@@ -196,6 +304,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '2:1.5',
     effectiveRate: 0.75,
     frictionScore: 40,
+    buyMiles: {
+      baseCostCentsPerMile: 3.00,
+      typicalBonusRange: [30, 100],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 2_000,
+    },
   },
   {
     id: 'evaair',
@@ -206,6 +321,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '2:1.5',
     effectiveRate: 0.75,
     frictionScore: 40,
+    buyMiles: {
+      baseCostCentsPerMile: 3.25,
+      typicalBonusRange: [10, 30],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'jal',
@@ -216,6 +338,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '2:1.5',
     effectiveRate: 0.75,
     frictionScore: 35,
+    buyMiles: {
+      baseCostCentsPerMile: 3.00,
+      typicalBonusRange: [10, 50],
+      frequentPromotions: false,
+      annualMaxMiles: 100_000,
+      minPurchaseMiles: 1_000,
+    },
   },
   {
     id: 'trueblue',
@@ -226,6 +355,13 @@ export const PARTNER_REGISTRY: readonly RegistryPartner[] = [
     c1Ratio: '5:3',
     effectiveRate: 0.6,
     frictionScore: 45,
+    buyMiles: {
+      baseCostCentsPerMile: 2.50,
+      typicalBonusRange: [25, 75],
+      frequentPromotions: false,
+      annualMaxMiles: 150_000,
+      minPurchaseMiles: 1_000,
+    },
   },
 
   // ── Hotels ──────────────────────────────────────────────────────────────
@@ -402,4 +538,16 @@ export function getPartnersGrouped(): {
   }
 
   return { airlines1to1, airlinesNon1to1, hotels };
+}
+
+/**
+ * Retrieve buy-miles pricing data for a given partner.
+ *
+ * @param partnerId - The partner slug (e.g., `'lifemiles'`, `'turkish'`).
+ * @returns The `BuyMilesData` for the partner, or `undefined` if the
+ *          partner is not found or has no buy-miles data.
+ */
+export function getBuyMilesData(partnerId: string): BuyMilesData | undefined {
+  const partner = getPartnerById(partnerId);
+  return partner?.buyMiles;
 }

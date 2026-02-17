@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, ChevronDown, ArrowRight, MessageSquare, Rocket, Users, Shield, Zap } from 'lucide-react';
+import { Sparkles, ChevronDown, ArrowRight, MessageSquare, Rocket, Users, Shield, Zap, Hotel, BarChart3, Bell } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Features from '@/components/Features';
 import HowItWorks from '@/components/HowItWorks';
 import Privacy from '@/components/Privacy';
 import Footer from '@/components/Footer';
-import GlassCard from '@/components/GlassCard';
+import PremiumCard from '@/components/PremiumCard';
 import { InlineWaitlistForm } from '@/components/WaitlistForm';
 import { TiltCard } from '@/components/TiltCard';
 import { ParticleTextDots } from '@/components/ParticleTextDots';
@@ -20,16 +20,26 @@ import { CTAWaitlistSuccess } from '@/components/WaitlistSuccess';
 
 // Stats section data - accurate to actual product
 const stats = [
-  { value: '17', label: 'Transfer Partners', suffix: '+', sublabel: 'All Capital One partners' },
-  { value: '<1s', label: 'AI Analysis', suffix: '', sublabel: 'Groq-powered responses' },
+  { value: '17+', label: 'Transfer Partners', suffix: '', sublabel: 'All Capital One partners supported' },
+  { value: '10s', label: 'AI Analysis', suffix: '', sublabel: 'Groq-powered responses' },
   { value: '100%', label: 'Local Storage', suffix: '', sublabel: 'Your data stays private' },
 ];
 
 // Sections to track for URL hash updates
-const TRACKED_SECTIONS = ['features', 'how-it-works', 'privacy', 'why-i-built-this', 'cta'];
+const TRACKED_SECTIONS = ['features', 'how-it-works', 'privacy', 'why-i-built-this', 'cta', 'coming-soon'];
 
 export default function Home() {
-  const { waitlistCount } = useWaitlist();
+  const { waitlistCount, isSignedUp, justSignedUp } = useWaitlist();
+
+  // Auto-scroll to Coming Soon section after fresh signup
+  useEffect(() => {
+    if (justSignedUp) {
+      const timer = setTimeout(() => {
+        document.getElementById('coming-soon')?.scrollIntoView({ behavior: 'smooth' });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [justSignedUp]);
 
   // Scroll spy - update URL hash as sections come into view
   useEffect(() => {
@@ -202,7 +212,7 @@ export default function Home() {
               {/* Preview Cards - stacked below the credit card */}
               <div className="grid grid-cols-1 gap-4 w-full max-w-md">
                 {/* Portal vs Direct card */}
-                <GlassCard className="p-5" glow="amber">
+                <PremiumCard className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-amber-400 font-medium flex items-center gap-2">
                       <ArrowRight className="w-4 h-4" />
@@ -223,26 +233,26 @@ export default function Home() {
                     </div>
                     <div>
                       <div className="text-white/50 text-xs mb-1">Value</div>
-                      <div className="font-semibold text-sm text-emerald-400">2.1¢/mi</div>
+                      <div className="font-semibold text-sm text-amber-400">2.1¢/mi</div>
                     </div>
                   </div>
-                </GlassCard>
+                </PremiumCard>
 
                 {/* AI Chat card */}
-                <GlassCard className="p-5" glow="violet">
+                <PremiumCard className="p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center">
-                      <MessageSquare className="w-3.5 h-3.5 text-white" />
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                      <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
                     </div>
                     <span className="text-sm font-medium">Ask Anything</span>
                   </div>
-                  <div className="bg-violet-500/10 rounded-lg p-3 border border-violet-500/20">
+                  <div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20">
                     <p className="text-xs">
-                      For Tokyo, your best options are <span className="text-violet-400">ANA (1:1)</span> at 
-                      ~55K miles RT or <span className="text-violet-400">Virgin Atlantic</span> for partner awards...
+                      For Tokyo, your best options are <span className="text-amber-400">ANA (1:1)</span> at
+                      ~55K miles RT or <span className="text-amber-400">Virgin Atlantic</span> for partner awards...
                     </p>
                   </div>
-                </GlassCard>
+                </PremiumCard>
               </div>
             </motion.div>
           </div>
@@ -284,7 +294,7 @@ export default function Home() {
                 </div>
                 <div className="text-white/80 font-medium">{stat.label}</div>
                 {'sublabel' in stat && stat.sublabel && (
-                  <div className="text-white/40 text-sm mt-1">{stat.sublabel}</div>
+                  <div className="text-white/50 text-sm mt-1">{stat.sublabel}</div>
                 )}
               </motion.div>
             ))}
@@ -310,9 +320,9 @@ export default function Home() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: false }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-6"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 mb-6"
             >
-              <span className="text-sm text-emerald-400 font-medium">From the Creator</span>
+              <span className="text-sm text-amber-400 font-medium">From the Creator</span>
             </motion.div>
             
             <BlurInText scrollSync className="mb-6">
@@ -364,9 +374,9 @@ export default function Home() {
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-amber-500/10 border border-emerald-500/20"
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-500/10 border border-amber-500/20"
               >
-                <div className="text-emerald-400 font-semibold text-lg">100% Free</div>
+                <div className="text-amber-400 font-semibold text-lg">100% Free</div>
                 <div className="text-white/50 text-sm">No catch. No premium tier (yet).</div>
               </motion.div>
               
@@ -391,7 +401,7 @@ export default function Home() {
               whileInView={{ opacity: 1 }}
               viewport={{ once: false }}
               transition={{ duration: 0.5, delay: 0.6 }}
-              className="mt-6 text-sm text-white/40"
+              className="mt-6 text-sm text-white/50"
             >
               Future paid features will help fund server costs, but the core extension will always be free.
             </motion.p>
@@ -401,6 +411,113 @@ export default function Home() {
 
       {/* Premium Final CTA Section - seamless like hero */}
       <InteractiveCTASection waitlistCount={waitlistCount} />
+
+      {/* Coming Soon Section — revealed after CTA */}
+      <section id="coming-soon" className="relative py-24 md:py-32">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          {/* Section label with blur-in entrance */}
+          <motion.div
+            initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            viewport={{ once: false }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="text-white text-sm font-medium tracking-widest uppercase">
+              Coming Soon
+            </span>
+          </motion.div>
+
+          {/* Heading with blur-in entrance */}
+          <motion.div
+            initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            viewport={{ once: false }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="mt-4"
+          >
+            <h2 className="text-3xl md:text-5xl font-bold gradient-text">
+              What&apos;s Next
+            </h2>
+          </motion.div>
+
+          {/* Subtitle with blur-in entrance */}
+          <motion.p
+            initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            viewport={{ once: false }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-white/60 mt-4 max-w-2xl mx-auto"
+          >
+            We&apos;re constantly building new features to help you maximize your Venture X card.
+            Here&apos;s what&apos;s on the roadmap.
+          </motion.p>
+
+          {/* Coming soon feature cards — staggered entrance with spotlight */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-12">
+            {[
+              {
+                icon: Hotel,
+                title: 'Hotel Price Compare',
+                description: 'Compare hotel portal vs direct prices across Marriott, Hilton, Hyatt, and more.',
+                status: 'In Development',
+              },
+              {
+                icon: BarChart3,
+                title: 'Points Dashboard',
+                description: 'Track your points balance, redemption history, and savings over time.',
+                status: 'Planned',
+              },
+              {
+                icon: Bell,
+                title: 'Price Drop Alerts',
+                description: "Get notified when flight prices drop on routes you're watching.",
+                status: 'Exploring',
+              },
+            ].map((feature, index) => (
+              <PremiumCard
+                key={feature.title}
+                className="p-5 text-left"
+                delay={index * 0.15}
+                spotlight
+              >
+                {/* Icon with spring hover */}
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center bg-amber-500/15 mb-4"
+                >
+                  <feature.icon className="w-4 h-4 text-amber-400" />
+                </motion.div>
+                <h3 className="text-[15px] font-medium text-white tracking-tight">{feature.title}</h3>
+                <p className="text-sm text-white/60 mt-1.5 leading-relaxed">
+                  {feature.description}
+                </p>
+                {/* Status badge with subtle pulse on viewport entry */}
+                <motion.span
+                  initial={{ opacity: 0.7 }}
+                  whileInView={{ opacity: [0.7, 1, 0.7] }}
+                  viewport={{ once: false }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  className="inline-block mt-3 text-[11px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400/80 font-medium"
+                >
+                  {feature.status}
+                </motion.span>
+              </PremiumCard>
+            ))}
+          </div>
+
+          {/* Feature Request Input */}
+          <div className="mt-16 max-w-xl mx-auto">
+            <h3 className="text-lg font-medium text-white mb-2">Want a feature?</h3>
+            <p className="text-sm text-white/50 mb-6">
+              Tell us what you&apos;d love to see in VentureXify. Your input shapes the roadmap.
+            </p>
+
+            {/* Feature request form */}
+            <FeatureRequestForm />
+          </div>
+        </div>
+      </section>
 
         {/* Footer */}
         <Footer />
@@ -633,16 +750,89 @@ function InteractiveCTASection({ waitlistCount }: { waitlistCount: number }) {
               <span>{waitlistCount}+ on waitlist</span>
             </div>
             <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-emerald-400/60" />
+              <Shield className="w-4 h-4 text-amber-400/60" />
               <span>100% Privacy First</span>
             </div>
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-violet-400/60" />
+              <Zap className="w-4 h-4 text-amber-400/60" />
               <span>AI-Powered</span>
             </div>
           </div>
         </motion.div>
       </div>
     </section>
+  );
+}
+
+// Inline Feature Request Form Component
+function FeatureRequestForm() {
+  const [suggestion, setSuggestion] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (submitted) {
+      const timer = setTimeout(() => {
+        setSubmitted(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [submitted]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!suggestion.trim()) return;
+
+    setSubmitting(true);
+
+    try {
+      await fetch('/api/feature-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestion: suggestion.trim() }),
+      });
+    } catch {
+      // Silently handle — we still show success
+    }
+
+    setSubmitted(true);
+    setSuggestion('');
+    setSubmitting(false);
+  };
+
+  if (submitted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="text-center py-6"
+      >
+        <p className="text-amber-400 font-medium text-lg">Thanks for your suggestion! 🎉</p>
+        <p className="text-white/50 text-sm mt-1">We&apos;ll review it for the roadmap.</p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <textarea
+        value={suggestion}
+        onChange={(e) => setSuggestion(e.target.value)}
+        placeholder="I'd love to see..."
+        className="bg-white/[0.05] border border-white/[0.08] rounded-xl p-4 text-white placeholder:text-white/30 focus:border-amber-500/40 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:shadow-[0_0_0_2px_rgba(245,158,11,0.15)] resize-none w-full h-24 text-sm transition-shadow duration-300"
+      />
+      <div className="flex justify-end">
+        <motion.button
+          type="submit"
+          disabled={submitting || !suggestion.trim()}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-medium text-sm px-6 py-2.5 rounded-lg hover:from-amber-400 hover:to-amber-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? 'Sending...' : 'Submit Suggestion'}
+        </motion.button>
+      </div>
+    </form>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { Menu, X, Sparkles } from 'lucide-react';
 import { ScrambleText } from './ScrambleText';
-import { FlipText } from './FlipText';
+import { useWaitlist } from '@/context/WaitlistContext';
 
 const navLinks = [
   { name: 'Features', href: '#features' },
@@ -21,10 +21,11 @@ const sectionDisplayNames: Record<number, string> = {
   2: 'Privacy',
   3: 'About',
   4: 'Get Access',
+  5: "What's Next",
 };
 
-// Section IDs in order (including hero and CTA)
-const ALL_SECTIONS = ['hero', 'features', 'how-it-works', 'privacy', 'why-i-built-this', 'cta'];
+// Section IDs in order (including hero, CTA, and coming-soon)
+const ALL_SECTIONS = ['hero', 'features', 'how-it-works', 'privacy', 'why-i-built-this', 'cta', 'coming-soon'];
 
 interface SectionBoundary {
   id: string;
@@ -34,16 +35,18 @@ interface SectionBoundary {
 }
 
 export default function Navigation() {
+  const { isSignedUp } = useWaitlist();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtCTA, setIsAtCTA] = useState(false);
-  const [activeNavIndex, setActiveNavIndex] = useState(-1); // -1 = hero, 0-3 = nav items, 4 = CTA
+  const [activeNavIndex, setActiveNavIndex] = useState(-1); // -1 = hero, 0-3 = nav items, 4 = CTA, 5 = coming-soon
   
   // Refs for nav link elements to get their positions
   const navLinksRef = useRef<(HTMLAnchorElement | null)[]>([]);
   const logoRef = useRef<HTMLAnchorElement>(null);
   const navContainerRef = useRef<HTMLDivElement>(null);
+  const whatsNextRef = useRef<HTMLAnchorElement>(null);
   
   // Motion values for smooth bubble animation
   const bubbleX = useMotionValue(0);
@@ -88,12 +91,19 @@ export default function Navigation() {
           id: sectionId,
           top: el.offsetTop,
           bottom: nextEl ? nextEl.offsetTop : document.documentElement.scrollHeight,
-          navIndex: sectionId === 'cta' ? 4 : navLinks.findIndex(l => l.href === `#${sectionId}`),
+          navIndex: sectionId === 'cta' ? 4 : sectionId === 'coming-soon' ? 5 : navLinks.findIndex(l => l.href === `#${sectionId}`),
         });
       }
     });
     
     return boundaries;
+  }, []);
+
+  // Helper to get nav link element by section index (supports What's Next at index 5)
+  const getNavElement = useCallback((index: number): HTMLAnchorElement | null => {
+    if (index >= 0 && index < navLinks.length) return navLinksRef.current[index];
+    if (index === 5) return whatsNextRef.current;
+    return null;
   }, []);
 
   // Update bubble position based on nav link positions
@@ -103,13 +113,16 @@ export default function Navigation() {
     const containerRect = navContainerRef.current.getBoundingClientRect();
     
     // If at hero (targetIndex === -1) or CTA (targetIndex === 4), hide bubble
-    if (targetIndex === -1 || targetIndex === 4 || targetIndex >= navLinks.length) {
+    if (targetIndex === -1 || targetIndex === 4) {
       bubbleOpacity.set(0);
       return;
     }
     
-    const currentLink = navLinksRef.current[targetIndex];
-    if (!currentLink) return;
+    const currentLink = getNavElement(targetIndex);
+    if (!currentLink) {
+      bubbleOpacity.set(0);
+      return;
+    }
     
     const linkRect = currentLink.getBoundingClientRect();
     const relativeX = linkRect.left - containerRect.left;
@@ -117,7 +130,7 @@ export default function Navigation() {
     bubbleX.set(relativeX);
     bubbleWidth.set(linkRect.width);
     bubbleOpacity.set(1);
-  }, [bubbleX, bubbleWidth, bubbleOpacity]);
+  }, [bubbleX, bubbleWidth, bubbleOpacity, getNavElement]);
 
   // Interpolate bubble position between two nav items
   const interpolateBubblePosition = useCallback((
@@ -129,16 +142,15 @@ export default function Navigation() {
     
     const containerRect = navContainerRef.current.getBoundingClientRect();
     
-    // Handle edge cases (hero and CTA)
-    const isFromValid = fromIndex >= 0 && fromIndex < navLinks.length;
-    const isToValid = toIndex >= 0 && toIndex < navLinks.length;
+    // Resolve link elements (supports 0-3 nav links + 5 for What's Next)
+    const fromLink = getNavElement(fromIndex);
+    const toLink = getNavElement(toIndex);
+    const isFromValid = !!fromLink;
+    const isToValid = !!toLink;
     
     // Transitioning from hero to first section
     if (fromIndex === -1 && isToValid) {
-      const toLink = navLinksRef.current[toIndex];
-      if (!toLink) return;
-      
-      const toRect = toLink.getBoundingClientRect();
+      const toRect = toLink!.getBoundingClientRect();
       const toX = toRect.left - containerRect.left;
       
       // Slide in from the left with fade
@@ -148,18 +160,27 @@ export default function Navigation() {
       return;
     }
     
-    // Transitioning from last section to CTA
+    // Transitioning from a valid section to CTA (bubble fades out)
     if (isFromValid && toIndex === 4) {
-      const fromLink = navLinksRef.current[fromIndex];
-      if (!fromLink) return;
-      
-      const fromRect = fromLink.getBoundingClientRect();
+      const fromRect = fromLink!.getBoundingClientRect();
       const fromX = fromRect.left - containerRect.left;
       
       // Slide out to the right with fade
       bubbleX.set(fromX + progress * 50);
       bubbleWidth.set(fromRect.width);
       bubbleOpacity.set(1 - progress);
+      return;
+    }
+    
+    // Transitioning from CTA to What's Next (bubble fades in at What's Next)
+    if (fromIndex === 4 && isToValid) {
+      const toRect = toLink!.getBoundingClientRect();
+      const toX = toRect.left - containerRect.left;
+      
+      // Slide in from the right with fade
+      bubbleX.set(toX + (1 - progress) * 50);
+      bubbleWidth.set(toRect.width);
+      bubbleOpacity.set(progress);
       return;
     }
     
@@ -171,13 +192,8 @@ export default function Navigation() {
     
     // Normal interpolation between two valid nav items
     if (isFromValid && isToValid) {
-      const fromLink = navLinksRef.current[fromIndex];
-      const toLink = navLinksRef.current[toIndex];
-      
-      if (!fromLink || !toLink) return;
-      
-      const fromRect = fromLink.getBoundingClientRect();
-      const toRect = toLink.getBoundingClientRect();
+      const fromRect = fromLink!.getBoundingClientRect();
+      const toRect = toLink!.getBoundingClientRect();
       
       const fromX = fromRect.left - containerRect.left;
       const toX = toRect.left - containerRect.left;
@@ -193,15 +209,14 @@ export default function Navigation() {
     }
     
     // One valid, use that position
-    const validIndex = isFromValid ? fromIndex : toIndex;
-    const validLink = navLinksRef.current[validIndex];
+    const validLink = isFromValid ? fromLink : toLink;
     if (validLink) {
       const rect = validLink.getBoundingClientRect();
       bubbleX.set(rect.left - containerRect.left);
       bubbleWidth.set(rect.width);
       bubbleOpacity.set(isFromValid ? (1 - progress) : progress);
     }
-  }, [bubbleX, bubbleWidth, bubbleOpacity]);
+  }, [bubbleX, bubbleWidth, bubbleOpacity, getNavElement]);
 
   useEffect(() => {
     let ticking = false;
@@ -301,7 +316,7 @@ export default function Navigation() {
         <motion.nav
           className={`
             relative flex items-center justify-between gap-4 md:gap-8
-            w-full max-w-4xl
+            w-full max-w-4xl lg:max-w-5xl
             px-4 md:px-8 py-3 md:py-3.5
             rounded-2xl md:rounded-full
             transition-all duration-500 ease-out
@@ -423,12 +438,14 @@ export default function Navigation() {
                 }}
               />
               
-              {/* Flip text section name - clean typography */}
-              <FlipText
+              {/* Cryptic scramble section name - decode animation */}
+              <ScrambleText
+                key={sectionDisplayNames[activeNavIndex] || 'Home'}
                 text={sectionDisplayNames[activeNavIndex] || 'Home'}
+                isActive={true}
                 className="text-sm font-medium tracking-wide text-white/80"
-                duration={0.35}
-                direction="down"
+                scrambleSpeed={30}
+                revealDelay={40}
               />
               
               {/* Subtle amber accent line */}
@@ -449,7 +466,7 @@ export default function Navigation() {
           {/* Desktop Navigation Links */}
           <div
             ref={navContainerRef}
-            className="hidden md:flex items-center gap-1 relative z-10"
+            className="hidden md:flex items-center gap-1 whitespace-nowrap relative z-10"
           >
             {/* Animated bubble indicator - the smooth sliding background */}
             <motion.div
@@ -474,7 +491,7 @@ export default function Navigation() {
                   key={link.name}
                   ref={(el) => { navLinksRef.current[index] = el; }}
                   href={link.href}
-                  className="relative px-4 py-2 text-sm font-medium rounded-full text-white/50 hover:text-white/80 transition-colors duration-200"
+                  className="relative px-4 py-2 text-[15px] font-medium rounded-full text-white/50 hover:text-white/80 transition-colors duration-200"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -482,6 +499,26 @@ export default function Navigation() {
                 </motion.a>
               );
             })}
+
+            {/* "What's Next" — hidden until signup, then spring-in reveal */}
+            <AnimatePresence>
+              {isSignedUp && (
+                <motion.a
+                  key="whats-next"
+                  ref={whatsNextRef}
+                  href="#coming-soon"
+                  initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                  animate={{ opacity: 1, width: 'auto', marginLeft: 4 }}
+                  exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className="relative px-4 py-2 text-[15px] font-medium rounded-full text-amber-400/80 hover:text-amber-300 transition-colors duration-200 overflow-hidden whitespace-nowrap"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <span className="relative z-10">What&apos;s Next</span>
+                </motion.a>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* CTA Button - Desktop - Highlighted when at CTA section */}
@@ -607,29 +644,55 @@ export default function Navigation() {
                 {/* Navigation Links */}
                 <div className="flex flex-col gap-1">
                   {navLinks.map((link, i) => {
-                    const isActive = activeNavIndex === i;
-                    return (
-                      <motion.a
-                        key={link.name}
-                        href={link.href}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className={`
-                          px-4 py-3 rounded-xl
-                          text-base font-medium
-                          transition-colors duration-200
-                          ${isActive
-                            ? 'bg-white/10 text-white'
-                            : 'text-white/60 hover:text-white hover:bg-white/5'
-                          }
-                        `}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                      >
-                        {link.name}
-                      </motion.a>
-                    );
-                  })}
+                      const isActive = activeNavIndex === i;
+                      return (
+                        <motion.a
+                          key={link.name}
+                          href={link.href}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className={`
+                            px-4 py-3 rounded-xl
+                            text-base font-medium
+                            transition-colors duration-200
+                            ${isActive
+                              ? 'bg-white/10 text-white'
+                              : 'text-white/60 hover:text-white hover:bg-white/5'
+                            }
+                          `}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          {link.name}
+                        </motion.a>
+                      );
+                    })}
+  
+                    {/* "What's Next" mobile link — revealed after signup */}
+                    <AnimatePresence>
+                      {isSignedUp && (
+                        <motion.a
+                          key="whats-next-mobile"
+                          href="#coming-soon"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 25, delay: 0.25 }}
+                          className={`
+                            px-4 py-3 rounded-xl overflow-hidden
+                            text-base font-medium
+                            transition-colors duration-200
+                            ${activeNavIndex === 5
+                              ? 'bg-amber-500/10 text-amber-400'
+                              : 'text-amber-400/60 hover:text-amber-400 hover:bg-amber-500/5'
+                            }
+                          `}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          ✨ What&apos;s Next
+                        </motion.a>
+                      )}
+                    </AnimatePresence>
                 </div>
                 
                 {/* Divider */}

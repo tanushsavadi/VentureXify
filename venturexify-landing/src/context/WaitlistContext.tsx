@@ -5,6 +5,7 @@ import { getWaitlistCount } from '@/lib/supabase';
 
 interface WaitlistContextType {
   isSignedUp: boolean;
+  justSignedUp: boolean;
   userEmail: string | null;
   signupSource: string | null;
   position: number | null;
@@ -20,6 +21,7 @@ const STORAGE_KEY = 'venturexify_waitlist_signup';
 
 export function WaitlistProvider({ children }: { children: ReactNode }) {
   const [isSignedUp, setIsSignedUp] = useState(false);
+  const [justSignedUp, setJustSignedUp] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [signupSource, setSignupSource] = useState<string | null>(null);
   const [position, setPosition] = useState<number | null>(null);
@@ -48,17 +50,18 @@ export function WaitlistProvider({ children }: { children: ReactNode }) {
 
   const setSignedUp = useCallback((email: string, source: string, pos?: number) => {
     setIsSignedUp(true);
+    setJustSignedUp(true);
     setUserEmail(email);
     setSignupSource(source);
     if (pos) setPosition(pos);
     
     // Persist to localStorage
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ 
-        email, 
-        source, 
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        email,
+        source,
         position: pos,
-        timestamp: Date.now() 
+        timestamp: Date.now()
       }));
     } catch {
       // localStorage not available
@@ -75,15 +78,16 @@ export function WaitlistProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <WaitlistContext.Provider value={{ 
-      isSignedUp, 
-      userEmail, 
-      signupSource, 
+    <WaitlistContext.Provider value={{
+      isSignedUp,
+      justSignedUp,
+      userEmail,
+      signupSource,
       position,
       waitlistCount,
-      setSignedUp, 
+      setSignedUp,
       incrementWaitlistCount,
-      refreshWaitlistCount 
+      refreshWaitlistCount
     }}>
       {children}
     </WaitlistContext.Provider>

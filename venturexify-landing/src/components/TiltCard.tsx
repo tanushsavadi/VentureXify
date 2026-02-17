@@ -144,11 +144,6 @@ export function TiltCard({ imageSrc, imageAlt, className }: TiltCardProps) {
         />
       </div>
       
-      {/* Floating reflection effect at bottom - enhanced */}
-      <motion.div
-        className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-[80%] h-4 rounded-full bg-amber-500/30 blur-xl group-hover:bg-amber-500/40 transition-colors duration-300"
-        style={{ transform: "translateZ(-30px)" }}
-      />
     </motion.div>
   );
 }

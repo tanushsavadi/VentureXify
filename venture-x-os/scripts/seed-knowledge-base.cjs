@@ -47,6 +47,8 @@ try {
   console.log('[Seed] dotenv not available:', err.message);
 }
 
+const crypto = require('crypto');
+
 const HF_EMBEDDING_MODEL = 'BAAI/bge-small-en-v1.5';
 const HF_INFERENCE_URL = `https://router.huggingface.co/hf-inference/models/${HF_EMBEDDING_MODEL}`;
 
@@ -253,6 +255,7 @@ async function scrapeReddit(maxPosts = 50) {
           score: post.score,
           createdAt: post.created_utc,
           freshnessScore,
+          source_tier: 2, // Community tier
         });
       }
       
@@ -315,6 +318,13 @@ const CAPITAL_ONE_TIER0_PAGES = [
     title: 'Network Benefits Guides (Visa Infinite guide)',
     tier: 0,
     category: 'policy',
+  },
+  {
+    url: 'https://www.capitalone.com/help-center/credit-cards/manage-authorized-users/',
+    title: 'Understanding Personal Credit Card User Roles',
+    category: 'policy',
+    tier: 0,
+    priority: 'high',
   },
 ];
 
@@ -417,7 +427,7 @@ async function scrapeCapitalOne() {
       // Only add if we got meaningful content
       if (content.length > 200) {
         docs.push({
-          id: `capitalone-${page.url.replace(/[^a-z0-9]/gi, '-').slice(0, 50)}`,
+          id: `capitalone-${crypto.createHash('md5').update(page.url).digest('hex').slice(0, 16)}`,
           title: page.title,
           content: content.slice(0, 10000), // Limit content length
           source: 'capitalone', // Must match DB constraint: 'reddit-post', 'reddit-comment', 'capitalone'
@@ -426,6 +436,7 @@ async function scrapeCapitalOne() {
           score: 100,
           createdAt: now,
           freshnessScore: 1.0,
+          source_tier: page.tier ?? 0, // Tier 0 for official, Tier 1 for guides
         });
         console.log(`[Seed] ✅ Scraped ${page.title} (${content.length} chars)`);
       } else {
@@ -458,19 +469,20 @@ function getStaticContent() {
 
 EARNING RATES:
 - 10X miles on hotels and rental cars booked through Capital One Travel
-- 5X miles on flights booked through Capital One Travel
+- 5X miles on flights and vacation rentals booked through Capital One Travel
 - 2X miles on every other purchase, every day
 
 ANNUAL FEE: $395
 
 TRAVEL CREDITS:
 - $300 annual travel credit for bookings through Capital One Travel, automatically applied
-- Up to $100 credit for Global Entry or TSA PreCheck (every 4 years)
+- Up to $120 credit for Global Entry or TSA PreCheck (every 4 years)
 
 LOUNGE ACCESS:
-- Unlimited access to 1,400+ Priority Pass lounges worldwide
-- Unlimited access to Capital One Lounges
-- 2 free guests per Priority Pass visit
+- Unlimited access to 1,300+ Priority Pass lounges worldwide (enrollment required)
+- Unlimited access to Capital One Lounges and Landings (DFW, DEN, IAD, DCA)
+- Primary cardholder can bring up to 2 complimentary guests per Priority Pass visit
+- Authorized users do NOT have complimentary lounge access; lounge access costs $125/year per additional cardholder
 
 ANNIVERSARY BONUS: 10,000 bonus miles on each account anniversary
 
@@ -486,6 +498,7 @@ TRANSFER PARTNERS: Transfer miles 1:1 to 15+ airline and hotel partners`,
       score: 90, // Lower score than scraped content
       createdAt: now,
       freshnessScore: 0.8, // Lower freshness since it's static
+      source_tier: 0, // Tier 0: Official Capital One
     },
     {
       id: 'capitalone-static-travel-portal',
@@ -494,6 +507,7 @@ TRANSFER PARTNERS: Transfer miles 1:1 to 15+ airline and hotel partners`,
 
 EARNING ON TRAVEL BOOKINGS:
 - Flights: Earn 5X miles per dollar spent
+- Vacation Rentals: Earn 5X miles per dollar spent
 - Hotels: Earn 10X miles per dollar spent
 - Rental Cars: Earn 10X miles per dollar spent
 
@@ -518,6 +532,7 @@ WHEN TO USE PORTAL VS DIRECT:
       score: 90,
       createdAt: now,
       freshnessScore: 0.8,
+      source_tier: 0, // Tier 0: Official Capital One
     },
     {
       id: 'capitalone-static-transfer-partners',
@@ -555,6 +570,158 @@ TRANSFER TIPS:
       score: 90,
       createdAt: now,
       freshnessScore: 0.8,
+      source_tier: 0, // Tier 0: Official Capital One
+    },
+
+    // ============================================
+    // FOCUSED CHUNK DOCUMENTS
+    // Targeted ~200-word docs for high-similarity matching
+    // on common questions about specific card features
+    // ============================================
+
+    {
+      id: 'capitalone-static-annual-fee',
+      title: 'Capital One Venture X Annual Fee',
+      content: `The Capital One Venture X Rewards Credit Card has an annual fee of $395. While this is a premium annual fee, the card provides significant value that can more than offset the cost. The effective annual fee after credits is only $95 (or even negative) when you factor in the $300 annual travel credit and the 10,000 anniversary bonus miles (worth ~$100 at 1 cent per point). This means the card effectively pays for itself. The $395 annual fee is charged on each account anniversary date. There is no introductory fee waiver — the full $395 is charged in the first year. However, you do receive the $300 travel credit and anniversary bonus starting from year one. Compared to competing premium travel cards like the Chase Sapphire Reserve ($550) or Amex Platinum ($695), the Venture X offers a lower annual fee with competitive benefits.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-travel-credit',
+      title: 'Capital One Venture X $300 Travel Credit',
+      content: `The Capital One Venture X card provides a $300 annual travel credit that is automatically applied to bookings made through Capital One Travel (travel.capitalone.com). This credit resets each cardmember year (based on your account open date, not the calendar year). Key details: The $300 credit applies to flights, hotels, and rental cars booked through Capital One Travel. It is applied automatically — no enrollment or activation needed. There is no minimum purchase required. The credit can be used across multiple bookings until the $300 is exhausted. If your booking costs less than $300, the remaining balance rolls over for future Capital One Travel purchases within the same cardmember year. IMPORTANT: Per Capital One terms, rewards will NOT be earned on the portion of a purchase covered by the travel credit. For example, on a $500 flight booked through C1 Travel, the $300 credit applies, and you earn 5X miles only on the remaining $200 ($1,000 miles, not $2,500). The credit does NOT apply to purchases made directly with airlines or hotels.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-global-entry-tsa',
+      title: 'Capital One Venture X Global Entry / TSA PreCheck Credit',
+      content: `The Capital One Venture X card provides a statement credit of up to $120 every 4 years for Global Entry or TSA PreCheck application fees. Global Entry costs $120 and includes TSA PreCheck. TSA PreCheck alone costs approximately $78. The credit also covers NEXUS enrollment ($50). To use this benefit, simply pay the Global Entry, TSA PreCheck, or NEXUS application fee with your Venture X card. The statement credit is applied automatically within 1-2 billing cycles — no need to call or enroll separately. The 4-year cycle resets after you receive the credit, so you can use it again when your membership is up for renewal. Global Entry provides expedited clearance for pre-approved, low-risk travelers upon arrival in the United States and includes TSA PreCheck for domestic flights. This benefit applies to the primary cardholder only; authorized users would need to pay with the primary card and would use the same $120 credit.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-anniversary-bonus',
+      title: 'Capital One Venture X Anniversary Bonus Miles',
+      content: `The Capital One Venture X card awards 10,000 bonus miles on each account anniversary. This anniversary bonus is automatic — you receive it simply by keeping the card open. At a minimum redemption value of 1 cent per mile (via Travel Eraser), these 10,000 miles are worth at least $100. When transferred to airline partners at optimal rates, they can be worth $150-$200 or more. The anniversary bonus posts to your account shortly after your account anniversary date (the date you originally opened the card). Combined with the $300 annual travel credit, the anniversary bonus effectively reduces the net annual fee from $395 to approximately $0 or even negative. Year 1 note: You DO receive the 10,000 anniversary bonus after your first year. The annual fee ($395) is charged on the anniversary date, but the 10,000 miles and $300 credit offset most of it.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-foreign-transaction-fees',
+      title: 'Capital One Venture X Foreign Transaction Fees',
+      content: `The Capital One Venture X card charges NO foreign transaction fees on any purchases made outside the United States or in a foreign currency. This makes it an excellent card for international travel. Whether you're purchasing items online from foreign merchants, paying at restaurants in Europe, or booking hotels in Asia, you will not incur any additional fees beyond the purchase amount. Many competing cards charge 2-3% foreign transaction fees, which can add up quickly on international trips. Capital One has a long-standing policy of not charging foreign transaction fees across most of their card products, and the Venture X is no exception. The card uses the Visa Infinite network, which provides excellent international acceptance. Additionally, you'll earn 2X miles on all international purchases (or 5X/10X if booked through Capital One Travel for flights/hotels respectively). There is no need to notify Capital One before traveling internationally — the card works globally without travel alerts.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-lounge-access',
+      title: 'Capital One Venture X Lounge Access and Priority Pass',
+      content: `The Capital One Venture X card provides premium airport lounge access through multiple programs (updated February 1, 2026). PRIORITY PASS SELECT: Complimentary membership (enrollment required) with access to 1,300+ airport lounges worldwide. Primary cardholder can bring up to 2 complimentary guests per visit to Priority Pass lounges. Additional guests cost $35 each per visit. CAPITAL ONE LOUNGES AND LANDINGS: Exclusive access to Capital One's own premium airport lounges at DFW (Dallas-Fort Worth), DEN (Denver), IAD (Washington Dulles), and DCA (Ronald Reagan Washington National). Capital One Lounges feature hot meals, craft cocktails and premium beverages, shower suites, relaxation rooms, nursing/mother's rooms, high-speed Wi-Fi, and premium workspaces. Capital One Lounge guests cost $45/visit (18+) and $25/visit (17 and under); children under 2 are free. Complimentary guests (2 at Lounges, 1 at Landings) are only available for cardholders who spend $75,000+ per year on their Venture X account. AUTHORIZED USER LOUNGE ACCESS: Authorized users do NOT have complimentary lounge access. Primary cardholders can purchase lounge access for authorized users at $125/year per additional cardholder. To access lounges, present your physical Venture X card or digital lounge pass via the Capital One Mobile app.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-authorized-users',
+      title: 'Capital One Venture X Authorized Users',
+      content: `The Capital One Venture X card allows you to add up to 4 authorized users at no additional annual fee for the card itself. Key details about authorized users: There is NO additional annual fee for adding authorized users to the card. You can add up to 4 authorized users on a Venture X account. Authorized users get their own card with their name. Authorized users earn miles on their purchases at the same rates as the primary cardholder (2X everyday, 5X flights and vacation rentals, 10X hotels/rental cars on Capital One Travel). All miles earned by authorized users accumulate in the primary cardholder's account. LOUNGE ACCESS (as of February 1, 2026): Authorized users do NOT have complimentary lounge access. Primary cardholders can purchase lounge access for authorized users at $125/year per additional cardholder, which grants access to Capital One Lounges, Landings, and Priority Pass lounges. Authorized users must be at least 18 years old and have a verified SSN to be eligible for lounge access. Authorized users who have paid lounge access can bring up to 2 complimentary guests to Priority Pass lounges.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-earn-rates',
+      title: 'Capital One Venture X Earning Rates and Miles Multipliers',
+      content: `The Capital One Venture X card earns Capital One miles at the following rates: 10X MILES on hotels booked through Capital One Travel — this is one of the highest hotel earning rates of any credit card. 10X MILES on rental cars booked through Capital One Travel. 5X MILES on flights booked through Capital One Travel. 5X MILES on vacation rentals booked through Capital One Travel. 2X MILES on every other purchase, every day — this flat 2X rate applies to all non-bonus categories including groceries, dining, gas, utilities, and everything else. There are no rotating categories and no spending caps on any earning tier. IMPORTANT: The $300 travel credit portion of a Capital One Travel booking does NOT earn miles. Per Capital One's terms: "Rewards will not be earned on the Credit." So on a $500 hotel booking through Capital One Travel, you earn 10X on $200 (the amount after the credit), not on $500. Miles are posted to your account after each statement cycle. Capital One miles do not expire as long as your account remains open and in good standing. You can also earn miles through transfer partner bonuses and referral bonuses.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-signup-bonus',
+      title: 'Capital One Venture X Sign-Up Bonus',
+      content: `The Capital One Venture X card currently offers a sign-up bonus of 75,000 bonus miles after spending $4,000 on purchases within the first 6 months of account opening. At a conservative 1 cent per mile (Travel Eraser), these 75,000 miles are worth $750 in travel. At 1.5 cents per mile via transfer partners, the bonus is worth approximately $1,125. This sign-up bonus alone more than offsets the $395 annual fee in the first year. To earn the bonus: (1) Apply and get approved for the Venture X card, (2) Spend $4,000 on any purchases within 6 months of account opening ($667/month average), (3) The 75,000 miles will post to your account within 1-2 billing cycles after meeting the spending requirement. Tips for meeting the minimum spend: Use the card for regular expenses (groceries, gas, bills), pay rent through a service that accepts credit cards, time large purchases to coincide with the bonus period. Note: Sign-up bonus offers may change over time. The miles from the sign-up bonus can be used for Travel Eraser, transferred to airline/hotel partners, or applied to Capital One Travel bookings.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-cell-phone-protection',
+      title: 'Capital One Venture X Cell Phone Protection',
+      content: `The Capital One Venture X card includes cell phone protection insurance. Key details: Coverage of up to $800 per claim with a $25 deductible. This benefit covers damage or theft of your cell phone when you pay your monthly cell phone bill with your Venture X card. Coverage applies to the primary cardholder and any lines on the same cell phone account. To be eligible, you must have paid your most recent monthly cell phone bill in full with your Venture X card BEFORE the damage or theft occurs. Claims must be filed within 90 days of the incident. This benefit covers smartphones and is secondary to any other insurance you may have. The maximum benefit is $800 per claim and up to $1,600 per 12-month period. Cell phone protection is a valuable benefit that can save you from expensive insurance plans offered by carriers. Simply pay your monthly phone bill with your Venture X card to activate this coverage.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-travel-protections',
+      title: 'Capital One Venture X Travel Protections and Insurance',
+      content: `The Capital One Venture X card includes comprehensive travel protection benefits. TRIP CANCELLATION/INTERRUPTION INSURANCE: Up to $5,000 per trip for prepaid, non-refundable travel expenses if your trip is cancelled or interrupted due to covered reasons (illness, severe weather, etc.). TRIP DELAY REIMBURSEMENT: Up to $500 per trip for expenses incurred due to a covered trip delay of 6 hours or more. Covers meals, lodging, and essential items during the delay. LOST LUGGAGE REIMBURSEMENT: Up to $3,000 for lost or damaged luggage when traveling on a common carrier (airline, train, etc.). BAGGAGE DELAY INSURANCE: Up to $500 for essential purchases if your checked baggage is delayed by 6 or more hours. Covers clothing, toiletries, and other necessities. PRIMARY AUTO RENTAL CDW (Collision Damage Waiver): The Venture X provides PRIMARY coverage for rental car damage or theft. This means it pays FIRST, before your personal auto insurance — a significant advantage over cards that only offer secondary coverage. Coverage applies when you decline the rental company's CDW and pay for the rental entirely with your Venture X card. HERTZ PRESIDENT'S CIRCLE: Complimentary Hertz President's Circle elite status, which includes vehicle upgrades, priority service, and other perks. To activate these benefits, simply pay for your travel with your Venture X card.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
+    },
+    {
+      id: 'capitalone-static-visa-infinite-benefits',
+      title: 'Capital One Venture X Visa Infinite Benefits',
+      content: `The Capital One Venture X card is issued on the Visa Infinite network, which provides additional premium benefits beyond the card's core features. LUXURY HOTEL COLLECTION: Access to Visa Infinite's curated collection of premium hotels worldwide. Benefits at participating properties typically include: complimentary room upgrade upon availability, free daily breakfast for two, guaranteed late checkout, and a special amenity (such as a spa credit or dining credit). CONCIERGE SERVICE: 24/7 Visa Infinite Concierge available by phone to assist with restaurant reservations, event tickets, travel planning, and other personal requests. VISA INFINITE PRIVILEGES: Access to exclusive experiences, events, and offers across dining, entertainment, and travel. PURCHASE PROTECTIONS: Extended warranty protection that extends the manufacturer's warranty on eligible purchases. Purchase security covering new purchases against damage or theft. NOTE: Visa Infinite is the highest tier of Visa cards, above Visa Signature. Not all benefits may be available in all regions. Contact Visa Infinite Concierge for details specific to your card.`,
+      source: 'capitalone',
+      url: 'https://www.capitalone.com/credit-cards/venture-x/',
+      author: 'Capital One',
+      score: 100,
+      createdAt: now,
+      freshnessScore: 1.0,
+      source_tier: 0,
     },
   ];
 }
@@ -628,6 +795,7 @@ async function upsertDocument(doc, embedding) {
       p_url: doc.url,
       p_author: doc.author,
       p_score: doc.score,
+      p_source_tier: doc.source_tier ?? (doc.source === 'capitalone' ? 0 : 2),
     }),
   });
 
@@ -674,17 +842,19 @@ async function main() {
   if (INCLUDE_CAPITALONE) {
     const capitalOneDocs = await scrapeCapitalOne();
     allDocs.push(...capitalOneDocs);
-    
-    // Only add static content if scraping failed or returned < 2 docs
-    if (capitalOneDocs.length < 2) {
-      console.log('[Seed] Capital One scraping returned few results, adding static fallback...');
-      const staticDocs = getStaticContent();
-      allDocs.push(...staticDocs);
-    }
-  } else {
-    // No scraping, use static content
+  }
+  
+  // ALWAYS include static Capital One content regardless of scraping results.
+  // Static content contains focused, high-quality chunks that ensure official
+  // Tier 0 sources are always present in the knowledge base for common questions.
+  {
+    console.log('[Seed] Adding static Capital One content (always included)...');
     const staticDocs = getStaticContent();
-    allDocs.push(...staticDocs);
+    // Deduplicate: skip static docs whose IDs are already in allDocs from scraping
+    const existingIds = new Set(allDocs.map(d => d.id));
+    const newStaticDocs = staticDocs.filter(d => !existingIds.has(d.id));
+    allDocs.push(...newStaticDocs);
+    console.log(`[Seed] Added ${newStaticDocs.length} static Capital One docs (${staticDocs.length - newStaticDocs.length} duplicates skipped)`);
   }
 
   // 2. Scrape Reddit (community knowledge)

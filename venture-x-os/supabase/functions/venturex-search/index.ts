@@ -117,7 +117,7 @@ serve(async (req: Request) => {
       throw error
     }
 
-    // Format results
+    // Format results — includes source_tier from tier-aware search_knowledge function
     const results = (data || []).map((row: {
       id: string
       content: string
@@ -126,6 +126,7 @@ serve(async (req: Request) => {
       url: string
       author: string | null
       similarity: number
+      source_tier: number | null
     }) => ({
       id: row.id,
       score: row.similarity,
@@ -134,6 +135,7 @@ serve(async (req: Request) => {
       source: row.source,
       url: row.url,
       author: row.author,
+      source_tier: row.source_tier ?? 2,
     }))
 
     return new Response(

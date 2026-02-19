@@ -70,6 +70,7 @@ interface ScrapedDoc {
   score: number
   createdAt: number
   freshnessScore: number
+  source_tier: number // 0=Official, 1=Guide, 2=Community
 }
 
 // ============================================
@@ -157,6 +158,7 @@ async function scrapeReddit(maxPosts: number = 50): Promise<ScrapedDoc[]> {
           score: post.score,
           createdAt: post.created_utc,
           freshnessScore,
+          source_tier: 2, // Community tier
         }
         
         // For now, include all posts to debug (no date filtering)
@@ -186,19 +188,22 @@ function getStaticContent(): ScrapedDoc[] {
 
 EARNING RATES:
 - 10X miles on hotels and rental cars booked through Capital One Travel
-- 5X miles on flights booked through Capital One Travel
+- 5X miles on flights and vacation rentals booked through Capital One Travel
 - 2X miles on every other purchase, every day
 
 ANNUAL FEE: $395
 
 TRAVEL CREDITS:
 - $300 annual travel credit for bookings through Capital One Travel, automatically applied
-- Up to $100 credit for Global Entry or TSA PreCheck (every 4 years)
+- Up to $120 credit for Global Entry or TSA PreCheck (every 4 years)
 
-LOUNGE ACCESS:
-- Unlimited access to 1,400+ Priority Pass lounges worldwide
-- Unlimited access to Capital One Lounges
-- 2 free guests per Priority Pass visit
+LOUNGE ACCESS (updated February 1, 2026):
+- Unlimited access to 1,300+ Priority Pass lounges worldwide (enrollment required)
+- Unlimited access to Capital One Lounges and Landings (DFW, DEN, IAD, DCA)
+- Primary cardholder can bring up to 2 complimentary guests per Priority Pass visit
+- Capital One Lounge guests: $45/visit (18+), $25/visit (17 and under), free under 2
+- Authorized users do NOT have complimentary lounge access; lounge access costs $125/year per additional cardholder
+- Up to 4 authorized users can be added at no additional card fee
 
 ANNIVERSARY BONUS: 10,000 bonus miles on each account anniversary
 
@@ -214,6 +219,7 @@ TRANSFER PARTNERS: Transfer miles 1:1 to 15+ airline and hotel partners`,
       score: 100,
       createdAt: now,
       freshnessScore: 1.0,
+      source_tier: 0, // Official Capital One
     },
     {
       id: 'capitalone-static-travel-portal',
@@ -246,6 +252,7 @@ WHEN TO USE PORTAL VS DIRECT:
       score: 100,
       createdAt: now,
       freshnessScore: 1.0,
+      source_tier: 0, // Official Capital One
     },
     {
       id: 'capitalone-static-transfer-partners',
@@ -283,6 +290,7 @@ TRANSFER TIPS:
       score: 100,
       createdAt: now,
       freshnessScore: 1.0,
+      source_tier: 0, // Official Capital One
     },
   ]
 }
@@ -363,9 +371,15 @@ serve(async (req: Request) => {
       allDocs.push(...redditDocs)
     }
     
-    if (options.includeStatic) {
+    // ALWAYS include static Capital One content to ensure Tier 0 sources
+    // are present in the knowledge base, regardless of other options.
+    {
       const staticDocs = getStaticContent()
-      allDocs.push(...staticDocs)
+      // Deduplicate: skip static docs already present from other sources
+      const existingIds = new Set(allDocs.map(d => d.id))
+      const newStaticDocs = staticDocs.filter(d => !existingIds.has(d.id))
+      allDocs.push(...newStaticDocs)
+      console.log(`[Seed] Added ${newStaticDocs.length} static Capital One docs (Tier 0)`)
     }
     
     console.log(`[Seed] Total documents to index: ${allDocs.length}`)
@@ -410,6 +424,7 @@ serve(async (req: Request) => {
           p_url: doc.url,
           p_author: doc.author,
           p_score: doc.score,
+          p_source_tier: doc.source_tier ?? (doc.source === 'capitalone' ? 0 : 2),
         })
         
         if (error) {

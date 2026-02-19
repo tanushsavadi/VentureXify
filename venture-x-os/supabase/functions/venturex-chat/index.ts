@@ -20,26 +20,68 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// VentureX knowledge base with CORRECT information
+// VentureX knowledge base with CORRECT, COMPREHENSIVE information
+// This MUST stay in sync with src/ai/prompts/systemPrompt.ts
 const VENTURE_X_KNOWLEDGE = `
 ## Capital One Venture X Card - CORRECT Knowledge Base
 
 ### Card Overview
-- $395 annual fee
+- **Annual fee:** $395
+- **Sign-on bonus:** 75,000 bonus miles after spending $4,000 on purchases within the first 6 months
 - Earn 2X miles on all purchases (base rate)
-- Earn 5X miles on flights booked through Capital One Travel portal
+- Earn 5X miles on flights and vacation rentals booked through Capital One Travel portal
 - Earn 10X miles on hotels and rental cars booked through Capital One Travel portal
 - $300 annual travel credit (Capital One Travel purchases only)
-- 10,000 anniversary bonus miles each year (worth ~$180 at 1.8cpp)
-- Priority Pass lounge access + Capital One Lounges
+- 10,000 anniversary bonus miles each year
+- No foreign transaction fees
+- Up to 4 authorized users at no additional card fee
+
+### Lounge Access (Updated Feb 1, 2026)
+**Priority Pass Select:**
+- Complimentary membership (enrollment required) with access to 1,300+ lounges worldwide
+- Primary cardholder can bring up to 2 complimentary guests per visit
+- Additional guests beyond 2 cost $35 each per visit
+
+**Capital One Lounges and Landings:**
+- Locations: DFW (Dallas-Fort Worth), DEN (Denver), IAD (Washington Dulles), DCA (Ronald Reagan National)
+- Features: hot meals, craft cocktails, shower suites, relaxation rooms, premium workspaces
+- Guest costs: $45/visit (age 18+), $25/visit (age 17 and under), children under 2 free
+- Complimentary guests (2 at Lounges, 1 at Landings) are ONLY for cardholders spending $75,000+/year
+
+**Authorized User Lounge Access:**
+- Authorized users do NOT have complimentary lounge access
+- Primary cardholders can purchase lounge access for authorized users at $125/year per additional cardholder
+- Paid AU lounge access includes Capital One Lounges, Landings, AND Priority Pass
+
+### Travel Protections
+- Trip cancellation/interruption insurance: up to $5,000 per trip
+- Trip delay reimbursement: up to $500 after 6 hours delay
+- Lost luggage reimbursement: up to $3,000
+- Baggage delay insurance: up to $500
+
+### Rental Car & Auto
+- Primary auto rental collision damage waiver (CDW) — primary coverage, not secondary
+- Hertz President's Circle elite status
+
+### Cell Phone Protection
+- Up to $800 per claim, $25 deductible
+- Covers damage or theft when you pay your monthly cell phone bill with the Venture X
+
+### Visa Infinite Benefits
+- Luxury Hotel Collection access
+- 24/7 Visa Infinite Concierge service
+
+### Other Benefits
+- Global Entry or TSA PreCheck credit: up to $120 every 4 years
+- Travel Eraser: redeem miles at 1cpp for travel purchases in last 90 days
 
 ### CRITICAL: Travel Eraser - CORRECT Understanding
 Travel Eraser is NOT a booking method. It is a POST-PURCHASE statement credit redemption:
 - You FIRST book travel (either via portal OR direct)
 - You THEN can redeem miles to erase that purchase from your statement
 - Redemption rate: 1 cent per mile (1 cpp = 0.01 USD per mile)
-- Example: To erase $100, you need 10,000 miles
-- Minimum redemption: 5,000 miles ($50)
+- NO MINIMUM — you can erase any amount, even $0.01
+- Partial redemptions allowed
 - Works on purchases made in last 90 days
 - Works on ANY travel purchase (flights, hotels, Uber, etc.)
 
@@ -48,11 +90,11 @@ Travel Eraser is NOT a booking method. It is a POST-PURCHASE statement credit re
 - 10,000 miles = $100 erased
 - To fully erase a $767 purchase, you need 76,700 miles
 - Travel Eraser is SPENDING miles, not earning them
-- If you use Eraser, you lose those miles (opportunity cost)
+- If you use Eraser, you lose those miles (opportunity cost vs transfer partners at 1.5-2cpp)
 
 ### Portal vs Direct Decision Framework
 Step 1: Compare where to BOOK
-- Portal: Higher multiplier (5X), may have higher price
+- Portal: Higher multiplier (5X flights, 10X hotels), may have higher price
 - Direct: Lower multiplier (2X), may have lower price, keep elite status credits
 
 Step 2: After booking, decide HOW TO PAY
@@ -61,16 +103,16 @@ Step 2: After booking, decide HOW TO PAY
 - Transfer Partners: Spend miles at 1.5-3+ cpp (better value but different use case)
 
 ### Miles Valuation
-- Conservative: 1.5 cpp (1.5 cents per mile)
+- Floor: 1.0 cpp (Travel Eraser)
+- Conservative: 1.5 cpp
 - Standard: 1.8 cpp (used in our calculations)
-- Aspirational: 2.0+ cpp (transfer partner redemptions)
+- Aspirational: 2.0+ cpp (transfer partner sweet spots)
 
 ### Transfer Partners (ALTERNATIVE to Eraser)
-- Turkish Miles&Smiles: Great for Star Alliance business/first class
-- Emirates Skywards: Emirates flights
-- Avianca LifeMiles: Often cheap Star Alliance awards
-- Transfer ratio: 1:1 (1,000 Capital One = 1,000 partner miles)
-- Transfer time: Usually instant to 2 days
+Airlines: Turkish Miles&Smiles, Emirates Skywards, Avianca LifeMiles, Air France/KLM Flying Blue, British Airways Avios, Singapore KrisFlyer, Qantas Frequent Flyer, Etihad Guest, Air Canada Aeroplan, JetBlue TrueBlue, and more.
+Hotels: Wyndham Rewards, Choice Privileges, Accor Live Limitless (2:1 ratio).
+- Transfer ratio: 1:1 for most partners (1,000 Capital One = 1,000 partner miles)
+- Transfer time: Usually instant to 2 business days
 - Better value than Eraser IF you have specific redemption in mind
 `
 
@@ -131,8 +173,10 @@ ${VENTURE_X_KNOWLEDGE}
    - Always clarify it means SPENDING miles (not earning)
    - Always mention the opportunity cost (those miles could be transferred for 1.5-2cpp)
    - Always use the exact numbers provided in the context
-4. Be concise (2-4 sentences). Don't repeat all the numbers back - just the key insight.
+4. Be concise (2-4 sentences for comparison questions). For "list all benefits" or comprehensive questions, use organized markdown with headers and bullet points — be COMPREHENSIVE and list EVERY known benefit.
 5. Start answers directly, no "Sure!" or "Certainly!" or "Great question!"
+6. CONVERSATION CONTEXT: When the user's message references prior conversation (e.g., pronouns like "it", "that", phrases like "how much does it cost", "what about"), interpret the question in the context of the CONVERSATION HISTORY provided. Always resolve pronouns and contextual references before answering.
+7. SCOPE GUARDRAIL: You are exclusively a Capital One Venture X assistant. If the user asks about competitor credit cards, briefly acknowledge but redirect to Venture X. If the user asks about completely unrelated topics (weather, sports, cooking, etc.), respond: "I can only help with Capital One Venture X card questions."
 `
 
     // Add comparison context with PRE-COMPUTED facts
@@ -187,18 +231,25 @@ OPPORTUNITY COST: Using Travel Eraser at 1cpp means those miles can't be transfe
     // Add RAG context if available
     if (ragContext) {
       systemPrompt += `
-## COMMUNITY KNOWLEDGE (cite using [1], [2], etc.):
+## KNOWLEDGE BASE CONTEXT:
 ${ragContext}
 `
     }
 
     systemPrompt += `
 ## RESPONSE GUIDELINES:
+- Use **markdown formatting** for all responses — the UI renders markdown
+- SELECTIVE BOLDING: Only bold key numbers, dollar amounts, and short important terms — NOT entire sentences. Example: "**2X** miles on all purchases" not "**2X miles on all purchases**"
+- Use bullet points (- ) for lists, organized by category when appropriate
+- For simple questions: 2-4 sentences with key facts bolded
+- For "list all benefits" or comprehensive questions: use organized markdown with headers and bullet points — be COMPREHENSIVE and list EVERY known benefit
+- Start each response with a relevant emoji
 - Use the PRE-COMPUTED FACTS above - do NOT recalculate
 - If asked about Travel Eraser, explain it's about SPENDING miles to offset a purchase
 - Distinguish between "miles earned" (from booking) vs "miles spent" (Travel Eraser)
-- Keep it brief and actionable
-- Use emoji sparingly (one per response max)
+- Do NOT include any source references, citations, numbered markers like [1] [2] [3], or "Sources:" lists in your response. The sources are displayed separately in the UI.
+- If asked about a topic and no PRE-COMPUTED FACTS or KNOWLEDGE BASE CONTEXT is provided for it, use the CORRECT Knowledge Base above to answer
+- NEVER truncate a list of benefits — if asked to list all benefits, list EVERY one from the Knowledge Base
 `
 
     // Build messages array

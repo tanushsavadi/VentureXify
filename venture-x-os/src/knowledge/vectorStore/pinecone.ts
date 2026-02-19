@@ -1,4 +1,6 @@
 // ============================================
+// @deprecated — The project now uses Supabase for vector storage (see ./supabase.ts).
+// This Pinecone integration is retained only because it is re-exported from knowledge/main.ts.
 // PINECONE VECTOR STORE INTEGRATION
 // For semantic search over knowledge base
 // ============================================

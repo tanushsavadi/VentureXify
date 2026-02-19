@@ -10,11 +10,9 @@ export {
   fullRedditScrape 
 } from './scrapers/reddit';
 
-export { 
-  scrapeCapitalOnePage, 
-  fullCapitalOneScrape, 
+export {
   getCapitalOneContent,
-  CAPITAL_ONE_STATIC_CONTENT 
+  CAPITAL_ONE_STATIC_CONTENT
 } from './scrapers/capitalOne';
 
 // Embeddings

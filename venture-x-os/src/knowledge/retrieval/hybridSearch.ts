@@ -214,7 +214,7 @@ async function executeSparseSearch(
       return [];
     }
     
-    // Map RPC results to SearchResult format
+    // Map RPC results to SearchResult format (including source_tier from DB)
     return data.map((row: {
       id: string;
       title: string;
@@ -223,6 +223,7 @@ async function executeSparseSearch(
       url: string;
       author?: string;
       bm25_rank: number;
+      source_tier?: number;
     }) => ({
       id: row.id,
       title: row.title,
@@ -231,6 +232,7 @@ async function executeSparseSearch(
       url: row.url,
       author: row.author,
       score: row.bm25_rank,
+      source_tier: row.source_tier,
     }));
     
   } catch (error) {
@@ -368,6 +370,7 @@ export async function textOnlySearch(
       url: string;
       author?: string;
       score: number;
+      source_tier?: number;
     }) => ({
       id: row.id,
       title: row.title,
@@ -376,6 +379,7 @@ export async function textOnlySearch(
       url: row.url,
       author: row.author,
       score: row.score,
+      source_tier: row.source_tier,
     })) : [];
     
   } catch (error) {
@@ -466,6 +470,7 @@ export async function serverSideHybridSearch(
       dense_score: number;
       sparse_score: number;
       fused_score: number;
+      source_tier?: number;
     }) => ({
       id: row.id,
       title: row.title,
@@ -477,8 +482,9 @@ export async function serverSideHybridSearch(
       denseScore: row.dense_score,
       sparseScore: row.sparse_score,
       fusedScore: row.fused_score,
-      searchType: (row.dense_score > 0 && row.sparse_score > 0 ? 'both' : 
+      searchType: (row.dense_score > 0 && row.sparse_score > 0 ? 'both' :
         row.dense_score > 0 ? 'dense' : 'sparse') as 'dense' | 'sparse' | 'both',
+      source_tier: row.source_tier,
     }));
     
     return {

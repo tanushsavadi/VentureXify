@@ -5,7 +5,7 @@
 // ============================================
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY, ENDPOINTS, isSupabaseConfigured, getSupabaseHeaders } from '../../config/supabase';
-import { buildPromptWithContext, validateResponse, STRICT_SYSTEM_PROMPT } from '../../ai/prompts/systemPrompt';
+import { validateResponse } from '../../ai/prompts/systemPrompt';
 
 // ============================================
 // TYPES
@@ -59,6 +59,8 @@ export interface SearchResult {
   source: string;
   url: string;
   author?: string;
+  /** Source tier from DB: 0=Official, 1=Guide, 2=Community */
+  source_tier?: number;
 }
 
 export interface SearchResponse {
@@ -107,40 +109,34 @@ export async function sendChatMessage(
   }
 
   try {
-    // Build the strict prompt with context injection
-    // This ensures the AI only uses numbers we explicitly provide
-    const strictPrompt = buildPromptWithContext(
-      message,
-      {
-        portalPrice: context?.portalPrice,
-        directPrice: context?.directPrice,
-        portalMiles: context?.portalMiles,
-        directMiles: context?.directMiles,
-        portalNetCost: context?.portalNetCost,
-        directNetCost: context?.directNetCost,
-        winner: context?.winner,
-        savings: context?.savings,
-        milesBalance: context?.eraser?.milesBalance,
-        creditRemaining: context?.creditRemaining,
-        route: context?.route,
-        awardMilesRequired: context?.awardMilesRequired,
-        awardTaxesFees: context?.awardTaxesFees,
-        awardPartner: context?.awardPartner,
-      },
-      ragContext
-    );
+    // FIX: Send the raw user message, context, and ragContext separately to the
+    // Edge Function. Previously we embedded everything into a "strict prompt" and
+    // sent it as the `message` with context/ragContext set to null. This caused
+    // the Edge Function to build its OWN system prompt AND receive our strict
+    // prompt as the "user" message — double-prompting the LLM and confusing it.
+    // The Edge Function already knows how to build a proper system prompt when it
+    // receives real context and ragContext values.
     
-    console.log('[Supabase] Sending with strict prompt, context:', context ? 'yes' : 'no');
+    // IMPORTANT: Do NOT inject citation instructions into the ragContext.
+    // The UI renders sources in a separate dropdown — inline [1], [2] markers
+    // in the LLM response create ugly "Sources:" lists that duplicate the dropdown.
+    // Instead, we tell the LLM to NOT include any source references.
+    let enhancedRagContext = ragContext;
+    if (ragContext) {
+      const noCitationInstructions = `\n\nIMPORTANT: Do NOT include any source references, citations, numbered markers like [1] [2] [3], or "Sources:" lists in your response. Do NOT use inline citation markers. Just provide a clean, helpful answer using the knowledge above. The sources are automatically displayed separately in the UI.`;
+      enhancedRagContext = ragContext + noCitationInstructions;
+    }
+    
+    console.log('[Supabase] Sending message to Edge Function, context:', context ? 'yes' : 'no', 'ragContext:', ragContext ? 'yes' : 'no');
     
     const response = await fetch(ENDPOINTS.chat, {
       method: 'POST',
       headers: getSupabaseHeaders(),
       body: JSON.stringify({
-        message: strictPrompt, // Send the full strict prompt as the message
-        context: null,         // Context is already embedded in the prompt
-        ragContext: null,      // RAG context is already embedded
+        message,              // Send the raw user question
+        context,              // Send real context (booking prices, etc.)
+        ragContext: enhancedRagContext, // Send RAG context WITH citation instructions
         conversationHistory,
-        useStrictPrompt: true, // Flag for the edge function
       }),
     });
 
@@ -299,7 +295,7 @@ export function buildRAGContext(results: SearchResult[]): {
 
   resultsToUse.forEach((r, i) => {
     const citationNum = i + 1;
-    contextParts.push(`[${citationNum}] ${r.title}: ${r.content.slice(0, 300)}...`);
+    contextParts.push(`[${citationNum}] ${r.title}: ${r.content.slice(0, 800)}...`);
     sources.push({
       title: r.title,
       url: r.url,

@@ -387,13 +387,8 @@ function inferTierFromSource(source: string): SourceTier {
   const sourceLower = source.toLowerCase();
   
   // Tier 0: Official Capital One
-  if (sourceLower.includes('capitalone') && sourceLower.includes('scraped')) {
-    return 0;
-  }
-  if (sourceLower.includes('capitalone') && sourceLower.includes('static')) {
-    return 0;
-  }
-  if (sourceLower.includes('official')) {
+  // Match any source containing 'capitalone' — the actual DB values are just 'capitalone'
+  if (sourceLower.includes('capitalone') || sourceLower === 'official') {
     return 0;
   }
   
@@ -427,15 +422,19 @@ function inferTierFromSource(source: string): SourceTier {
 }
 
 /**
- * Add tier information to chunks
+ * Add tier information to chunks.
+ * Priority: metadata.trustTier (from DB source_tier) > inferTierFromSource (fallback)
  */
 export function enrichWithTier(chunks: ChunkWithProvenance[]): TieredChunk[] {
   return chunks.map(chunk => {
     const tiered: TieredChunk = { ...chunk };
     
-    // Infer tier from source if not already set
+    // Use metadata.trustTier (populated from DB source_tier) if available,
+    // otherwise infer from source string as fallback.
+    // This is critical because Tier 1 content (TPG, OMAAT, NerdWallet) is stored
+    // with source='capitalone' in the DB but has source_tier=1.
     if (tiered.tier === undefined) {
-      tiered.tier = inferTierFromSource(chunk.metadata.source);
+      tiered.tier = chunk.metadata.trustTier ?? inferTierFromSource(chunk.metadata.source);
     }
     
     // Extract effective dates from content (for time-sensitive info)
@@ -480,18 +479,34 @@ export function filterByTier(
     );
   }
   
-  if (intent === 'policy' && allowed.length === 0 && chunks.length > 0) {
-    warnings.push(
-      'No official Capital One sources found for this policy question. ' +
-      'Showing community sources with disclaimer.'
-    );
+  // SAFETY: If tier filtering removed ALL chunks, fall back to showing all sources
+  // This prevents sources from silently disappearing when the knowledge base
+  // doesn't have sources matching the required tier for the detected intent.
+  if (allowed.length === 0 && chunks.length > 0) {
+    if (intent === 'policy') {
+      warnings.push(
+        'No official Capital One sources found for this policy question. ' +
+        'Showing community sources with disclaimer.'
+      );
+      warnings.push('⚠️ No official sources available - verify this information with Capital One.');
+    } else if (intent === 'optimization') {
+      warnings.push(
+        'No official/guide sources found for this optimization question. ' +
+        'Showing community sources — treat as anecdotal data points.'
+      );
+    } else {
+      warnings.push(
+        'Tier filtering removed all sources — falling back to unfiltered results.'
+      );
+    }
+    
     // Fall back to showing all sources with warning
     return {
       allowed: chunks,
       filtered: [],
       intent,
       allowedTiers,
-      warnings: [...warnings, '⚠️ No official sources available - verify this information with Capital One.'],
+      warnings,
     };
   }
   

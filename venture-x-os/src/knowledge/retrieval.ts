@@ -2,6 +2,7 @@
 // KNOWLEDGE RETRIEVAL SYSTEM (SUPABASE)
 // Uses Supabase pgvector for semantic search
 // Supports hybrid search (dense + sparse) with RRF fusion
+// Includes tier-aware reranking for source prioritization
 // ============================================
 
 import { ScrapedDocument, fullRedditScrape } from './scrapers/reddit';
@@ -29,6 +30,10 @@ import {
   SourceMetadata,
   sourceFreshnessManager,
 } from './sourceMetadata';
+import {
+  rerankWithTierFiltering,
+  type TierFilterResult,
+} from './retrieval/reranker';
 
 // Storage keys
 const KNOWLEDGE_CACHE_KEY = 'vx_knowledge_cache';
@@ -40,8 +45,8 @@ export interface CitedSource {
   source: 'reddit-post' | 'reddit-comment' | 'capitalone' | 'custom';
   author?: string;
   relevanceScore: number;
-  // Trust and sanitization metadata
-  trustTier?: 1 | 2 | 3 | 4;
+  // Trust and sanitization metadata (0=Official, 1=Guide, 2=Community)
+  trustTier?: 0 | 1 | 2;
   wasSanitized?: boolean;
   freshnessStatus?: 'fresh' | 'stale' | 'expired' | 'unknown';
 }
@@ -70,6 +75,9 @@ export interface EnhancedRetrievalResult extends RetrievalResult {
     fusedResultCount: number;
     sparseSearchAvailable: boolean;
   };
+  
+  /** Tier filtering info (if reranker was applied) */
+  tierFilter?: TierFilterResult;
 }
 
 /**
@@ -416,14 +424,14 @@ export async function searchKnowledgeHybrid(
             searchTimeMs: 0,
           },
         };
-        return processHybridResults(query, textResponse, sanitize, filterExpired, 'sparse');
+        return await processHybridResults(query, textResponse, sanitize, filterExpired, 'sparse');
       }
       
       // Final fallback to local cache
       return await searchLocalCacheEnhanced(query, topK, sanitize);
     }
     
-    return processHybridResults(query, hybridResult, sanitize, filterExpired, 'hybrid');
+    return await processHybridResults(query, hybridResult, sanitize, filterExpired, 'hybrid');
     
   } catch (error) {
     console.error('[Knowledge] Hybrid search failed:', error);
@@ -442,22 +450,25 @@ export async function searchKnowledgeHybrid(
 /**
  * Process hybrid search results into EnhancedRetrievalResult
  */
-function processHybridResults(
+async function processHybridResults(
   query: string,
   hybridResult: HybridSearchResponse,
   sanitize: boolean,
   filterExpired: boolean,
   searchMethod: 'hybrid' | 'sparse'
-): EnhancedRetrievalResult {
+): Promise<EnhancedRetrievalResult> {
   const chunks: ChunkWithProvenance[] = [];
   const sources: CitedSource[] = [];
   const contextParts: string[] = [];
   
   // Filter to only include sufficiently relevant chunks in the RAG context
   // This prevents low-quality results from polluting the LLM's context window
-  const MIN_HYBRID_CONTEXT_THRESHOLD = 0.4;
+  // NOTE: Use Math.max() instead of || to get the highest actual score.
+  // fusedScore is RRF-scale (0.001–0.016) while denseScore is cosine-scale (0.3–0.8).
+  // The || operator short-circuits at fusedScore (truthy but tiny), killing all results.
+  const MIN_HYBRID_CONTEXT_THRESHOLD = 0.1;
   const filteredResults = hybridResult.results.filter(r => {
-    const score = r.fusedScore || r.denseScore || r.sparseScore || 0;
+    const score = Math.min(1.0, Math.max(r.denseScore || 0, r.sparseScore || 0, r.fusedScore || 0));
     return score >= MIN_HYBRID_CONTEXT_THRESHOLD;
   });
   
@@ -467,8 +478,10 @@ function processHybridResults(
     : hybridResult.results.slice(0, 1);
   
   for (const result of resultsToProcess) {
-    // Get trust tier
-    const trustTier = getTrustTierForSource(result.source);
+    // Get trust tier from DB source_tier (preferred) or infer from source string (fallback)
+    const trustTier: 0 | 1 | 2 = (result.source_tier !== undefined && result.source_tier !== null)
+      ? (result.source_tier as 0 | 1 | 2)
+      : getTrustTierForSource(result.source);
     
     // Build source metadata
     const metadata: SourceMetadata = {
@@ -511,28 +524,66 @@ function processHybridResults(
       id: result.id,
       content,
       metadata,
-      score: result.fusedScore || result.denseScore || result.sparseScore || 0,
+      score: Math.min(1.0, Math.max(result.denseScore || 0, result.sparseScore || 0, result.fusedScore || 0)),
       rankPosition: chunks.length + 1,
       freshnessStatus: freshnessResult.status,
       daysOld: freshnessResult.daysOld,
     };
     
     chunks.push(chunk);
-    
-    // Build context part
+  }
+  
+  // ============================================
+  // TIER-AWARE RERANKING
+  // Reorder chunks so official sources (Tier 0) outrank community (Tier 2)
+  // Also filters by query intent (policy queries → only Tier 0)
+  // ============================================
+  let rerankedChunks = chunks;
+  let tierFilter: TierFilterResult | undefined;
+  
+  if (chunks.length > 0) {
+    try {
+      console.log(`[Knowledge] Applying tier-aware reranking to ${chunks.length} chunks...`);
+      const rerankerResult = await rerankWithTierFiltering(query, chunks);
+      
+      tierFilter = rerankerResult.tierFilter;
+      
+      // Use reranked order — map RerankedResult[] back to ChunkWithProvenance[]
+      rerankedChunks = rerankerResult.results.map(r => r.document);
+      
+      // SAFETY: If reranker returned empty results but we had chunks,
+      // fall back to original order to prevent sources from disappearing
+      if (rerankedChunks.length === 0 && chunks.length > 0) {
+        console.warn(`[Knowledge] Reranker returned 0 results from ${chunks.length} chunks — falling back to original order`);
+        rerankedChunks = chunks;
+      }
+      
+      // Log tier filter warnings
+      if (tierFilter.warnings.length > 0) {
+        console.log(`[Knowledge] Tier filter warnings:`, tierFilter.warnings);
+      }
+      console.log(`[Knowledge] Reranking complete: ${rerankerResult.tierFilter.allowed.length} allowed, ${rerankerResult.tierFilter.filtered.length} filtered out`);
+    } catch (err) {
+      console.warn('[Knowledge] Tier-aware reranking failed, using original order:', err);
+      // Fallback: use original order
+      rerankedChunks = chunks;
+    }
+  }
+  
+  // Build sources and context from reranked chunks
+  for (const chunk of rerankedChunks) {
     const sourceIdx = sources.length + 1;
-    contextParts.push(`[${sourceIdx}] ${result.title}: ${content.slice(0, 300)}...`);
+    contextParts.push(`[${sourceIdx}] ${chunk.metadata.title || 'Source'}: ${chunk.content.slice(0, 300)}...`);
     
-    // Build cited source
     sources.push({
-      title: result.title,
-      url: result.url || '',
-      source: mapSourceType(result.source),
-      author: result.author,
-      relevanceScore: result.fusedScore || result.denseScore || 0,
-      trustTier,
-      wasSanitized,
-      freshnessStatus: freshnessResult.status,
+      title: chunk.metadata.title || '',
+      url: chunk.metadata.url || '',
+      source: mapSourceType(chunk.metadata.source, chunk.metadata.trustTier),
+      author: undefined,
+      relevanceScore: chunk.score || 0,
+      trustTier: chunk.metadata.trustTier,
+      wasSanitized: false,
+      freshnessStatus: chunk.freshnessStatus,
     });
   }
   
@@ -541,7 +592,7 @@ function processHybridResults(
     context: contextParts.join('\n\n'),
     sources,
     retrievedAt: new Date().toISOString(),
-    chunks,
+    chunks: rerankedChunks,
     searchMethod,
     hybridMetrics: {
       denseResultCount: hybridResult.meta.denseCount,
@@ -549,6 +600,7 @@ function processHybridResults(
       fusedResultCount: hybridResult.meta.fusedCount,
       sparseSearchAvailable: hybridResult.meta.sparseCount > 0,
     },
+    tierFilter,
   };
 }
 
@@ -657,10 +709,19 @@ async function searchLocalCacheEnhanced(
 }
 
 /**
- * Map source string to CitedSource source type
+ * Map source string to CitedSource source type.
+ * Uses trustTier to distinguish Tier 1 guide sources (stored as 'capitalone'
+ * in the DB due to a source field constraint) from actual Tier 0 official sources.
  */
-function mapSourceType(source: string): CitedSource['source'] {
+function mapSourceType(source: string, trustTier?: 0 | 1 | 2): CitedSource['source'] {
   const normalized = source.toLowerCase();
+  
+  // Tier 1 sources (TPG, OMAAT, NerdWallet, etc.) are stored with source='capitalone'
+  // in the DB but have source_tier=1. Map them to 'custom' so the UI shows them
+  // differently from official Capital One sources.
+  if (trustTier === 1) {
+    return 'custom';
+  }
   
   if (normalized.includes('capitalone') || normalized === 'official') {
     return 'capitalone';
@@ -724,7 +785,9 @@ export async function sendChatViaSupabase(
 }
 
 /**
- * Build system prompt with retrieved knowledge and citation instructions
+ * Build system prompt with retrieved knowledge.
+ * NOTE: Sources are displayed in the UI dropdown — the LLM must NOT include
+ * inline citations or "Sources:" lists in its response text.
  */
 export function buildRAGSystemPrompt(
   basePrompt: string,
@@ -736,18 +799,11 @@ export function buildRAGSystemPrompt(
   
   return `${basePrompt}
 
-RETRIEVED KNOWLEDGE (use this to answer, cite sources using [1], [2], etc.):
+RETRIEVED KNOWLEDGE (use this to inform your answer):
 ${retrievalResult.context}
 
-AVAILABLE SOURCES:
-${retrievalResult.sources.map((s, i) => 
-  `[${i + 1}] ${s.title} (${s.source}) - ${s.url}`
-).join('\n')}
-
-CITATION INSTRUCTIONS:
-- Use inline citations like [1], [2] when referencing information from the knowledge base
-- Only cite sources that you actually use in your answer
-- If you're not sure, say so rather than making up information
+IMPORTANT: Do NOT include any source references, citations, numbered markers like [1] [2] [3], or "Sources:" lists in your response. Just provide a clean, helpful answer. The sources are automatically displayed separately in the UI.
+- If you're not sure about something, say so rather than making up information
 - Prioritize information from official Capital One sources`;
 }
 
@@ -773,32 +829,26 @@ function getSourceLabel(source: CitedSource['source']): string {
 }
 
 /**
- * Map source type to trust tier
- * Tier 1: Official sources (highest trust)
- * Tier 2: Editorial sources
- * Tier 3: Structured community content
- * Tier 4: Unstructured user content (lowest trust)
+ * Map source type to trust tier (aligned with venturexSources.ts 0-2 scale)
+ * Tier 0: Official sources — Capital One (policy truth)
+ * Tier 1: Trusted third-party guides — TPG, NerdWallet, OMAAT, etc.
+ * Tier 2: Community sources — Reddit, FlyerTalk (anecdotal data points)
  */
-function getTrustTierForSource(source: string): 1 | 2 | 3 | 4 {
+function getTrustTierForSource(source: string): 0 | 1 | 2 {
   const normalized = source.toLowerCase();
   
-  // Tier 1: Official sources
+  // Tier 0: Official Capital One sources
   if (normalized.includes('capitalone') || normalized === 'official') {
+    return 0;
+  }
+  
+  // Tier 1: Trusted third-party guides
+  if (['tpg', 'nerdwallet', 'doctorofcredit', 'omaat', 'onemileatatime', 'frequentmiler', 'editorial'].some(s => normalized.includes(s))) {
     return 1;
   }
   
-  // Tier 2: Editorial sources
-  if (['tpg', 'nerdwallet', 'doctorofcredit', 'editorial'].some(s => normalized.includes(s))) {
-    return 2;
-  }
-  
-  // Tier 3: Structured community content
-  if (['flyertalk', 'churning'].some(s => normalized.includes(s))) {
-    return 3;
-  }
-  
-  // Tier 4: Unstructured user content (Reddit, custom, unknown)
-  return 4;
+  // Tier 2: Community sources (Reddit, FlyerTalk, unknown, custom)
+  return 2;
 }
 
 // Re-export for convenience

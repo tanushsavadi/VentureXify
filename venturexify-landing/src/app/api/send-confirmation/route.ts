@@ -1,18 +1,19 @@
-import { Resend } from 'resend';
+import { render } from '@react-email/render';
 import { WaitlistConfirmationEmail } from '@/emails/WaitlistConfirmation';
 
-// Lazy instantiation to avoid build errors when API key is not set
-let resend: Resend | null = null;
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
-function getResendClient(): Resend {
-  if (!resend) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      throw new Error('RESEND_API_KEY environment variable is not set');
-    }
-    resend = new Resend(apiKey);
+function getBrevoApiKey(): string {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY environment variable is not set');
   }
-  return resend;
+  return apiKey;
+}
+
+function getSenderEmail(): string {
+  // Use BREVO_SENDER_EMAIL env var, or fall back to the verified Brevo sender
+  return process.env.BREVO_SENDER_EMAIL || 'r6s0069@gmail.com';
 }
 
 export async function POST(request: Request) {
@@ -37,27 +38,52 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get the Resend client (will throw if API key not set)
-    const resendClient = getResendClient();
+    // Get Brevo API key (will throw if not set)
+    const apiKey = getBrevoApiKey();
+    const senderEmail = getSenderEmail();
 
-    // Use Resend's test domain (onboarding@resend.dev) until you verify your own domain
-    // To use your own domain: verify it at https://resend.com/domains then change the 'from' address
-    const { data, error } = await resendClient.emails.send({
-      from: 'VentureXify <onboarding@resend.dev>',
-      to: [email],
-      subject: `You're #${position} on the VentureXify waitlist! 🎉`,
-      react: WaitlistConfirmationEmail({ email, position, source }),
+    // Render the React Email template to HTML
+    const htmlContent = await render(
+      WaitlistConfirmationEmail({ email, position, source })
+    );
+
+    // Send via Brevo Transactional Email API
+    // Docs: https://developers.brevo.com/reference/sendtransacemail
+    const response = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'VentureXify',
+          email: senderEmail,
+        },
+        to: [
+          {
+            email: email,
+          },
+        ],
+        subject: `You're #${position} on the VentureXify waitlist! 🎉`,
+        htmlContent: htmlContent,
+        tags: ['waitlist-confirmation'],
+      }),
     });
 
-    if (error) {
-      console.error('Resend error:', error);
-      return Response.json({ error: error.message }, { status: 500 });
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('Brevo API error:', result);
+      const errorMessage = result?.message || result?.code || 'Failed to send email via Brevo';
+      return Response.json({ error: errorMessage }, { status: response.status });
     }
 
     return Response.json({
       success: true,
-      messageId: data?.id,
-      message: 'Confirmation email sent successfully'
+      messageId: result?.messageId,
+      message: 'Confirmation email sent successfully',
     });
   } catch (error) {
     console.error('Failed to send email:', error);

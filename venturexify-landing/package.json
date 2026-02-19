@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-email/components": "^1.0.7",
+    "@react-email/render": "^1.0.5",
     "@react-three/drei": "^9.97.0",
     "@react-three/fiber": "^8.15.16",
     "@supabase/supabase-js": "^2.39.7",
@@ -23,7 +24,6 @@
     "next-share": "^0.27.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "resend": "^6.9.1",
     "tailwind-merge": "^3.4.0",
     "three": "^0.162.0"
   },

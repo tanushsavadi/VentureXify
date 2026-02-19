@@ -85,10 +85,12 @@ export default function WaitlistForm({ showExtendedForm = false, className = '' 
   };
 
   // Show success state if already signed up (from any source)
+  // isReturning = true when user was already registered (duplicate email) or returning from localStorage
+  const isReturning = status === 'already_registered' || (isSignedUp && status === 'idle');
   if (isSignedUp || status === 'success' || status === 'already_registered') {
     return (
       <div className={className}>
-        <CTAWaitlistSuccess position={position || undefined} />
+        <CTAWaitlistSuccess position={position || undefined} isReturning={isReturning} />
       </div>
     );
   }
@@ -213,6 +215,9 @@ export function InlineWaitlistForm() {
   const { isSignedUp, setSignedUp, incrementWaitlistCount } = useWaitlist();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [wasAlreadyRegistered, setWasAlreadyRegistered] = useState(false);
+  // Track if isSignedUp was true on mount (returning from localStorage)
+  const [wasSignedUpOnMount] = useState(isSignedUp);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,6 +236,8 @@ export function InlineWaitlistForm() {
               source: 'hero_section',
             }).catch(console.error); // Non-blocking
           }
+        } else {
+          setWasAlreadyRegistered(true);
         }
         setSignedUp(email, 'hero_section', result.position);
       }
@@ -242,7 +249,7 @@ export function InlineWaitlistForm() {
   };
 
   if (isSignedUp) {
-    return <HeroWaitlistSuccess />;
+    return <HeroWaitlistSuccess isReturning={wasAlreadyRegistered || wasSignedUpOnMount} />;
   }
 
   return (

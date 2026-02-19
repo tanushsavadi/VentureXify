@@ -38,14 +38,28 @@ export const WaitlistConfirmationEmail: React.FC<Readonly<WaitlistConfirmationEm
             <Text style={logoText}>
               <span style={logoV}>V</span>entureXify
             </Text>
+            <Text style={logoTagline}>Smart Points. Smarter Travel.</Text>
+          </Section>
+
+          {/* Decorative separator */}
+          <Section style={accentDividerSection}>
+            <Hr style={accentDivider} />
           </Section>
 
           {/* Position Badge */}
           <Section style={badgeSection}>
-            <Container style={positionBadge}>
-              <Text style={positionLabel}>YOUR POSITION</Text>
-              <Text style={positionNumber}>#{position}</Text>
-            </Container>
+            <table
+              cellPadding="0"
+              cellSpacing="0"
+              style={positionBadgeTable}
+            >
+              <tr>
+                <td style={positionBadgeTd}>
+                  <Text style={positionLabel}>YOUR POSITION</Text>
+                  <Text style={positionNumber}>#{position}</Text>
+                </td>
+              </tr>
+            </table>
           </Section>
 
           {/* Main Content */}
@@ -57,44 +71,37 @@ export const WaitlistConfirmationEmail: React.FC<Readonly<WaitlistConfirmationEm
           </Text>
 
           <Text style={paragraph}>
-            We&apos;re building something special – a Chrome extension that uses AI to
+            We&apos;re building something special — a Chrome extension that uses AI to
             help you make smarter decisions about when to use points vs. cash for
             travel bookings.
           </Text>
 
+          {/* Decorative separator */}
+          <Section style={accentDividerSection}>
+            <Hr style={subtleDivider} />
+          </Section>
+
           {/* What's Coming Section */}
           <Section style={featuresSection}>
-            <Text style={sectionTitle}>What&apos;s Coming</Text>
-            
-            <Row style={featureRow}>
-              <Column style={featureIconCol}>
+            <Text style={sectionTitle}>✦ What&apos;s Coming ✦</Text>
+
+            <Row>
+              <Column style={featureColumn}>
                 <Text style={featureIcon}>🔍</Text>
-              </Column>
-              <Column style={featureTextCol}>
                 <Text style={featureTitle}>Smart Analysis</Text>
                 <Text style={featureDesc}>
                   Real-time analysis of your bookings to find the best redemption value
                 </Text>
               </Column>
-            </Row>
-
-            <Row style={featureRow}>
-              <Column style={featureIconCol}>
+              <Column style={featureColumn}>
                 <Text style={featureIcon}>💰</Text>
-              </Column>
-              <Column style={featureTextCol}>
-                <Text style={featureTitle}>Transfer Partner Optimization</Text>
+                <Text style={featureTitle}>Transfer Partners</Text>
                 <Text style={featureDesc}>
-                  Discover hidden value through airline & hotel transfer partners
+                  Discover hidden value through airline &amp; hotel transfer partners
                 </Text>
               </Column>
-            </Row>
-
-            <Row style={featureRow}>
-              <Column style={featureIconCol}>
+              <Column style={featureColumn}>
                 <Text style={featureIcon}>⚡</Text>
-              </Column>
-              <Column style={featureTextCol}>
                 <Text style={featureTitle}>Instant Verdicts</Text>
                 <Text style={featureDesc}>
                   Know immediately whether to pay with points or cash
@@ -103,46 +110,107 @@ export const WaitlistConfirmationEmail: React.FC<Readonly<WaitlistConfirmationEm
             </Row>
           </Section>
 
-          <Hr style={divider} />
+          {/* Decorative separator */}
+          <Section style={accentDividerSection}>
+            <Hr style={subtleDivider} />
+          </Section>
 
           {/* Early Access Perks */}
           <Section style={perksSection}>
-            <Text style={sectionTitle}>Your Early Access Perks</Text>
-            
-            <Section style={perkItem}>
-              <Text style={perkText}>✓ First to access the beta launch</Text>
-            </Section>
-            <Section style={perkItem}>
-              <Text style={perkText}>✓ Exclusive founding member features</Text>
-            </Section>
-            <Section style={perkItem}>
-              <Text style={perkText}>✓ Direct line to share feedback & shape the product</Text>
-            </Section>
-            <Section style={perkItem}>
-              <Text style={perkText}>✓ Potential early-bird pricing benefits</Text>
-            </Section>
+            <Text style={sectionTitle}>✦ Your Early Access Perks ✦</Text>
+
+            <Text style={perkText}>
+              <span style={perkCheck}>✓</span> First to access the beta launch
+            </Text>
+            <Text style={perkText}>
+              <span style={perkCheck}>✓</span> Exclusive founding member features
+            </Text>
+            <Text style={perkText}>
+              <span style={perkCheck}>✓</span> Direct line to share feedback &amp; shape the product
+            </Text>
+            <Text style={perkText}>
+              <span style={perkCheck}>✓</span> Potential early-bird pricing benefits
+            </Text>
           </Section>
 
-          <Hr style={divider} />
+          {/* Decorative separator */}
+          <Section style={accentDividerSection}>
+            <Hr style={subtleDivider} />
+          </Section>
 
           {/* Social Section */}
           <Section style={socialSection}>
+            <Text style={socialHeading}>Spread the Word</Text>
             <Text style={socialText}>
-              Spread the word and help others maximize their Venture X!
+              Help others maximize their Venture X!
             </Text>
-            <Text style={socialLinks}>
-              <Link href="https://twitter.com/intent/tweet?text=Just%20joined%20the%20%40VentureXify%20waitlist%21%20Can%27t%20wait%20to%20maximize%20my%20Capital%20One%20Venture%20X%20points%20with%20AI.%20%23VentureX%20%23TravelHacking&url=https://venturexify.vercel.app" style={socialLink}>
-                Share on X
-              </Link>
-              {' • '}
-              <Link href="https://www.linkedin.com/sharing/share-offsite/?url=https://venturexify.vercel.app" style={socialLink}>
-                Share on LinkedIn
-              </Link>
-            </Text>
+            <table
+              cellPadding="0"
+              cellSpacing="0"
+              role="presentation"
+              style={socialButtonsTable}
+            >
+              <tr>
+                <td align="center" style={socialButtonsOuterTd}>
+                  <table
+                    cellPadding="0"
+                    cellSpacing="0"
+                    role="presentation"
+                    style={socialButtonsInnerTable}
+                  >
+                    {/* Row 1: X | LinkedIn */}
+                    <tr>
+                      <td style={socialButtonTd}>
+                        <Link
+                          href="https://twitter.com/intent/tweet?text=Just%20joined%20the%20%40VentureXify%20waitlist%21%20Can%27t%20wait%20to%20maximize%20my%20Capital%20One%20Venture%20X%20points%20with%20AI.%20%23VentureX%20%23TravelHacking&url=https://venturexify.vercel.app"
+                          style={socialButtonLink}
+                        >
+                          𝕏 Share on X
+                        </Link>
+                      </td>
+                      <td style={socialButtonGap}>&nbsp;</td>
+                      <td style={socialButtonTd}>
+                        <Link
+                          href="https://www.linkedin.com/sharing/share-offsite/?url=https://venturexify.vercel.app"
+                          style={socialButtonLink}
+                        >
+                          in Share on LinkedIn
+                        </Link>
+                      </td>
+                    </tr>
+                    {/* Row gap */}
+                    <tr>
+                      <td colSpan={3} style={socialRowGap}>&nbsp;</td>
+                    </tr>
+                    {/* Row 2: r/VentureX | WhatsApp */}
+                    <tr>
+                      <td style={socialButtonTd}>
+                        <Link
+                          href="https://www.reddit.com/r/VentureX/submit?selftext=true&title=Just%20joined%20the%20VentureXify%20waitlist%20-%20AI%20Chrome%20extension%20for%20Venture%20X%20cardholders&text=Found%20this%20cool%20tool%20called%20VentureXify%20that%20helps%20maximize%20Capital%20One%20Venture%20X%20points.%20It%20uses%20AI%20to%20tell%20you%20when%20to%20use%20points%20vs%20cash%20and%20finds%20transfer%20partner%20sweet%20spots.%0A%0Ahttps%3A%2F%2Fventurexify.vercel.app"
+                          style={socialButtonLink}
+                        >
+                          📣 r/VentureX
+                        </Link>
+                      </td>
+                      <td style={socialButtonGap}>&nbsp;</td>
+                      <td style={socialButtonTd}>
+                        <Link
+                          href="https://api.whatsapp.com/send?text=Check%20out%20VentureXify%20-%20an%20AI%20Chrome%20extension%20that%20helps%20you%20maximize%20Capital%20One%20Venture%20X%20points!%20https%3A%2F%2Fventurexify.vercel.app"
+                          style={socialButtonLink}
+                        >
+                          💬 WhatsApp
+                        </Link>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
           </Section>
 
           {/* Footer */}
           <Section style={footer}>
+            <Hr style={footerDivider} />
             <Text style={footerText}>
               This email was sent to {email} because you signed up for the VentureXify waitlist.
             </Text>
@@ -159,194 +227,300 @@ export const WaitlistConfirmationEmail: React.FC<Readonly<WaitlistConfirmationEm
   );
 };
 
-// Styles
-const main = {
+/* ─── Styles ────────────────────────────────────────────────────────── */
+
+const main: React.CSSProperties = {
   backgroundColor: '#0a0a0a',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
 };
 
-const container = {
+const container: React.CSSProperties = {
   margin: '0 auto',
-  padding: '40px 20px',
-  maxWidth: '600px',
+  padding: '48px 24px',
+  width: '600px',
 };
 
-const logoSection = {
-  textAlign: 'center' as const,
-  marginBottom: '32px',
+/* ── Logo ────────────────────────────────────────────────────────── */
+
+const logoSection: React.CSSProperties = {
+  textAlign: 'center',
+  paddingBottom: '8px',
 };
 
-const logoText = {
-  fontSize: '28px',
+const logoText: React.CSSProperties = {
+  fontSize: '30px',
   fontWeight: '700',
   color: '#ffffff',
   margin: '0',
   letterSpacing: '-0.5px',
+  textAlign: 'center',
 };
 
-const logoV = {
-  background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  backgroundClip: 'text',
-};
-
-const badgeSection = {
-  textAlign: 'center' as const,
-  marginBottom: '32px',
-};
-
-const positionBadge = {
-  display: 'inline-block',
-  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(249, 115, 22, 0.15) 100%)',
-  border: '1px solid rgba(245, 158, 11, 0.3)',
-  borderRadius: '16px',
-  padding: '16px 32px',
-};
-
-const positionLabel = {
-  fontSize: '11px',
-  fontWeight: '600',
+const logoV: React.CSSProperties = {
   color: '#f59e0b',
-  letterSpacing: '1.5px',
-  margin: '0 0 4px 0',
-  textTransform: 'uppercase' as const,
+  fontWeight: '800',
 };
 
-const positionNumber = {
-  fontSize: '36px',
+const logoTagline: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: '500',
+  color: '#71717a',
+  margin: '4px 0 0 0',
+  letterSpacing: '2px',
+  textTransform: 'uppercase',
+  textAlign: 'center',
+};
+
+/* ── Dividers ────────────────────────────────────────────────────── */
+
+const accentDividerSection: React.CSSProperties = {
+  textAlign: 'center',
+  padding: '0 100px',
+};
+
+const accentDivider: React.CSSProperties = {
+  borderColor: '#f59e0b',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  margin: '24px auto',
+  width: '60px',
+};
+
+const subtleDivider: React.CSSProperties = {
+  borderColor: 'rgba(255, 255, 255, 0.08)',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  margin: '32px auto',
+};
+
+/* ── Position Badge ──────────────────────────────────────────────── */
+
+const badgeSection: React.CSSProperties = {
+  textAlign: 'center',
+  paddingBottom: '28px',
+};
+
+const positionBadgeTable: React.CSSProperties = {
+  margin: '0 auto',
+  backgroundColor: '#1a1400',
+  border: '1px solid #f59e0b',
+  borderRadius: '16px',
+  padding: '0',
+};
+
+const positionBadgeTd: React.CSSProperties = {
+  padding: '20px 48px',
+  textAlign: 'center',
+};
+
+const positionLabel: React.CSSProperties = {
+  fontSize: '11px',
   fontWeight: '700',
+  color: '#fbbf24',
+  letterSpacing: '2.5px',
+  margin: '0 0 8px 0',
+  textTransform: 'uppercase',
+  textAlign: 'center',
+};
+
+const positionNumber: React.CSSProperties = {
+  fontSize: '42px',
+  fontWeight: '800',
   color: '#ffffff',
   margin: '0',
   lineHeight: '1',
+  textAlign: 'center',
 };
 
-const h1 = {
+/* ── Main Content ────────────────────────────────────────────────── */
+
+const h1: React.CSSProperties = {
   color: '#ffffff',
   fontSize: '28px',
   fontWeight: '700',
   lineHeight: '1.3',
   margin: '0 0 24px 0',
-  textAlign: 'center' as const,
+  textAlign: 'center',
 };
 
-const paragraph = {
+const paragraph: React.CSSProperties = {
   color: '#a1a1aa',
   fontSize: '16px',
-  lineHeight: '1.6',
+  lineHeight: '1.7',
   margin: '0 0 16px 0',
+  textAlign: 'center',
 };
 
-const featuresSection = {
-  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+/* ── Features Section ────────────────────────────────────────────── */
+
+const featuresSection: React.CSSProperties = {
+  backgroundColor: '#111111',
   borderRadius: '12px',
-  padding: '24px',
-  marginTop: '32px',
+  border: '1px solid rgba(255, 255, 255, 0.06)',
+  padding: '28px 16px',
+  textAlign: 'center',
 };
 
-const sectionTitle = {
-  color: '#ffffff',
-  fontSize: '18px',
-  fontWeight: '600',
-  margin: '0 0 20px 0',
-};
-
-const featureRow = {
-  marginBottom: '16px',
-};
-
-const featureIconCol = {
-  width: '40px',
-  verticalAlign: 'top',
-};
-
-const featureIcon = {
-  fontSize: '20px',
-  margin: '0',
-};
-
-const featureTextCol = {
-  paddingLeft: '12px',
-};
-
-const featureTitle = {
-  color: '#ffffff',
-  fontSize: '15px',
-  fontWeight: '600',
-  margin: '0 0 4px 0',
-};
-
-const featureDesc = {
-  color: '#71717a',
+const sectionTitle: React.CSSProperties = {
+  color: '#fbbf24',
   fontSize: '14px',
+  fontWeight: '700',
+  margin: '0 0 24px 0',
+  letterSpacing: '1.5px',
+  textTransform: 'uppercase',
+  textAlign: 'center',
+};
+
+const featureColumn: React.CSSProperties = {
+  textAlign: 'center',
+  verticalAlign: 'top',
+  padding: '0 8px',
+  width: '33.33%',
+};
+
+const featureIcon: React.CSSProperties = {
+  fontSize: '28px',
+  margin: '0 0 8px 0',
+  textAlign: 'center',
+};
+
+const featureTitle: React.CSSProperties = {
+  color: '#ffffff',
+  fontSize: '14px',
+  fontWeight: '700',
+  margin: '0 0 6px 0',
+  textAlign: 'center',
+};
+
+const featureDesc: React.CSSProperties = {
+  color: '#71717a',
+  fontSize: '12px',
   margin: '0',
   lineHeight: '1.5',
+  textAlign: 'center',
 };
 
-const divider = {
-  borderColor: 'rgba(255, 255, 255, 0.1)',
-  margin: '32px 0',
+/* ── Perks Section ───────────────────────────────────────────────── */
+
+const perksSection: React.CSSProperties = {
+  textAlign: 'center',
+  paddingBottom: '8px',
 };
 
-const perksSection = {
-  marginBottom: '8px',
-};
-
-const perkItem = {
-  marginBottom: '8px',
-};
-
-const perkText = {
-  color: '#a1a1aa',
+const perkText: React.CSSProperties = {
+  color: '#d4d4d8',
   fontSize: '15px',
-  margin: '0',
+  margin: '0 0 12px 0',
   lineHeight: '1.6',
+  textAlign: 'center',
 };
 
-const socialSection = {
-  textAlign: 'center' as const,
-  marginTop: '8px',
+const perkCheck: React.CSSProperties = {
+  color: '#f59e0b',
+  fontWeight: '700',
+  marginRight: '6px',
 };
 
-const socialText = {
+/* ── Social Section ──────────────────────────────────────────────── */
+
+const socialSection: React.CSSProperties = {
+  textAlign: 'center',
+  paddingBottom: '8px',
+};
+
+const socialHeading: React.CSSProperties = {
+  color: '#ffffff',
+  fontSize: '18px',
+  fontWeight: '700',
+  margin: '0 0 6px 0',
+  textAlign: 'center',
+};
+
+const socialText: React.CSSProperties = {
   color: '#71717a',
   fontSize: '14px',
-  margin: '0 0 12px 0',
+  margin: '0 0 20px 0',
+  textAlign: 'center',
 };
 
-const socialLinks = {
-  margin: '0',
+const socialButtonsTable: React.CSSProperties = {
+  margin: '0 auto',
+  width: '100%',
 };
 
-const socialLink = {
-  color: '#f59e0b',
-  fontSize: '14px',
+const socialButtonsOuterTd: React.CSSProperties = {
+  textAlign: 'center',
+  padding: '0',
+};
+
+const socialButtonsInnerTable: React.CSSProperties = {
+  margin: '0 auto',
+};
+
+const socialButtonTd: React.CSSProperties = {
+  textAlign: 'center',
+};
+
+const socialButtonGap: React.CSSProperties = {
+  width: '16px',
+  fontSize: '0',
+  lineHeight: '0',
+};
+
+const socialRowGap: React.CSSProperties = {
+  height: '12px',
+  fontSize: '0',
+  lineHeight: '0',
+};
+
+const socialButtonLink: React.CSSProperties = {
+  color: '#0a0a0a',
+  backgroundColor: '#f59e0b',
+  fontSize: '13px',
+  fontWeight: '700',
   textDecoration: 'none',
-  fontWeight: '500',
+  borderRadius: '8px',
+  padding: '10px 24px',
+  display: 'inline-block',
+  textAlign: 'center',
+  width: '160px',
 };
 
-const footer = {
-  marginTop: '48px',
-  textAlign: 'center' as const,
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+const footer: React.CSSProperties = {
+  textAlign: 'center',
+  paddingTop: '16px',
 };
 
-const footerText = {
+const footerDivider: React.CSSProperties = {
+  borderColor: 'rgba(255, 255, 255, 0.06)',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  margin: '0 0 24px 0',
+};
+
+const footerText: React.CSSProperties = {
   color: '#52525b',
   fontSize: '12px',
   margin: '0 0 8px 0',
+  textAlign: 'center',
 };
 
-const footerDisclaimer = {
+const footerDisclaimer: React.CSSProperties = {
   color: '#3f3f46',
   fontSize: '11px',
   margin: '0 0 8px 0',
-  fontStyle: 'italic' as const,
+  fontStyle: 'italic',
+  textAlign: 'center',
 };
 
-const footerCopyright = {
+const footerCopyright: React.CSSProperties = {
   color: '#3f3f46',
   fontSize: '11px',
   margin: '0',
+  textAlign: 'center',
 };
 
 export default WaitlistConfirmationEmail;

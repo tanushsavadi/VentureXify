@@ -250,15 +250,15 @@ function SocialShareButtons() {
 }
 
 // Hero variant - compact inline success
-export function HeroWaitlistSuccess() {
+export function HeroWaitlistSuccess({ isReturning = false }: { isReturning?: boolean }) {
   const hasAnimated = useRef(false);
   
   useEffect(() => {
-    if (!hasAnimated.current) {
+    if (!hasAnimated.current && !isReturning) {
       fireConfetti();
       hasAnimated.current = true;
     }
-  }, []);
+  }, [isReturning]);
   
   return (
     <motion.div
@@ -291,7 +291,7 @@ export function HeroWaitlistSuccess() {
           transition={{ delay: 0.3 }}
         >
           <Sparkles className="w-4 h-4" />
-          You&apos;re on the list!
+          {isReturning ? 'Welcome back!' : "You're on the list!"}
         </motion.p>
         <motion.p
           className="text-white/50 text-sm"
@@ -299,7 +299,9 @@ export function HeroWaitlistSuccess() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          We&apos;ll notify you when beta launches
+          {isReturning
+            ? "You're already on the waitlist — we'll notify you at launch"
+            : "We'll notify you when beta launches"}
         </motion.p>
       </div>
     </motion.div>
@@ -307,16 +309,30 @@ export function HeroWaitlistSuccess() {
 }
 
 // Full CTA variant - impressive celebration
-export function CTAWaitlistSuccess({ position }: { position?: number }) {
+export function CTAWaitlistSuccess({ position, isReturning = false }: { position?: number; isReturning?: boolean }) {
   const hasAnimated = useRef(false);
   const [showShare, setShowShare] = useState(false);
   
   useEffect(() => {
-    if (!hasAnimated.current) {
+    if (!hasAnimated.current && !isReturning) {
       fireConfetti();
       hasAnimated.current = true;
     }
-  }, []);
+  }, [isReturning]);
+  
+  const newSignupItems = [
+    { icon: Mail, text: 'Confirmation email on the way', gradient: 'from-blue-400 to-cyan-400' },
+    { icon: Zap, text: 'Early access at launch', gradient: 'from-amber-400 to-orange-400' },
+    { icon: Crown, text: 'Exclusive beta features', gradient: 'from-violet-400 to-purple-400' },
+  ];
+
+  const returningItems = [
+    { icon: Check, text: 'You\'re already on the waitlist', gradient: 'from-emerald-400 to-green-400' },
+    { icon: Zap, text: 'Early access at launch', gradient: 'from-amber-400 to-orange-400' },
+    { icon: Crown, text: 'Exclusive beta features', gradient: 'from-violet-400 to-purple-400' },
+  ];
+
+  const whatsNextItems = isReturning ? returningItems : newSignupItems;
   
   return (
     <motion.div
@@ -329,14 +345,14 @@ export function CTAWaitlistSuccess({ position }: { position?: number }) {
         <AnimatedCheckmark />
       </div>
       
-      {/* Headline - nonchalant */}
+      {/* Headline */}
       <motion.h3
         className="text-xl md:text-2xl font-semibold mb-2 text-white"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
       >
-        You&apos;re in 🎉
+        {isReturning ? 'Welcome back! 👋' : "You're in 🎉"}
       </motion.h3>
       
       <motion.p
@@ -345,7 +361,9 @@ export function CTAWaitlistSuccess({ position }: { position?: number }) {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.7 }}
       >
-        We&apos;ll ping you when early access opens
+        {isReturning
+          ? "You're already signed up — no need to register again"
+          : "We'll ping you when early access opens"}
       </motion.p>
       
       {/* Position badge */}
@@ -372,14 +390,12 @@ export function CTAWaitlistSuccess({ position }: { position?: number }) {
             <div className="absolute inset-[-1px] rounded-2xl bg-gradient-to-b from-white/[0.08] via-transparent to-transparent" />
           </div>
           
-          <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-4">What&apos;s Next</p>
+          <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-4">
+            {isReturning ? 'Your Status' : "What's Next"}
+          </p>
           
           <div className="flex flex-col gap-3">
-            {[
-              { icon: Mail, text: 'Confirmation email on the way', gradient: 'from-blue-400 to-cyan-400' },
-              { icon: Zap, text: 'Early access at launch', gradient: 'from-amber-400 to-orange-400' },
-              { icon: Crown, text: 'Exclusive beta features', gradient: 'from-violet-400 to-purple-400' },
-            ].map((item, i) => (
+            {whatsNextItems.map((item, i) => (
               <motion.div
                 key={i}
                 className="flex items-center gap-3 group"

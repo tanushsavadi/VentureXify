@@ -322,7 +322,7 @@ function createMockChunk(id: string): ChunkWithProvenance {
     id: `doc-${id}`,
     source: 'test',
     retrievedAt: new Date().toISOString(),
-    trustTier: 3,
+    trustTier: 2,
     contentHash: 'abc123',
     version: 1,
     isActive: true,

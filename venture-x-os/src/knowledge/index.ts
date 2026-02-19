@@ -31,7 +31,7 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     id: 'card-earn-rates',
     category: 'card-basics',
     title: 'Earning Rates',
-    content: 'Earn 2X miles on all purchases. Earn 5X miles on flights via Capital One Travel portal. Earn 10X miles on hotels and rental cars via portal.',
+    content: 'Earn 2X miles on all purchases. Earn 5X miles on flights and vacation rentals via Capital One Travel portal. Earn 10X miles on hotels and rental cars via portal.',
     lastUpdated: '2024-01-01',
     source: 'Capital One'
   },
@@ -49,6 +49,14 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     title: 'Anniversary Bonus',
     content: '10,000 anniversary bonus miles each year on card anniversary date. Worth ~$180 at 1.8cpp.',
     lastUpdated: '2024-01-01',
+    source: 'Capital One'
+  },
+  {
+    id: 'card-sign-on-bonus',
+    category: 'card-basics',
+    title: 'Sign-On Bonus / Welcome Bonus',
+    content: 'The Capital One Venture X offers a sign-on bonus of 75,000 bonus miles after spending $4,000 on purchases within the first 3 months of account opening. This is a publicly listed offer on the Capital One website. At 1cpp (Travel Eraser) the bonus is worth $750; at optimal transfer partner rates (1.5-2cpp) it can be worth $1,125-$1,500+. The $4,000 spend requirement includes all purchases but NOT balance transfers, cash advances, or fees.',
+    lastUpdated: '2026-02-17',
     source: 'Capital One'
   },
   
@@ -167,16 +175,16 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     id: 'lounge-priority-pass',
     category: 'lounges',
     title: 'Priority Pass',
-    content: 'Unlimited Priority Pass Select visits. 2 guests free per visit. Access to 1,400+ lounges worldwide.',
-    lastUpdated: '2024-01-01',
+    content: 'Unlimited Priority Pass Select visits for primary cardholder (enrollment required). Access to 1,300+ lounges worldwide. IMPORTANT CHANGE (February 1, 2026): Primary cardholders can NO LONGER bring complimentary guests to Priority Pass lounges. Guest access at Priority Pass lounges now costs $35 per guest per visit. Authorized users receive their own Priority Pass membership but cannot bring guests. NOTE: This is different from Capital One\'s own lounges, where primary cardholders CAN still bring 2 complimentary guests.',
+    lastUpdated: '2026-02-17',
     source: 'Capital One'
   },
   {
     id: 'lounge-capital-one',
     category: 'lounges',
     title: 'Capital One Lounges',
-    content: 'Premium lounges in DFW, DEN, IAD (Dulles). More locations coming. Unlimited guests. Premium food, drinks, showers.',
-    lastUpdated: '2024-01-01',
+    content: 'Premium lounges at DFW (Dallas-Fort Worth), DEN (Denver), IAD (Washington Dulles), and DCA (Ronald Reagan Washington National). Primary cardholders can bring up to 2 complimentary guests. Additional guests cost $45/visit (ages 18+), $25/visit (ages 2-17), free under 2. NOTE: This is different from Priority Pass lounges, where guests now cost $35 each (no complimentary guests as of Feb 2026). Premium food, craft cocktails, showers, relaxation rooms.',
+    lastUpdated: '2026-02-17',
     source: 'Capital One'
   },
   
@@ -239,7 +247,7 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     id: 'travel-protection-insurance',
     category: 'card-basics',
     title: 'Travel Protection & Insurance',
-    content: 'Venture X travel protection includes trip cancellation/interruption insurance (up to $5,000 per trip, $10,000 per year), trip delay reimbursement (up to $500 per ticket after 6+ hour delay for meals, lodging, essentials), lost luggage reimbursement (up to $3,000 per passenger), and baggage delay insurance (up to $500 for essentials after a 6+ hour delay).',
+    content: 'Venture X travel protection includes: trip cancellation/interruption insurance (up to $5,000 per trip, $10,000 per year), travel accident insurance (up to $250,000 for accidental death or dismemberment on a common carrier — NOT travel medical insurance; the Venture X does NOT include primary travel medical insurance), trip delay reimbursement (up to $500 per ticket after 6+ hour delay for meals, lodging, essentials), lost luggage reimbursement (up to $3,000 per passenger), baggage delay insurance (up to $500 for essentials after 6+ hour delay), travel and emergency assistance services (24/7 hotline for medical referrals, legal referrals, emergency transportation, translation services), auto rental collision damage waiver (secondary coverage), extended warranty (up to 1 additional year), purchase security (120 days, up to $10,000/claim), and cell phone protection (up to $800/claim, $25 deductible, 2 claims/year when paying cell bill with Venture X).',
     lastUpdated: '2026-02-17',
     source: 'Capital One'
   },
@@ -268,8 +276,8 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'lounge-access-comprehensive',
     category: 'lounges',
-    title: 'Lounge Access — Comprehensive Guide',
-    content: 'Venture X includes Priority Pass Select (1,300+ lounges worldwide) and Capital One Lounges at DFW, DEN, IAD, and DCA with hot meals, craft cocktails, showers, and relaxation rooms. Plaza Premium Lounge access is also included. As of February 2025, the primary cardholder plus 2 guests are admitted free; authorized users can enter but no longer receive free guest access.',
+    title: 'Lounge Access — Comprehensive Guide (2026 Updated)',
+    content: 'Venture X includes two types of lounge access with DIFFERENT guest rules. PRIORITY PASS SELECT (1,300+ lounges worldwide): As of February 1, 2026, primary cardholders can NO LONGER bring complimentary guests to Priority Pass lounges. Guest access at Priority Pass lounges now costs $35 per guest per visit. Authorized users receive their own Priority Pass membership but cannot bring guests. CAPITAL ONE LOUNGES AND LANDINGS (DFW, DEN, IAD, DCA): Primary cardholders can bring up to 2 complimentary guests. Additional guests cost $45/visit (18+), $25 (ages 2-17), free under 2. Features hot meals, craft cocktails, showers, and relaxation rooms. SUMMARY: Priority Pass = no free guests ($35/guest). Capital One Lounges = 2 free guests for primary cardholder.',
     lastUpdated: '2026-02-17',
     source: 'Capital One'
   },
@@ -279,7 +287,7 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     id: 'authorized-user-benefits',
     category: 'card-basics',
     title: 'Authorized User Benefits',
-    content: 'Authorized users on the Venture X card are free — there is no additional annual fee. Authorized users earn the same miles rates (2X/5X/10X) and receive their own Priority Pass membership. However, as of February 2025, authorized users no longer receive complimentary guest lounge access; they can enter lounges themselves but cannot bring guests for free.',
+    content: 'The Venture X card supports up to 4 authorized users at no additional annual fee for the card itself. Authorized users earn miles at the same rates as the primary cardholder: 2X on every purchase, 5X on flights and vacation rentals through Capital One Travel, 10X on hotels and rental cars through Capital One Travel. All miles earned by authorized users accumulate in the primary cardholder\'s account. Authorized users receive their own Priority Pass Select membership giving them personal access to 1,300+ Priority Pass lounges worldwide, but authorized users CANNOT bring guests to Priority Pass lounges. Authorized users also have access to Capital One Lounges and Landings.',
     lastUpdated: '2026-02-17',
     source: 'Capital One'
   },
@@ -289,7 +297,7 @@ export const STATIC_KNOWLEDGE: KnowledgeEntry[] = [
     id: 'global-entry-tsa-precheck',
     category: 'card-basics',
     title: 'Global Entry / TSA PreCheck Credit',
-    content: 'The Venture X provides up to $100 in statement credits every 4 years for Global Entry ($100), TSA PreCheck (~$78), or NEXUS ($50) application fees. The credit is applied automatically when the fee is charged to the card. This benefit helps offset the annual fee and speeds up airport security and customs.',
+    content: 'The Venture X provides up to $120 in statement credits every 4 years for Global Entry ($120), TSA PreCheck (~$78), or NEXUS ($50) application fees. The credit is applied automatically when the fee is charged to the card. This benefit helps offset the annual fee and speeds up airport security and customs.',
     lastUpdated: '2026-02-17',
     source: 'Capital One'
   },

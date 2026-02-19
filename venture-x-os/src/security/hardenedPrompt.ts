@@ -56,9 +56,9 @@ export function wrapRagContext(ragContext: string, sourceTiers: Map<string, numb
     const sourceMatch = chunk.match(/\[Source:\s*([^\]]+)\]/);
     if (sourceMatch) {
       const source = sourceMatch[1].toLowerCase();
-      const tier = sourceTiers.get(source) ?? 4;
+      const tier = sourceTiers.get(source) ?? 2;
       
-      if (tier <= 2) {
+      if (tier <= 1) {
         highTrust.push(chunk);
       } else {
         lowTrust.push(chunk);

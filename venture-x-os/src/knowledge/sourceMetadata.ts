@@ -20,8 +20,8 @@ export interface SourceMetadata {
   effectiveDate?: string;  // When the info becomes valid
   expiresAt?: string;      // When the info is no longer valid
   
-  // Trust
-  trustTier: 1 | 2 | 3 | 4;
+  // Trust (0=Official, 1=Guide, 2=Community)
+  trustTier: 0 | 1 | 2;
   verifiedAt?: string;     // Last manual verification
   verifiedBy?: string;     // Who verified (system or human)
   
@@ -167,8 +167,8 @@ export class SourceFreshnessManager {
    * Check if source needs re-verification
    */
   needsReverification(metadata: SourceMetadata): boolean {
-    // High-trust sources need less frequent verification
-    const reverifyDays = metadata.trustTier <= 2 ? 90 : 30;
+    // High-trust sources (Tier 0 Official, Tier 1 Guide) need less frequent verification
+    const reverifyDays = metadata.trustTier <= 1 ? 90 : 30;
     
     if (!metadata.verifiedAt) {
       return true;

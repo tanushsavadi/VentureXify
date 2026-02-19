@@ -121,12 +121,11 @@ export class CitationFormatter {
     'custom': '📄 Source',
   };
   
-  // Trust tier badges
+  // Trust tier badges (0-2 scale: 0=Official, 1=Guide, 2=Community)
   private readonly TRUST_BADGES: Record<number, string> = {
-    1: '✓',   // Verified official
-    2: '◐',   // Partner/editorial
-    3: '○',   // Curated
-    4: '⚠',   // Community/unverified
+    0: '✓',   // Verified official (Capital One)
+    1: '◐',   // Trusted guide (TPG, NerdWallet, etc.)
+    2: '⚠',   // Community/unverified (Reddit, FlyerTalk)
   };
   
   constructor(options: Partial<CitationFormatOptions> = {}) {
@@ -196,8 +195,8 @@ export class CitationFormatter {
           const footnote = this.formatSpanCitation(bestSpan, citationIndex);
           footnotes.push(footnote);
           
-          // Track trust level
-          if (bestSpan.trustTier <= 2) {
+          // Track trust level (0=Official, 1=Guide → high; 2=Community → low)
+          if (bestSpan.trustTier <= 1) {
             highTrustCitations++;
           } else {
             lowTrustCitations++;
@@ -275,8 +274,9 @@ export class CitationFormatter {
     const sourceKey = metadata.source?.toLowerCase() || 'custom';
     parts.push(this.SOURCE_LABELS[sourceKey] || this.SOURCE_LABELS.custom);
     
-    // Verification date for official sources
-    if (metadata.trustTier && metadata.trustTier <= 2) {
+    // Verification date for official/guide sources (Tier 0-1)
+    // NOTE: Use !== undefined check because Tier 0 is falsy in JS
+    if (metadata.trustTier !== undefined && metadata.trustTier <= 1) {
       if (metadata.verifiedAt) {
         parts.push(`Verified ${this.formatDate(metadata.verifiedAt)}`);
       } else if (metadata.retrievedAt) {
@@ -284,8 +284,8 @@ export class CitationFormatter {
       }
     }
     
-    // For lower trust sources, just show retrieval date
-    if (metadata.trustTier && metadata.trustTier > 2 && metadata.retrievedAt) {
+    // For community sources (Tier 2), just show retrieval date
+    if (metadata.trustTier !== undefined && metadata.trustTier >= 2 && metadata.retrievedAt) {
       parts.push(this.formatDate(metadata.retrievedAt));
     }
     
@@ -345,7 +345,7 @@ export class CitationFormatter {
       return '';
     }
     
-    return this.TRUST_BADGES[trustTier] || this.TRUST_BADGES[4];
+    return this.TRUST_BADGES[trustTier] || this.TRUST_BADGES[2];
   }
   
   /**
@@ -356,7 +356,7 @@ export class CitationFormatter {
       id: span.docId,
       source: span.source,
       retrievedAt: span.retrievedAt,
-      trustTier: span.trustTier as 1 | 2 | 3 | 4,
+      trustTier: span.trustTier as 0 | 1 | 2,
       contentHash: '',
       version: 1,
       isActive: true,

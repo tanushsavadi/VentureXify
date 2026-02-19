@@ -20,7 +20,7 @@ import type { ChunkWithProvenance, SourceMetadata } from '../knowledge/sourceMet
 function createMockChunk(
   id: string,
   content: string,
-  trustTier: 1 | 2 | 3 | 4 = 3,
+  trustTier: 0 | 1 | 2 = 2,
   score: number = 0.8
 ): ChunkWithProvenance {
   const metadata: SourceMetadata = {
@@ -44,7 +44,7 @@ function createMockChunk(
 
 function createMockChunks(count: number): ChunkWithProvenance[] {
   return Array.from({ length: count }, (_, i) => 
-    createMockChunk(`chunk-${i}`, `Content for chunk ${i}`, 3, 0.8 - i * 0.01)
+    createMockChunk(`chunk-${i}`, `Content for chunk ${i}`, 2, 0.8 - i * 0.01)
   );
 }
 

@@ -25,7 +25,7 @@ function createMockChunk(
   id: string,
   content: string,
   source: string = 'capitalone',
-  trustTier: 1 | 2 | 3 | 4 = 1
+  trustTier: 0 | 1 | 2 = 0
 ): ChunkWithProvenance {
   const metadata: SourceMetadata = {
     id,
@@ -186,15 +186,15 @@ describe('SpanLevelGrounder', () => {
     it('should prefer high-trust sources', () => {
       const claim = 'The annual fee is $395';
       const chunks = [
-        createMockChunk('1', 'Reddit says annual fee is $395', 'reddit', 4),
-        createMockChunk('2', 'Official: Annual fee is $395', 'capitalone', 1),
+        createMockChunk('1', 'Reddit says annual fee is $395', 'reddit', 2),
+        createMockChunk('2', 'Official: Annual fee is $395', 'capitalone', 0),
       ];
       
       const span = grounder.findBestSupportingSpan(claim, chunks);
       
       expect(span).not.toBeNull();
-      // Should prefer the official source
-      expect(span?.trustTier).toBe(1);
+      // Should prefer the official source (Tier 0)
+      expect(span?.trustTier).toBe(0);
     });
   });
   
@@ -238,13 +238,13 @@ describe('CitationFormatter', () => {
   
   describe('formatSpanCitation', () => {
     it('should format citation with all components', () => {
-      const span = createMockSpan('1', 'The annual fee is $395.', 'capitalone', 1);
+      const span = createMockSpan('1', 'The annual fee is $395.', 'capitalone', 0);
       
       const citation = formatter.formatSpanCitation(span, 1);
       
       expect(citation.index).toBe(1);
       expect(citation.quote).toContain('annual fee');
-      expect(citation.trustBadge).toBe('✓'); // Tier 1 badge
+      expect(citation.trustBadge).toBe('✓'); // Tier 0 (Official) badge
       expect(citation.formatted).toContain('[1]');
     });
     
@@ -258,16 +258,14 @@ describe('CitationFormatter', () => {
       expect(citation.quote.endsWith('...')).toBe(true);
     });
     
-    it('should show correct trust badges', () => {
-      const tier1 = formatter.formatSpanCitation(createMockSpan('1', 'Test', 'capitalone', 1), 1);
-      const tier2 = formatter.formatSpanCitation(createMockSpan('2', 'Test', 'tpg', 2), 2);
-      const tier3 = formatter.formatSpanCitation(createMockSpan('3', 'Test', 'flyertalk', 3), 3);
-      const tier4 = formatter.formatSpanCitation(createMockSpan('4', 'Test', 'reddit', 4), 4);
+    it('should show correct trust badges (0-2 scale)', () => {
+      const tier0 = formatter.formatSpanCitation(createMockSpan('1', 'Test', 'capitalone', 0), 1);
+      const tier1 = formatter.formatSpanCitation(createMockSpan('2', 'Test', 'tpg', 1), 2);
+      const tier2 = formatter.formatSpanCitation(createMockSpan('3', 'Test', 'reddit', 2), 3);
       
-      expect(tier1.trustBadge).toBe('✓');
-      expect(tier2.trustBadge).toBe('◐');
-      expect(tier3.trustBadge).toBe('○');
-      expect(tier4.trustBadge).toBe('⚠');
+      expect(tier0.trustBadge).toBe('✓');   // Tier 0: Official
+      expect(tier1.trustBadge).toBe('◐');   // Tier 1: Guide
+      expect(tier2.trustBadge).toBe('⚠');   // Tier 2: Community
     });
   });
   
@@ -350,7 +348,7 @@ describe('CitationFormatter', () => {
         claims: [
           {
             claim: 'The annual fee is $395',
-            supportingSpans: [createMockSpan('1', 'Annual fee: $395', 'reddit', 4)],
+            supportingSpans: [createMockSpan('1', 'Annual fee: $395', 'reddit', 2)],
             isGrounded: true,
             confidence: 'low',
             similarityScore: 0.6,
@@ -436,7 +434,7 @@ describe('CitationFormatter', () => {
     it('should show retrieval date for low trust sources', () => {
       const metadata: Partial<SourceMetadata> = {
         source: 'reddit',
-        trustTier: 4,
+        trustTier: 2,
         retrievedAt: '2024-01-10T00:00:00Z',
       };
       

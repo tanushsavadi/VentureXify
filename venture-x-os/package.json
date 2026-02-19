@@ -19,6 +19,12 @@
     "seed:playwright": "USE_PLAYWRIGHT=true node scripts/seed-knowledge-base.cjs",
     "seed:playwright:visible": "USE_PLAYWRIGHT=true PLAYWRIGHT_HEADLESS=false node scripts/seed-knowledge-base.cjs",
     "seed:test-scraper": "node scripts/playwright-reddit-scraper.cjs",
+    "scrape:capitalone": "node scripts/playwright-capitalone-scraper.cjs",
+    "scrape:capitalone:visible": "PLAYWRIGHT_HEADLESS=false node scripts/playwright-capitalone-scraper.cjs",
+    "scrape:tier1": "node scripts/playwright-tier1-scraper.cjs",
+    "scrape:tier1:visible": "PLAYWRIGHT_HEADLESS=false node scripts/playwright-tier1-scraper.cjs",
+    "scrape:all": "node scripts/playwright-capitalone-scraper.cjs && node scripts/playwright-tier1-scraper.cjs && node scripts/playwright-reddit-scraper.cjs",
+    "scrape:scheduled": "node scripts/scheduled-scrape-and-seed.cjs",
     "playwright:install": "npx playwright install chromium",
     "seed:deploy": "echo 'Deploy with: supabase functions deploy venturex-seed'"
   },

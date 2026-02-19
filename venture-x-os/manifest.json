@@ -80,7 +80,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "assets/*", "autopilot-widget.css"],
+      "resources": ["icons/*", "assets/*", "data/*", "autopilot-widget.css"],
       "matches": ["<all_urls>"]
     }
   ]

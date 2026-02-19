@@ -237,6 +237,8 @@ async function handleMessageAsync(
       }
     }
 
+    // DEPRECATED: Chat now uses sendChatViaSupabase() directly from the UI.
+    // The UI never sends SEND_CHAT_MESSAGE — this handler is dead code.
     case 'SEND_CHAT_MESSAGE': {
       const payload = (message as { payload: ChatMessagePayload }).payload;
       const prefs = await getPreferences();
@@ -752,6 +754,9 @@ function broadcastToUI(message: unknown): void {
   });
 }
 
+// DEPRECATED: Chat now uses sendChatViaSupabase() directly from the UI.
+// This simple keyword-matching fallback is never called because the UI
+// never sends the SEND_CHAT_MESSAGE message type.
 function generateChatResponse(
   question: string,
   context: FlowContext,

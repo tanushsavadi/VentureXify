@@ -81,6 +81,7 @@ import {
   buildRAGContext,
   type ChatContext,
 } from '../../knowledge/vectorStore/supabase';
+import { searchKnowledgeHybrid } from '../../knowledge/retrieval';
 import { isSupabaseConfigured } from '../../config/supabase';
 import { simpleCompare } from '../../engine';
 import { calculateDoubleDipRecommendation } from '../../engine/transferPartners';
@@ -448,7 +449,7 @@ const CitationsDropdown: React.FC<{ citations: CitationSource[] }> = ({ citation
                       )}
                     </div>
                     <div className="text-white/30">
-                      {Math.round(citation.relevanceScore * 100)}% match
+                      {Math.min(100, Math.round((citation.relevanceScore || 0) * 100))}% match
                     </div>
                   </div>
                 </div>
@@ -543,9 +544,9 @@ const MarkdownMessage: React.FC<{
         p: wrapWithCitations('p', 'mb-2 last:mb-0'),
         strong: wrapWithCitations('strong', 'font-semibold text-white'),
         em: wrapWithCitations('em', 'italic text-white/80'),
-        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-        li: wrapWithCitations('li', 'text-gray-200'),
+        ul: ({ children }) => <ul className="list-disc list-outside pl-5 mb-2 space-y-1">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal list-outside pl-5 mb-2 space-y-1">{children}</ol>,
+        li: wrapWithCitations('li', 'text-gray-200 pl-1'),
         h1: wrapWithCitations('h1', 'font-bold text-white text-base mb-2'),
         h2: wrapWithCitations('h2', 'font-bold text-white text-sm mb-1.5'),
         h3: wrapWithCitations('h3', 'font-semibold text-white text-sm mb-1'),
@@ -5477,16 +5478,39 @@ export function SidePanelApp() {
         let ragContext: string | undefined;
         let citations: CitationSource[] = [];
         
-        try {
-          const searchResponse = await searchKnowledge(userInput, 3, 0.4);
-          if (searchResponse.success && searchResponse.results && searchResponse.results.length > 0) {
-            const ragResult = buildRAGContext(searchResponse.results);
-            ragContext = ragResult.context;
-            citations = ragResult.sources;
-            console.log('[Chat] RAG search found', citations.length, 'sources');
+        // Rewrite query for better RAG retrieval on follow-up questions
+        const isFollowUp = /\b(it|that|this|they|those|the same|how much|what about|tell me more|and what|also|too)\b/i.test(userInput) && messages.length > 0;
+        let searchQuery = userInput;
+        if (isFollowUp) {
+          const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant' && !m.content.startsWith('💭'));
+          if (lastAssistant) {
+            const topicContext = lastAssistant.content.split(/[.!?]/)[0].substring(0, 100);
+            searchQuery = `${topicContext} ${userInput}`;
+            console.log('[Chat] Follow-up detected, rewritten search query:', searchQuery);
           }
-        } catch (searchErr) {
-          console.warn('[Chat] RAG search failed:', searchErr);
+        }
+        
+        try {
+          const hybridResult = await searchKnowledgeHybrid(searchQuery, { topK: 5 });
+          console.log('[Citations] Raw hybrid sources:', hybridResult.sources.length, hybridResult.sources.map(s => ({ title: s.title, score: s.relevanceScore })));
+          if (hybridResult.context && hybridResult.sources.length > 0) {
+            ragContext = hybridResult.context;
+            citations = hybridResult.sources;
+            console.log('[Chat] Hybrid RAG search found', citations.length, 'sources via', hybridResult.searchMethod);
+          }
+        } catch (hybridError) {
+          console.warn('[VX Chat] Hybrid search failed, falling back to basic search:', hybridError);
+          try {
+            const searchResponse = await searchKnowledge(searchQuery, 3, 0.4);
+            if (searchResponse.success && searchResponse.results && searchResponse.results.length > 0) {
+              const ragResult = buildRAGContext(searchResponse.results);
+              ragContext = ragResult.context;
+              citations = ragResult.sources;
+              console.log('[Chat] Basic RAG search found', citations.length, 'sources');
+            }
+          } catch (searchErr) {
+            console.warn('[Chat] Basic search also failed:', searchErr);
+          }
         }
         
         // Update thinking message to show progress
@@ -5496,11 +5520,20 @@ export function SidePanelApp() {
             : m
         ));
         
-        // Step 2: Send to LLM with RAG context
+        // Build conversation history from recent messages (last 6 messages max)
+        const recentMessages = messages.slice(-6);
+        const conversationHistory = recentMessages
+          .filter(m => !m.content.startsWith('💭'))
+          .map(m => ({
+            role: m.role === 'user' ? 'user' as const : 'assistant' as const,
+            content: m.content,
+          }));
+        
+        // Step 2: Send to LLM with RAG context + conversation history
         const result = await sendChatViaSupabase(userInput, {
           portalPrice: portalCapture?.priceUSD,
           directPrice: directCapture?.priceUSD,
-        }, ragContext);
+        }, ragContext, conversationHistory);
         
         // Check if response needs context
         const needsContext = userInput.toLowerCase().includes('compare') ||
@@ -5509,7 +5542,12 @@ export function SidePanelApp() {
         
         // Step 3: Filter and rank citations before attaching to the response
         // Only show sources above a minimum relevance threshold to avoid noise
-        const MIN_SOURCE_DISPLAY_THRESHOLD = 0.5;
+        // NOTE: Lowered from 0.5 → 0.3 → 0.1 → 0.01. The RRF fused scores are in
+        // the 0.001–0.016 range, which was killing all citations. The retrieval layer
+        // now propagates the raw cosine similarity (denseScore) via Math.max(), so
+        // scores should be 0.3–0.8. Keeping threshold very low as a safety net since
+        // upstream already filters and ranks by relevance.
+        const MIN_SOURCE_DISPLAY_THRESHOLD = 0.01;
         const relevantSources = (citations || []).filter(
           (s: any) => (s.relevanceScore || s.similarity || 0) >= MIN_SOURCE_DISPLAY_THRESHOLD
         );
@@ -5524,14 +5562,16 @@ export function SidePanelApp() {
 
         // Clean up temporary displayScore before attaching
         const finalCitations: CitationSource[] = scoredSources.map(({ displayScore, ...rest }: any) => rest);
+        console.log('[Citations] Final citations after filtering:', finalCitations.length, finalCitations.map(c => ({ title: c.title, score: c.relevanceScore })));
 
+        // Always attach citations array (even if empty) so we can trace pipeline issues
         setMessages(prev => prev.map(m =>
           m.id === thinkingId
             ? {
                 ...m,
                 content: result.response || 'I can help you with Capital One Venture X questions!',
                 isContextPrompt: needsContext && contextStatus.type === 'none',
-                citations: finalCitations.length > 0 ? finalCitations : undefined,
+                citations: finalCitations,
               }
             : m
         ));
@@ -5632,15 +5672,38 @@ export function SidePanelApp() {
         let ragContext: string | undefined;
         let citations: CitationSource[] = [];
         
-        try {
-          const searchResponse = await searchKnowledge(question, 3, 0.4);
-          if (searchResponse.success && searchResponse.results && searchResponse.results.length > 0) {
-            const ragResult = buildRAGContext(searchResponse.results);
-            ragContext = ragResult.context;
-            citations = ragResult.sources;
+        // Rewrite query for better RAG retrieval on follow-up questions
+        const isFollowUp = /\b(it|that|this|they|those|the same|how much|what about|tell me more|and what|also|too)\b/i.test(question) && messages.length > 0;
+        let searchQuery = question;
+        if (isFollowUp) {
+          const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant' && !m.content.startsWith('💭'));
+          if (lastAssistant) {
+            const topicContext = lastAssistant.content.split(/[.!?]/)[0].substring(0, 100);
+            searchQuery = `${topicContext} ${question}`;
+            console.log('[Chat] Follow-up detected (with context), rewritten search query:', searchQuery);
           }
-        } catch (searchErr) {
-          console.warn('[Chat] RAG search failed:', searchErr);
+        }
+        
+        try {
+          const hybridResult = await searchKnowledgeHybrid(searchQuery, { topK: 5 });
+          console.log('[Citations] Raw hybrid sources (with context):', hybridResult.sources.length, hybridResult.sources.map(s => ({ title: s.title, score: s.relevanceScore })));
+          if (hybridResult.context && hybridResult.sources.length > 0) {
+            ragContext = hybridResult.context;
+            citations = hybridResult.sources;
+            console.log('[Chat] Hybrid RAG search (with context) found', citations.length, 'sources via', hybridResult.searchMethod);
+          }
+        } catch (hybridError) {
+          console.warn('[VX Chat] Hybrid search failed, falling back to basic search:', hybridError);
+          try {
+            const searchResponse = await searchKnowledge(searchQuery, 3, 0.4);
+            if (searchResponse.success && searchResponse.results && searchResponse.results.length > 0) {
+              const ragResult = buildRAGContext(searchResponse.results);
+              ragContext = ragResult.context;
+              citations = ragResult.sources;
+            }
+          } catch (searchErr) {
+            console.warn('[Chat] Basic search also failed:', searchErr);
+          }
         }
         
         // Update thinking message to show progress
@@ -5666,11 +5729,22 @@ export function SidePanelApp() {
           directNetCost: context.directPrice,
         };
         
-        // Step 3: Send to LLM with full context and RAG
-        const result = await sendChatViaSupabase(question, fullContext, ragContext);
+        // Build conversation history from recent messages (last 6 messages max)
+        const recentMessages = messages.slice(-6);
+        const conversationHistory = recentMessages
+          .filter(m => !m.content.startsWith('💭'))
+          .map(m => ({
+            role: m.role === 'user' ? 'user' as const : 'assistant' as const,
+            content: m.content,
+          }));
+        
+        // Step 3: Send to LLM with full context, RAG, and conversation history
+        const result = await sendChatViaSupabase(question, fullContext, ragContext, conversationHistory);
         
         // Filter and rank citations before attaching to the response
-        const MIN_SOURCE_DISPLAY_THRESHOLD = 0.5;
+        // NOTE: Lowered from 0.5 → 0.3 → 0.1 → 0.01 (same fix as handleSendMessage).
+        // See handleSendMessage for full explanation of the RRF score scale mismatch.
+        const MIN_SOURCE_DISPLAY_THRESHOLD = 0.01;
         const relevantSources = (citations || []).filter(
           (s: any) => (s.relevanceScore || s.similarity || 0) >= MIN_SOURCE_DISPLAY_THRESHOLD
         );
@@ -5685,14 +5759,15 @@ export function SidePanelApp() {
 
         // Clean up temporary displayScore before attaching
         const finalCitations: CitationSource[] = scoredSources.map(({ displayScore, ...rest }: any) => rest);
+        console.log('[Citations] Final citations (with context) after filtering:', finalCitations.length, finalCitations.map(c => ({ title: c.title, score: c.relevanceScore })));
 
-        // Update with response and filtered citations
+        // Always attach citations array (even if empty) so we can trace pipeline issues
         setMessages(prev => prev.map(m =>
           m.id === thinkingId
             ? {
                 ...m,
                 content: result.response || 'I can help you with your booking decision!',
-                citations: finalCitations.length > 0 ? finalCitations : undefined,
+                citations: finalCitations,
               }
             : m
         ));
